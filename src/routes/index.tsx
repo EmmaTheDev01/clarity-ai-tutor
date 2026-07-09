@@ -384,19 +384,19 @@ function FinalCTA() {
             understanding.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href="#start"
+            <Link
+              to="/auth/sign-up"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Start learning — it&apos;s free
               <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href="#demo"
+            </Link>
+            <Link
+              to="/app"
               className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
             >
-              Watch demo video
-            </a>
+              See the app
+            </Link>
           </div>
         </div>
       </div>
