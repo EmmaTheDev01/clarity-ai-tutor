@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Upload,
@@ -48,18 +48,18 @@ function Nav() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="#signin"
+          <Link
+            to="/auth/sign-in"
             className="hidden rounded-md px-4 py-2 text-sm font-medium text-foreground hover:bg-muted sm:inline-flex"
           >
             Sign in
-          </a>
-          <a
-            href="#get"
+          </Link>
+          <Link
+            to="/auth/sign-up"
             className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             Get the app
-          </a>
+          </Link>
         </div>
       </div>
     </header>
@@ -82,20 +82,20 @@ function Hero() {
           chats, summaries, and personalized practice exams — instantly.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a
-            href="#start"
+          <Link
+            to="/auth/sign-up"
             className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             Start learning — it&apos;s free
             <ArrowRight className="h-4 w-4" />
-          </a>
-          <a
-            href="#demo"
+          </Link>
+          <Link
+            to="/app"
             className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
           >
             <Play className="h-4 w-4" />
-            Watch demo video
-          </a>
+            See the app
+          </Link>
         </div>
 
         <div className="mx-auto mt-16 max-w-5xl overflow-hidden rounded-lg border border-border bg-elevated shadow-[0_20px_60px_-20px_rgba(0,0,0,0.15)]">
@@ -384,19 +384,19 @@ function FinalCTA() {
             understanding.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a
-              href="#start"
+            <Link
+              to="/auth/sign-up"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Start learning — it&apos;s free
               <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href="#demo"
+            </Link>
+            <Link
+              to="/app"
               className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
             >
-              Watch demo video
-            </a>
+              See the app
+            </Link>
           </div>
         </div>
       </div>
