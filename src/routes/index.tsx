@@ -48,18 +48,18 @@ function Nav() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="#signin"
+          <Link
+            to="/auth/sign-in"
             className="hidden rounded-md px-4 py-2 text-sm font-medium text-foreground hover:bg-muted sm:inline-flex"
           >
             Sign in
-          </a>
-          <a
-            href="#get"
+          </Link>
+          <Link
+            to="/auth/sign-up"
             className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             Get the app
-          </a>
+          </Link>
         </div>
       </div>
     </header>
