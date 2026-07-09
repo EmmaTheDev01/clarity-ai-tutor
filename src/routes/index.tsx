@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { ScrollReveal } from "@/components/ScrollReveal";
 import {
   Upload,
   MessageSquare,
@@ -9,6 +10,9 @@ import {
   Minus,
   ArrowRight,
   Play,
+  Briefcase,
+  GraduationCap,
+  FolderHeart,
 } from "lucide-react";
 import appMockup from "@/assets/app-mockup.jpg";
 
@@ -26,6 +30,7 @@ function Landing() {
         <Hero />
         <Features />
         <UseCases />
+        <AppDownloadCTA />
         <Testimonials />
         <FAQ />
         <FinalCTA />
@@ -42,11 +47,6 @@ function Nav() {
         <a href="#" className="text-sm font-bold tracking-wider text-foreground">
           {APP}
         </a>
-        <div className="hidden md:flex">
-          <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-            Backed by Y Combinator
-          </span>
-        </div>
         <div className="flex items-center gap-2">
           <Link
             to="/auth/sign-in"
@@ -68,52 +68,84 @@ function Nav() {
 
 function Hero() {
   return (
-    <section className="border-b border-border">
-      <div className="mx-auto max-w-6xl px-6 pb-16 pt-24 text-center sm:pt-32">
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-elevated px-3 py-1 text-xs text-muted-foreground">
-          <Sparkles className="h-3 w-3" strokeWidth={2} />
-          Loved by 2,000,000+ learners
-        </span>
-        <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-bold tracking-tight text-foreground sm:text-6xl md:text-7xl">
-          An AI tutor made exactly for you.
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Turn your notes, documents, and reference materials into interactive
-          chats, summaries, and personalized practice exams — instantly.
-        </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
-            to="/auth/sign-up"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-          >
-            Start learning — it&apos;s free
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/app"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
-          >
-            <Play className="h-4 w-4" />
-            See the app
-          </Link>
-        </div>
-
-        <div className="mx-auto mt-16 max-w-5xl overflow-hidden rounded-lg border border-border bg-elevated shadow-[0_20px_60px_-20px_rgba(0,0,0,0.15)]">
-          <div className="flex items-center gap-1.5 border-b border-border bg-background px-4 py-3">
-            <span className="h-2.5 w-2.5 rounded-full border border-border" />
-            <span className="h-2.5 w-2.5 rounded-full border border-border" />
-            <span className="h-2.5 w-2.5 rounded-full border border-border" />
-            <span className="ml-4 text-xs text-muted-foreground">
-              {APP}
-            </span>
+    <section className="">
+      <div className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-24 pt-24 text-center sm:pb-32 sm:pt-32 md:pt-40">
+        <span className="inline-flex items-center gap-3 rounded-full border border-border bg-elevated pl-2 pr-4 py-1.5 text-xs font-medium text-foreground">
+          <div className="flex -space-x-2">
+            <img
+              className="inline-block h-6 w-6 rounded-full ring-2 ring-background object-cover"
+              src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&h=100&q=80"
+              alt="User face 1"
+            />
+            <img
+              className="inline-block h-6 w-6 rounded-full ring-2 ring-background object-cover"
+              src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=100&h=100&q=80"
+              alt="User face 2"
+            />
+            <img
+              className="inline-block h-6 w-6 rounded-full ring-2 ring-background object-cover"
+              src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=100&h=100&q=80"
+              alt="User face 3"
+            />
+            <img
+              className="inline-block h-6 w-6 rounded-full ring-2 ring-background object-cover"
+              src="https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=100&h=100&q=80"
+              alt="User face 4"
+            />
           </div>
-          <img
-            src={appMockup}
-            alt="tutor.vigilance.rw AI tutor interface showing a chat with citations and a document library"
-            width={1600}
-            height={1008}
-            className="block h-auto w-full"
-          />
+          <span className="flex items-center gap-1">
+            Loved by 2,000,000+ learners
+          </span>
+        </span>
+        <ScrollReveal animation="fade-up" duration={800}>
+          <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-7xl">
+            An AI tutor <br /> made exactly for you.
+          </h1>
+        </ScrollReveal>
+        <ScrollReveal animation="fade-up" duration={800} delay={100}>
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            Turn your notes, documents, and reference materials into interactive
+            chats, summaries, and personalized practice exams — instantly.
+          </p>
+        </ScrollReveal>
+        <ScrollReveal animation="fade-up" duration={800} delay={200}>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              to="/auth/sign-up"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            >
+              Start learning — it&apos;s free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              to="/app"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
+            >
+              <Play className="h-4 w-4" />
+              See the app
+            </Link>
+          </div>
+        </ScrollReveal>
+
+        {/* Video Showcase (shrunk initially, widens on scroll) */}
+        <div className="mt-10 w-full video-scroll-widen sm:mt-16">
+          <div className="overflow-hidden rounded-lg border border-border bg-elevated shadow-[0_20px_60px_-20px_rgba(0,0,0,0.15)]">
+            <div className="flex items-center gap-1.5 border-b border-border bg-background px-4 py-3">
+              <span className="h-2.5 w-2.5 rounded-full border border-border" />
+              <span className="h-2.5 w-2.5 rounded-full border border-border" />
+              <span className="h-2.5 w-2.5 rounded-full border border-border" />
+              <span className="ml-4 text-xs text-muted-foreground">
+                {APP}
+              </span>
+            </div>
+            <img
+              src={appMockup}
+              alt="Clarity AI Tutor Workspace showing documents list and interactive AI tutor chat"
+              width={1600}
+              height={1008}
+              className="block h-auto w-full"
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -145,7 +177,7 @@ const features = [
 
 function Features() {
   return (
-    <section className="border-b border-border">
+    <section className="">
       <div className="mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -155,19 +187,26 @@ function Features() {
             Everything you need to turn passive material into active understanding.
           </p>
         </div>
-        <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f) => (
-            <div key={f.title} className="bg-background p-8">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border">
-                <f.icon className="h-5 w-5 text-foreground" strokeWidth={1.75} />
+        <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2 xl:grid-cols-4">
+          {features.map((f, i) => (
+            <ScrollReveal
+              key={f.title}
+              animation="fade-up"
+              delay={i * 150}
+              className="bg-background h-full"
+            >
+              <div className="p-8 h-full">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border">
+                  <f.icon className="h-5 w-5 text-foreground" strokeWidth={1.75} />
+                </div>
+                <h3 className="mt-6 text-lg font-medium text-foreground">
+                  {f.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {f.body}
+                </p>
               </div>
-              <h3 className="mt-6 text-lg font-medium text-foreground">
-                {f.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {f.body}
-              </p>
-            </div>
+            </ScrollReveal>
           ))}
         </div>
       </div>
@@ -175,58 +214,169 @@ function Features() {
   );
 }
 
-const useCases = [
-  {
-    tab: "Manage projects",
-    title: "Turn briefs and specs into a working knowledge base.",
-    body: "Upload requirements, meeting notes, and research docs. Ask questions across every file — get answers with exact citations to the source paragraph.",
-  },
-  {
-    tab: "Study scientific material",
-    title: "Master dense papers without re-reading them five times.",
-    body: "Load textbooks, journal articles, and lecture recordings. Generate structured summaries, definitions, and quizzes calibrated to your gaps.",
-  },
-  {
-    tab: "Organize life content",
-    title: "Make sense of everything you save but never revisit.",
-    body: "Drop in articles, videos, and voice memos. Search by meaning, not keywords, and turn scattered notes into a personal library you actually use.",
-  },
-];
-
 function UseCases() {
-  const [active, setActive] = useState(0);
-  const current = useCases[active];
   return (
-    <section className="border-b border-border">
+    <section className="bg-elevated/20">
       <div className="mx-auto max-w-6xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Built for the way you work.
           </h2>
         </div>
-        <div className="mt-10 flex flex-wrap justify-center gap-2">
-          {useCases.map((u, i) => (
-            <button
-              key={u.tab}
-              onClick={() => setActive(i)}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                active === i
-                  ? "border-foreground bg-primary text-primary-foreground"
-                  : "border-border bg-background text-foreground hover:bg-muted"
-              }`}
-            >
-              {u.tab}
-            </button>
-          ))}
+
+        <div className="mt-16 grid grid-cols-1 gap-8 items-stretch lg:grid-cols-12">
+          {/* Left Column: 1 Card (Manage projects) taking 5/12 width */}
+          <div className="lg:col-span-5 flex flex-col">
+            <ScrollReveal animation="fade-up" duration={800} className="h-full flex flex-col">
+              <div className="flex h-full flex-col justify-between rounded-2xl border border-border bg-elevated p-8 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
+                <div>
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background">
+                    <Briefcase className="h-6 w-6" strokeWidth={1.75} />
+                  </div>
+                  <span className="block mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Manage projects
+                  </span>
+                  <h3 className="mt-2 text-2xl font-bold tracking-tight text-foreground leading-tight">
+                    Turn briefs and specs into a working knowledge base.
+                  </h3>
+                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                    Upload requirements, meeting notes, and research docs. Ask questions across every file — get answers with exact citations to the source paragraph.
+                  </p>
+                </div>
+
+                {/* Workspace Files preview */}
+                <div className="mt-8 flex flex-col gap-2 rounded-xl bg-background/50 p-4 text-left border border-border">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-2">
+                    <span>Workspace Files</span>
+                    <span className="text-emerald-500 font-medium">3 Grounded</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-foreground font-medium mt-1">
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px]">PDF</span>
+                    <span>Product_Requirements_V2.pdf</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-foreground font-medium">
+                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[10px]">DOCX</span>
+                    <span>Sprint_Brief_July.docx</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-foreground font-medium">
+                    <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[10px]">JSON</span>
+                    <span>API_Spec_Final.json</span>
+                  </div>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
+
+          {/* Right Column: 2 Cards stacked vertically taking 7/12 width */}
+          <div className="lg:col-span-7 flex flex-col gap-8 justify-between">
+            {/* Card 2: Study scientific material */}
+            <ScrollReveal animation="fade-up" duration={800} delay={100}>
+              <div className="flex flex-col md:flex-row gap-6 rounded-2xl border border-border bg-elevated p-8 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
+                <div className="flex-1">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background">
+                    <GraduationCap className="h-6 w-6" strokeWidth={1.75} />
+                  </div>
+                  <span className="block mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Study scientific material
+                  </span>
+                  <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground leading-tight">
+                    Master dense papers without re-reading them five times.
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    Load textbooks, journal articles, and lecture recordings. Generate structured summaries, definitions, and quizzes calibrated to your gaps.
+                  </p>
+                </div>
+
+                {/* AI Quiz preview widget */}
+                <div className="w-full md:w-64 flex flex-col gap-3 rounded-xl bg-background/50 p-4 text-left border border-border shrink-0">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-1.5">
+                    <span>Quiz Preview</span>
+                    <span>Linear Algebra</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-foreground">Geometric interpretation of determinants:</p>
+                  <div className="flex flex-col gap-1">
+                    <div className="rounded border border-primary bg-primary/5 px-2 py-1 text-[10px] text-primary font-medium">
+                      ✓ Scaling factor of area/volume transformation
+                    </div>
+                    <div className="rounded border border-border px-2 py-1 text-[10px] text-muted-foreground bg-background">
+                      ✗ The sum of diagonal eigenvalues
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ScrollReveal>
+
+            {/* Card 3: Organize life content */}
+            <ScrollReveal animation="fade-up" duration={800} delay={200}>
+              <div className="flex flex-col md:flex-row gap-6 rounded-2xl border border-border bg-elevated p-8 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
+                <div className="flex-1">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background">
+                    <FolderHeart className="h-6 w-6" strokeWidth={1.75} />
+                  </div>
+                  <span className="block mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Organize life content
+                  </span>
+                  <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground leading-tight">
+                    Make sense of everything you save but never revisit.
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    Drop in articles, videos, and voice memos. Search by meaning, not keywords, and turn scattered notes into a personal library you actually use.
+                  </p>
+                </div>
+
+                {/* Voice Memo preview widget */}
+                <div className="w-full md:w-64 flex flex-col gap-2.5 rounded-xl bg-background/50 p-4 text-left border border-border shrink-0">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-1.5">
+                    <span>Voice Memo Snippet</span>
+                    <span>01:42</span>
+                  </div>
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 text-[10px] text-foreground italic">
+                    "...need to research whether optimal compute allocation applies to small fine-tunes..."
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                    <span>Research</span>
+                    <span>•</span>
+                    <span>10m ago</span>
+                  </div>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
         </div>
-        <div className="mx-auto mt-10 max-w-3xl rounded-lg border border-border bg-elevated p-10 text-center">
-          <h3 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            {current.title}
-          </h3>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            {current.body}
+      </div>
+    </section>
+  );
+}
+
+function AppDownloadCTA() {
+  return (
+    <section className="bg-white text-neutral-900 py-24 text-center border-none shadow-none relative">
+      <div className="mx-auto max-w-4xl px-6">
+        <ScrollReveal animation="fade-up" duration={800}>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-600 border border-neutral-200/50">
+            Clarity Anywhere
+          </span>
+          <h2 className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-neutral-900 leading-tight">
+            Learn on the go. <br className="hidden sm:inline" /> Download the Clarity app.
+          </h2>
+          <p className="mt-4 text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto">
+            Available on iOS, Android, macOS, and Windows. Sync your documents, highlight citations, and review study cards seamlessly across all your devices.
           </p>
-        </div>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <a
+              href="#"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800"
+            >
+              Download for iOS
+            </a>
+            <a
+              href="#"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800"
+            >
+              Download for Android
+            </a>
+          </div>
+        </ScrollReveal>
       </div>
     </section>
   );
@@ -273,27 +423,31 @@ const testimonials = [
 
 function Testimonials() {
   return (
-    <section className="border-b border-border">
+    <section className="">
       <div className="mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Trusted by learners everywhere.
           </h2>
         </div>
-        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((t) => (
-            <figure
+        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {testimonials.map((t, i) => (
+            <ScrollReveal
               key={t.name}
-              className="flex flex-col justify-between rounded-lg border border-border bg-background p-6"
+              animation="fade-up"
+              delay={(i % 3) * 150}
+              className="flex"
             >
-              <blockquote className="text-base leading-relaxed text-foreground">
-                &ldquo;{t.quote}&rdquo;
-              </blockquote>
-              <figcaption className="mt-6 border-t border-border pt-4">
-                <div className="text-sm font-medium text-foreground">{t.name}</div>
-                <div className="text-sm text-muted-foreground">{t.title}</div>
-              </figcaption>
-            </figure>
+              <figure className="flex flex-col justify-between rounded-lg border border-border bg-background p-6 w-full">
+                <blockquote className="text-base leading-relaxed text-foreground">
+                  &ldquo;{t.quote}&rdquo;
+                </blockquote>
+                <figcaption className="mt-6 border-t border-border pt-4">
+                  <div className="text-sm font-medium text-foreground">{t.name}</div>
+                  <div className="text-sm text-muted-foreground">{t.title}</div>
+                </figcaption>
+              </figure>
+            </ScrollReveal>
           ))}
         </div>
       </div>
@@ -327,45 +481,46 @@ const faqs = [
 function FAQ() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section className="border-b border-border">
+    <section className="">
       <div className="mx-auto max-w-3xl px-6 py-24">
         <div className="text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Frequently asked questions.
           </h2>
         </div>
-        <div className="mt-12 border-t border-border">
-          {faqs.map((f, i) => {
-            const isOpen = open === i;
-            return (
-              <div key={f.q} className="border-b border-border">
-                <button
-                  onClick={() => setOpen(isOpen ? null : i)}
-                  className="flex w-full items-center justify-between gap-6 py-5 text-left"
-                  aria-expanded={isOpen}
-                >
-                  <span className="text-base font-medium text-foreground">
-                    {f.q}
-                  </span>
-                  {isOpen ? (
-                    <Minus className="h-4 w-4 shrink-0 text-foreground" />
-                  ) : (
-                    <Plus className="h-4 w-4 shrink-0 text-foreground" />
-                  )}
-                </button>
-                <div
-                  className={`grid overflow-hidden transition-all duration-300 ${
-                    isOpen ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"
-                  }`}
-                >
-                  <p className="min-h-0 text-sm leading-relaxed text-muted-foreground">
-                    {f.a}
-                  </p>
+        <ScrollReveal animation="fade-up">
+          <div className="mt-12 border-t border-border">
+            {faqs.map((f, i) => {
+              const isOpen = open === i;
+              return (
+                <div key={f.q} className="border-b border-border">
+                  <button
+                    onClick={() => setOpen(isOpen ? null : i)}
+                    className="flex w-full items-center justify-between gap-6 py-5 text-left"
+                    aria-expanded={isOpen}
+                  >
+                    <span className="text-base font-medium text-foreground">
+                      {f.q}
+                    </span>
+                    {isOpen ? (
+                      <Minus className="h-4 w-4 shrink-0 text-foreground" />
+                    ) : (
+                      <Plus className="h-4 w-4 shrink-0 text-foreground" />
+                    )}
+                  </button>
+                  <div
+                    className={`grid overflow-hidden transition-all duration-300 ${isOpen ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"
+                      }`}
+                  >
+                    <p className="min-h-0 text-sm leading-relaxed text-muted-foreground">
+                      {f.a}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </ScrollReveal>
       </div>
     </section>
   );
@@ -373,32 +528,34 @@ function FAQ() {
 
 function FinalCTA() {
   return (
-    <section className="border-b border-border">
+    <section className="">
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <div className="rounded-lg border border-border bg-elevated px-8 py-16 text-center">
-          <h2 className="mx-auto max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Your smarter study session starts now.
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-            Join 2,000,000+ learners turning static material into interactive
-            understanding.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              to="/auth/sign-up"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-            >
-              Start learning — it&apos;s free
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/app"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
-            >
-              See the app
-            </Link>
+        <ScrollReveal animation="scale-in">
+          <div className="rounded-lg border border-border bg-elevated px-8 py-16 text-center">
+            <h2 className="mx-auto max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Your smarter study session starts now.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
+              Join 2,000,000+ learners turning static material into interactive
+              understanding.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                to="/auth/sign-up"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+              >
+                Start learning — it&apos;s free
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/app"
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                See the app
+              </Link>
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
       </div>
     </section>
   );

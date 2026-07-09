@@ -1,53 +1,59 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import {
-  FileText,
-  Youtube,
-  Presentation,
-  Mic,
-  Upload,
-  Search,
-  Filter,
-  MoreHorizontal,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileText, Search, Filter, MoreHorizontal } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Input, Pill } from "@/components/ui-kit";
+import { supabase } from "@/lib/supabase";
+import { MaterialUploader } from "@/components/material-uploader";
+import { LearningMaterial, mapMaterialRow } from "@/lib/learning-materials";
 
 export const Route = createFileRoute("/app/library")({
   head: () => ({ meta: [{ title: "Library — tutor.vigilance.rw" }] }),
   component: LibraryPage,
 });
 
-const items = [
-  { id: "d1", title: "Linear Algebra — Chapter 4", type: "PDF", size: "2.4 MB", updated: "2h ago", icon: FileText },
-  { id: "d2", title: "Neural Networks Lecture", type: "YouTube", size: "1h 42m", updated: "Yesterday", icon: Youtube },
-  { id: "d3", title: "Cell Biology Slides", type: "Slides", size: "84 slides", updated: "2d ago", icon: Presentation },
-  { id: "d4", title: "Interview with Dr. Adeyemi", type: "Audio", size: "38 min", updated: "3d ago", icon: Mic },
-  { id: "d5", title: "Organic Chemistry Notes", type: "PDF", size: "5.1 MB", updated: "1w ago", icon: FileText },
-  { id: "d6", title: "Kigali Urban Planning Doc", type: "PDF", size: "3.3 MB", updated: "2w ago", icon: FileText },
-];
-
-const filters = ["All", "PDFs", "Videos", "Slides", "Audio"] as const;
+const filters = ["All", "PDFs", "Videos", "Slides", "Audio", "Images", "Links", "Files"] as const;
 
 function LibraryPage() {
   const [active, setActive] = useState<(typeof filters)[number]>("All");
+  const [query, setQuery] = useState("");
+  const [items, setItems] = useState<LearningMaterial[]>([]);
+
+  useEffect(() => {
+    const loadMaterials = async () => {
+      const { data, error } = await supabase
+        .from("materials")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        setItems(data.map(mapMaterialRow));
+      } else {
+        setItems([]);
+      }
+    };
+
+    loadMaterials();
+  }, []);
+
+  const visibleItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
+      if (!matchesQuery) return false;
+      if (active === "All") return true;
+      if (active === "PDFs") return item.type === "PDF";
+      if (active === "Videos") return item.type === "YouTube" || item.type === "Video";
+      if (active === "Slides") return item.type === "Slides";
+      if (active === "Audio") return item.type === "Audio";
+      if (active === "Images") return item.type === "Image";
+      if (active === "Links") return item.type === "Link" || item.type === "YouTube";
+      if (active === "Files")
+        return item.type === "File" || item.type === "Word" || item.type === "Text";
+      return true;
+    });
+  }, [active, items, query]);
   return (
     <AppShell title="Library">
-      {/* Upload zone */}
-      <div className="rounded-lg border border-dashed border-border bg-elevated p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background">
-          <Upload className="h-5 w-5" strokeWidth={1.75} />
-        </div>
-        <p className="mt-4 text-sm font-medium text-foreground">
-          Drop a PDF, slide deck, or paste a YouTube link
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Up to 200 MB per file. Supports .pdf, .txt, .pptx, .mp3, YouTube URLs.
-        </p>
-        <button className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-          <Upload className="h-4 w-4" /> Upload material
-        </button>
-      </div>
+      <MaterialUploader onUploaded={(material) => setItems((prev) => [material, ...prev])} />
 
       {/* Toolbar */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
@@ -69,7 +75,12 @@ function LibraryPage() {
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search materials…" className="pl-9 md:w-64" />
+            <Input
+              placeholder="Search materials…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9 md:w-64"
+            />
           </div>
           <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted">
             <Filter className="h-3.5 w-3.5" /> Sort
@@ -86,7 +97,7 @@ function LibraryPage() {
           <div />
         </div>
         <ul>
-          {items.map((it, i) => (
+          {visibleItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
               <Link
                 to="/app/documents/$id"
@@ -116,6 +127,11 @@ function LibraryPage() {
               </Link>
             </li>
           ))}
+          {visibleItems.length === 0 && (
+            <li className="px-5 py-8 text-center text-sm text-muted-foreground">
+              No materials match your search yet.
+            </li>
+          )}
         </ul>
       </div>
     </AppShell>

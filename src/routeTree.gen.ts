@@ -10,13 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TeacherIndexRouteImport } from './routes/teacher.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as RegisterTeacherRouteImport } from './routes/register.teacher'
+import { Route as RegisterStudentRouteImport } from './routes/register.student'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as AppTeasersRouteImport } from './routes/app.teasers'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppNotesRouteImport } from './routes/app.notes'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
+import { Route as AppFlashcardsRouteImport } from './routes/app.flashcards'
+import { Route as AppAnalyticsRouteImport } from './routes/app.analytics'
 import { Route as AppDocumentsIdRouteImport } from './routes/app.documents.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -24,9 +32,29 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeacherIndexRoute = TeacherIndexRouteImport.update({
+  id: '/teacher/',
+  path: '/teacher/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterTeacherRoute = RegisterTeacherRouteImport.update({
+  id: '/register/teacher',
+  path: '/register/teacher',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterStudentRoute = RegisterStudentRouteImport.update({
+  id: '/register/student',
+  path: '/register/student',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthSignUpRoute = AuthSignUpRouteImport.update({
@@ -49,14 +77,34 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppTeasersRoute = AppTeasersRouteImport.update({
+  id: '/app/teasers',
+  path: '/app/teasers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/app/settings',
   path: '/app/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppNotesRoute = AppNotesRouteImport.update({
+  id: '/app/notes',
+  path: '/app/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppLibraryRoute = AppLibraryRouteImport.update({
   id: '/app/library',
   path: '/app/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppFlashcardsRoute = AppFlashcardsRouteImport.update({
+  id: '/app/flashcards',
+  path: '/app/flashcards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
+  id: '/app/analytics',
+  path: '/app/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppDocumentsIdRoute = AppDocumentsIdRouteImport.update({
@@ -67,83 +115,139 @@ const AppDocumentsIdRoute = AppDocumentsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app/analytics': typeof AppAnalyticsRoute
+  '/app/flashcards': typeof AppFlashcardsRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/notes': typeof AppNotesRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/teasers': typeof AppTeasersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/register/student': typeof RegisterStudentRoute
+  '/register/teacher': typeof RegisterTeacherRoute
+  '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/teacher/': typeof TeacherIndexRoute
   '/app/documents/$id': typeof AppDocumentsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/analytics': typeof AppAnalyticsRoute
+  '/app/flashcards': typeof AppFlashcardsRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/notes': typeof AppNotesRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/teasers': typeof AppTeasersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/register/student': typeof RegisterStudentRoute
+  '/register/teacher': typeof RegisterTeacherRoute
+  '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/teacher': typeof TeacherIndexRoute
   '/app/documents/$id': typeof AppDocumentsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app/analytics': typeof AppAnalyticsRoute
+  '/app/flashcards': typeof AppFlashcardsRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/notes': typeof AppNotesRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/teasers': typeof AppTeasersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/register/student': typeof RegisterStudentRoute
+  '/register/teacher': typeof RegisterTeacherRoute
+  '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/teacher/': typeof TeacherIndexRoute
   '/app/documents/$id': typeof AppDocumentsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app/analytics'
+    | '/app/flashcards'
     | '/app/library'
+    | '/app/notes'
     | '/app/settings'
+    | '/app/teasers'
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/register/student'
+    | '/register/teacher'
+    | '/admin/'
     | '/app/'
+    | '/teacher/'
     | '/app/documents/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app/analytics'
+    | '/app/flashcards'
     | '/app/library'
+    | '/app/notes'
     | '/app/settings'
+    | '/app/teasers'
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/register/student'
+    | '/register/teacher'
+    | '/admin'
     | '/app'
+    | '/teacher'
     | '/app/documents/$id'
   id:
     | '__root__'
     | '/'
+    | '/app/analytics'
+    | '/app/flashcards'
     | '/app/library'
+    | '/app/notes'
     | '/app/settings'
+    | '/app/teasers'
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/register/student'
+    | '/register/teacher'
+    | '/admin/'
     | '/app/'
+    | '/teacher/'
     | '/app/documents/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppAnalyticsRoute: typeof AppAnalyticsRoute
+  AppFlashcardsRoute: typeof AppFlashcardsRoute
   AppLibraryRoute: typeof AppLibraryRoute
+  AppNotesRoute: typeof AppNotesRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppTeasersRoute: typeof AppTeasersRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
+  RegisterStudentRoute: typeof RegisterStudentRoute
+  RegisterTeacherRoute: typeof RegisterTeacherRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   AppIndexRoute: typeof AppIndexRoute
+  TeacherIndexRoute: typeof TeacherIndexRoute
   AppDocumentsIdRoute: typeof AppDocumentsIdRoute
 }
 
@@ -156,11 +260,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teacher/': {
+      id: '/teacher/'
+      path: '/teacher'
+      fullPath: '/teacher/'
+      preLoaderRoute: typeof TeacherIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/': {
       id: '/app/'
       path: '/app'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/teacher': {
+      id: '/register/teacher'
+      path: '/register/teacher'
+      fullPath: '/register/teacher'
+      preLoaderRoute: typeof RegisterTeacherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/student': {
+      id: '/register/student'
+      path: '/register/student'
+      fullPath: '/register/student'
+      preLoaderRoute: typeof RegisterStudentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/sign-up': {
@@ -191,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/teasers': {
+      id: '/app/teasers'
+      path: '/app/teasers'
+      fullPath: '/app/teasers'
+      preLoaderRoute: typeof AppTeasersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/settings': {
       id: '/app/settings'
       path: '/app/settings'
@@ -198,11 +337,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/notes': {
+      id: '/app/notes'
+      path: '/app/notes'
+      fullPath: '/app/notes'
+      preLoaderRoute: typeof AppNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/library': {
       id: '/app/library'
       path: '/app/library'
       fullPath: '/app/library'
       preLoaderRoute: typeof AppLibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/flashcards': {
+      id: '/app/flashcards'
+      path: '/app/flashcards'
+      fullPath: '/app/flashcards'
+      preLoaderRoute: typeof AppFlashcardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/analytics': {
+      id: '/app/analytics'
+      path: '/app/analytics'
+      fullPath: '/app/analytics'
+      preLoaderRoute: typeof AppAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/documents/$id': {
@@ -217,15 +377,33 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppAnalyticsRoute: AppAnalyticsRoute,
+  AppFlashcardsRoute: AppFlashcardsRoute,
   AppLibraryRoute: AppLibraryRoute,
+  AppNotesRoute: AppNotesRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppTeasersRoute: AppTeasersRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
+  RegisterStudentRoute: RegisterStudentRoute,
+  RegisterTeacherRoute: RegisterTeacherRoute,
+  AdminIndexRoute: AdminIndexRoute,
   AppIndexRoute: AppIndexRoute,
+  TeacherIndexRoute: TeacherIndexRoute,
   AppDocumentsIdRoute: AppDocumentsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

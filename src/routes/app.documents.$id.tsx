@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   FileText,
@@ -11,6 +11,11 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea } from "@/components/ui-kit";
+import { supabase } from "@/lib/supabase";
+import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
+
+const getErrorMessage = (err: unknown, fallback: string) =>
+  err instanceof Error ? err.message : fallback;
 
 export const Route = createFileRoute("/app/documents/$id")({
   head: () => ({ meta: [{ title: "Document — tutor.vigilance.rw" }] }),
@@ -22,6 +27,15 @@ const tabs = ["Summary", "Chat", "Quiz", "Flashcards"] as const;
 function DocumentWorkspace() {
   const { id } = Route.useParams();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Summary");
+  const [material, setMaterial] = useState<LearningMaterial | null>(null);
+
+  useEffect(() => {
+    const loadMaterial = async () => {
+      const { data } = await supabase.from("materials").select("*").eq("id", id).single();
+      if (data) setMaterial(mapMaterialRow(data));
+    };
+    loadMaterial();
+  }, [id]);
 
   return (
     <AppShell
@@ -46,10 +60,12 @@ function DocumentWorkspace() {
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-2xl font-semibold tracking-tight">
-              Linear Algebra — Chapter 4
+              {material?.title || "Study material"}
             </h2>
             <div className="mt-1 text-xs text-muted-foreground">
-              PDF · 2.4 MB · 32 pages · Uploaded 2h ago · #{id}
+              {material
+                ? `${material.type} · ${material.size} · Updated ${material.updated}`
+                : `Loading material · #${id}`}
             </div>
           </div>
         </div>
@@ -76,8 +92,8 @@ function DocumentWorkspace() {
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {tab === "Summary" && <SummaryPanel />}
-          {tab === "Chat" && <ChatPanel />}
+          {tab === "Summary" && <SummaryPanel material={material} />}
+          {tab === "Chat" && <ChatPanel material={material} />}
           {tab === "Quiz" && <QuizPanel />}
           {tab === "Flashcards" && <FlashcardsPanel />}
         </div>
@@ -110,7 +126,10 @@ function DocumentWorkspace() {
               <h3 className="text-sm font-medium">Citations</h3>
             </div>
             <div className="space-y-3 p-5 text-xs text-muted-foreground">
-              <p>Answers in this workspace are grounded in the source document. Click any highlighted answer to jump to the passage.</p>
+              <p>
+                Answers in this workspace are grounded in the source document. Click any highlighted
+                answer to jump to the passage.
+              </p>
             </div>
           </Card>
         </aside>
@@ -119,18 +138,23 @@ function DocumentWorkspace() {
   );
 }
 
-function SummaryPanel() {
+function SummaryPanel({ material }: { material: LearningMaterial | null }) {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5" /> AI-generated summary · verified against source
+        <Sparkles className="h-3.5 w-3.5" /> AI-ready summary context
       </div>
-      <h3 className="text-lg font-semibold">Key takeaways</h3>
+      <h3 className="text-lg font-semibold">{material?.title || "Material overview"}</h3>
       <ul className="mt-4 space-y-3 text-sm leading-relaxed text-foreground">
-        <li>An <strong>eigenvector</strong> of a square matrix A is a non-zero vector v whose direction is unchanged when A is applied — only its length scales by a factor λ (the eigenvalue).</li>
-        <li>The characteristic polynomial det(A − λI) = 0 yields the eigenvalues; substituting each λ back gives the corresponding eigenvectors.</li>
-        <li>A matrix is diagonalizable when it has n linearly independent eigenvectors, enabling A = PDP⁻¹.</li>
-        <li>Applications: PCA, stability analysis, quantum mechanics, and Google's original PageRank.</li>
+        <li>
+          This {material?.type || "material"} is available as chat context for explanations, study
+          plans, quizzes, and flashcards.
+        </li>
+        <li>
+          {material?.content ||
+            "No extracted text is stored yet. Ask about a page, timestamp, image detail, or pasted excerpt for best results."}
+        </li>
+        {material?.url && <li>Source link: {material.url}</li>}
       </ul>
 
       <div className="mt-6 border-t border-border pt-6">
@@ -154,33 +178,137 @@ function Stat({ k, v }: { k: string; v: string }) {
   );
 }
 
-function ChatPanel() {
+function ChatPanel({ material }: { material: LearningMaterial | null }) {
+  const [messages, setMessages] = useState<
+    Array<{ from: "user" | "ai"; text: string; citation?: string }>
+  >([
+    {
+      from: "ai",
+      text: "Ask a question about this material. You can also attach another file to make it the active context.",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const sendMessage = async () => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    const nextMessages = [...messages, { from: "user" as const, text: trimmed }];
+    setMessages(nextMessages);
+    setInput("");
+    setIsSending(true);
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const model = import.meta.env.VITE_GEMINI_MODEL?.trim() || "gemini-flash-latest";
+    try {
+      if (!apiKey) throw new Error("Missing Gemini API key");
+      const prompt = `You are an AI study tutor. Use this active material when possible.
+Title: ${material?.title || "Unknown"}
+Type: ${material?.type || "Unknown"}
+URL: ${material?.url || "None"}
+Extracted content: ${material?.content || "No extracted text available yet."}
+
+Student question: ${trimmed}
+
+Explain clearly, ask one useful follow-up, and cite the material title when relevant.`;
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
+          }),
+        },
+      );
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!response.ok || !text) throw new Error(data?.error?.message || "AI response failed");
+      setMessages([...nextMessages, { from: "ai", text, citation: material?.title }]);
+    } catch {
+      setMessages([
+        ...nextMessages,
+        {
+          from: "ai",
+          text: "I can help with this material. Share the page, timestamp, image detail, or paragraph you want to understand, and I will break it into the main idea, examples, and a practice step.",
+          citation: material?.title,
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const attachFile = async (file?: File | null) => {
+    if (!file) return;
+    try {
+      const uploaded = await uploadLearningMaterial({ file });
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: "ai",
+          text: `${uploaded.title} was uploaded. Open it from the library or ask a question about it here.`,
+        },
+      ]);
+    } catch (err: unknown) {
+      setMessages((prev) => [
+        ...prev,
+        { from: "ai", text: getErrorMessage(err, "Could not upload that file.") },
+      ]);
+    }
+  };
+
   return (
     <Card className="flex h-[600px] flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-6">
-        <Message from="user" text="Can you explain eigenvalues intuitively?" />
-        <Message
-          from="ai"
-          text="Sure. Think of a matrix A as a stretching or rotating operation on vectors. Most vectors change direction when A is applied — but a few special ones don't. Those are eigenvectors. The amount they're stretched is the eigenvalue λ. So Av = λv means: A only rescales v, it doesn't rotate it."
-          citation="p. 12 · §4.4"
-        />
-        <Message from="user" text="How do I compute them?" />
-        <Message
-          from="ai"
-          text="Solve det(A − λI) = 0 for λ. Each root is an eigenvalue. Plug each λ back into (A − λI)v = 0 and solve for v — that gives the eigenvectors."
-          citation="p. 14 · §4.4"
-        />
+        {messages.map((message, index) => (
+          <Message
+            key={index}
+            from={message.from}
+            text={message.text}
+            citation={message.citation}
+          />
+        ))}
+        {isSending && (
+          <Message from="ai" text="Thinking through the material..." citation={material?.title} />
+        )}
       </div>
       <div className="border-t border-border p-3">
         <div className="flex items-end gap-2">
-          <button className="rounded-md border border-border p-2 hover:bg-muted" aria-label="Attach">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,image/*,audio/*,video/*"
+            onChange={(event) => attachFile(event.target.files?.[0])}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-md border border-border p-2 hover:bg-muted"
+            aria-label="Attach"
+          >
             <Paperclip className="h-4 w-4" />
           </button>
           <Textarea
             placeholder="Ask a question grounded in this document…"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+              }
+            }}
             className="min-h-11 flex-1"
           />
-          <button className="rounded-md bg-primary p-2.5 text-primary-foreground hover:opacity-90" aria-label="Send">
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || isSending}
+            className="rounded-md bg-primary p-2.5 text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            aria-label="Send"
+          >
             <Send className="h-4 w-4" />
           </button>
         </div>
@@ -189,14 +317,24 @@ function ChatPanel() {
   );
 }
 
-function Message({ from, text, citation }: { from: "user" | "ai"; text: string; citation?: string }) {
+function Message({
+  from,
+  text,
+  citation,
+}: {
+  from: "user" | "ai";
+  text: string;
+  citation?: string;
+}) {
   const isAi = from === "ai";
   return (
     <div className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-elevated text-xs font-medium">
         {isAi ? <Sparkles className="h-3.5 w-3.5" /> : "AJ"}
       </div>
-      <div className={`max-w-[80%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4`}>
+      <div
+        className={`max-w-[80%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4`}
+      >
         <p className="text-sm leading-relaxed text-foreground">{text}</p>
         {citation && (
           <div className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-elevated px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -251,7 +389,9 @@ function FlashcardsPanel() {
         What does det(A − λI) = 0 compute?
       </div>
       <div className="mt-8 flex items-center gap-3">
-        <button className="rounded-md border border-border px-4 py-2 text-sm hover:bg-muted">Show answer</button>
+        <button className="rounded-md border border-border px-4 py-2 text-sm hover:bg-muted">
+          Show answer
+        </button>
         <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90">
           Next card
         </button>
