@@ -1,5 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from "react";
 
 /** Minimal, opinionated primitives for the tutor.vigilance.rw B/W system. */
 
@@ -28,7 +34,11 @@ interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, BtnProps>(
   ({ variant = "primary", size = "md", className = "", ...rest }, ref) => (
-    <button ref={ref} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...rest} />
+    <button
+      ref={ref}
+      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+      {...rest}
+    />
   ),
 );
 Button.displayName = "Button";
@@ -63,27 +73,41 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 );
 Input.displayName = "Input";
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className = "", ...rest }, ref) => (
-    <textarea
-      ref={ref}
-      className={`min-h-24 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${className}`}
-      {...rest}
-    />
-  ),
-);
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className = "", ...rest }, ref) => (
+  <textarea
+    ref={ref}
+    className={`min-h-24 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${className}`}
+    {...rest}
+  />
+));
 Textarea.displayName = "Textarea";
 
-export function Label({ htmlFor, children }: { htmlFor?: string; children: ReactNode }) {
+export function Label({
+  htmlFor,
+  children,
+  className = "",
+}: {
+  htmlFor?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <label htmlFor={htmlFor} className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <label
+      htmlFor={htmlFor}
+      className={`mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground ${className}`}
+    >
       {children}
     </label>
   );
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-lg border border-border bg-background ${className}`}>{children}</div>;
+  return (
+    <div className={`rounded-lg border border-border bg-background ${className}`}>{children}</div>
+  );
 }
 
 export function Divider() {

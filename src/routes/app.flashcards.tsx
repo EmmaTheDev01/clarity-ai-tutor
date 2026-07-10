@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card, Pill } from "@/components/ui-kit";
-import { Layers, Sparkles, Check, X, RefreshCw, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import {
+  Layers,
+  Sparkles,
+  Check,
+  X,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+} from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/app/flashcards")({
@@ -15,10 +24,22 @@ const defaultDecks = [
     title: "Linear Algebra Fundamentals",
     subject: "Mathematics",
     cards: [
-      { q: "What is an eigenvector?", a: "A non-zero vector v that only rescales by a factor λ (eigenvalue) when a matrix A is applied: Av = λv." },
-      { q: "What does det(A − λI) = 0 compute?", a: "The characteristic equation used to solve for eigenvalues of matrix A." },
-      { q: "What is a basis?", a: "A set of linearly independent vectors that span a given vector space." },
-      { q: "When is a matrix diagonalizable?", a: "When it has n linearly independent eigenvectors, allowing it to be decomposed into PDP⁻¹." },
+      {
+        q: "What is an eigenvector?",
+        a: "A non-zero vector v that only rescales by a factor λ (eigenvalue) when a matrix A is applied: Av = λv.",
+      },
+      {
+        q: "What does det(A − λI) = 0 compute?",
+        a: "The characteristic equation used to solve for eigenvalues of matrix A.",
+      },
+      {
+        q: "What is a basis?",
+        a: "A set of linearly independent vectors that span a given vector space.",
+      },
+      {
+        q: "When is a matrix diagonalizable?",
+        a: "When it has n linearly independent eigenvectors, allowing it to be decomposed into PDP⁻¹.",
+      },
     ],
   },
   {
@@ -26,9 +47,18 @@ const defaultDecks = [
     title: "Neural Networks & Backprop",
     subject: "Artificial Intelligence",
     cards: [
-      { q: "What is backpropagation?", a: "An algorithm that calculates gradients of the loss function with respect to weights using the chain rule backward layer-by-layer." },
-      { q: "What is the purpose of an activation function?", a: "To introduce non-linearity into the network, allowing it to learn and model complex, non-linear relationships." },
-      { q: "What is overfitting?", a: "When a model learns the details and noise of the training data too well, resulting in poor generalization to new data." },
+      {
+        q: "What is backpropagation?",
+        a: "An algorithm that calculates gradients of the loss function with respect to weights using the chain rule backward layer-by-layer.",
+      },
+      {
+        q: "What is the purpose of an activation function?",
+        a: "To introduce non-linearity into the network, allowing it to learn and model complex, non-linear relationships.",
+      },
+      {
+        q: "What is overfitting?",
+        a: "When a model learns the details and noise of the training data too well, resulting in poor generalization to new data.",
+      },
     ],
   },
 ];
@@ -40,7 +70,7 @@ function FlashcardsPage() {
   const [score, setScore] = useState({ correct: 0, incorrect: 0 });
 
   const currentCard = selectedDeck.cards[currentCardIdx];
-  const progressPercent = Math.round(((currentCardIdx) / selectedDeck.cards.length) * 100);
+  const progressPercent = Math.round((currentCardIdx / selectedDeck.cards.length) * 100);
 
   const handleNext = () => {
     setShowAnswer(false);
@@ -52,7 +82,7 @@ function FlashcardsPage() {
     setCurrentCardIdx((prev) => (prev - 1 + selectedDeck.cards.length) % selectedDeck.cards.length);
   };
 
-  const selectDeck = (deck: typeof defaultDecks[number]) => {
+  const selectDeck = (deck: (typeof defaultDecks)[number]) => {
     setSelectedDeck(deck);
     setCurrentCardIdx(0);
     setShowAnswer(false);
@@ -86,7 +116,11 @@ function FlashcardsPage() {
 
     ctx.fillStyle = "#94a3b8"; // slate-400
     ctx.font = "12px tracking-wider sans-serif";
-    ctx.fillText("tutor.vigilance.rw  •  " + selectedDeck.subject.toUpperCase() + " STUDY GUIDE", 45, 90);
+    ctx.fillText(
+      "tutor.vigilance.rw  •  " + selectedDeck.subject.toUpperCase() + " STUDY GUIDE",
+      45,
+      90,
+    );
 
     // Draw active card mode tag
     ctx.fillStyle = showAnswer ? "#10b981" : "#f59e0b"; // emerald or amber
@@ -129,7 +163,14 @@ function FlashcardsPage() {
     // Branding signature footer
     ctx.fillStyle = "#64748b"; // slate-500
     ctx.font = "11px sans-serif";
-    ctx.fillText("Classroom Verified Material  •  Card " + (currentCardIdx + 1) + " of " + selectedDeck.cards.length, 45, 445);
+    ctx.fillText(
+      "Classroom Verified Material  •  Card " +
+        (currentCardIdx + 1) +
+        " of " +
+        selectedDeck.cards.length,
+      45,
+      445,
+    );
 
     // Download URL triggering
     const link = document.createElement("a");
@@ -143,7 +184,9 @@ function FlashcardsPage() {
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Left column: Decks */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
-          <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">Decks</h2>
+          <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+            Decks
+          </h2>
           <div className="space-y-2">
             {defaultDecks.map((deck) => (
               <Card
@@ -159,9 +202,7 @@ function FlashcardsPage() {
                   </span>
                   <Pill className="text-[10px]">{deck.cards.length} cards</Pill>
                 </div>
-                <h3 className="mt-2 text-sm font-semibold text-foreground">
-                  {deck.title}
-                </h3>
+                <h3 className="mt-2 text-sm font-semibold text-foreground">{deck.title}</h3>
               </Card>
             ))}
           </div>

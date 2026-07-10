@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { supabase } from "@/lib/supabase";
 import {
   Upload,
   MessageSquare,
@@ -23,6 +24,17 @@ export const Route = createFileRoute("/")({
 const APP = "tutor.vigilance.rw";
 
 function Landing() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) {
+        navigate({ to: "/app" as any });
+      }
+    };
+    checkSession();
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav />
@@ -93,9 +105,7 @@ function Hero() {
               alt="User face 4"
             />
           </div>
-          <span className="flex items-center gap-1">
-            Loved by 2,000,000+ learners
-          </span>
+          <span className="flex items-center gap-1">Loved by 2,000,000+ learners</span>
         </span>
         <ScrollReveal animation="fade-up" duration={800}>
           <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-7xl">
@@ -104,8 +114,8 @@ function Hero() {
         </ScrollReveal>
         <ScrollReveal animation="fade-up" duration={800} delay={100}>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Turn your notes, documents, and reference materials into interactive
-            chats, summaries, and personalized practice exams — instantly.
+            Turn your notes, documents, and reference materials into interactive chats, summaries,
+            and personalized practice exams — instantly.
           </p>
         </ScrollReveal>
         <ScrollReveal animation="fade-up" duration={800} delay={200}>
@@ -134,9 +144,7 @@ function Hero() {
               <span className="h-2.5 w-2.5 rounded-full border border-border" />
               <span className="h-2.5 w-2.5 rounded-full border border-border" />
               <span className="h-2.5 w-2.5 rounded-full border border-border" />
-              <span className="ml-4 text-xs text-muted-foreground">
-                {APP}
-              </span>
+              <span className="ml-4 text-xs text-muted-foreground">{APP}</span>
             </div>
             <img
               src={appMockup}
@@ -199,12 +207,8 @@ function Features() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border">
                   <f.icon className="h-5 w-5 text-foreground" strokeWidth={1.75} />
                 </div>
-                <h3 className="mt-6 text-lg font-medium text-foreground">
-                  {f.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {f.body}
-                </p>
+                <h3 className="mt-6 text-lg font-medium text-foreground">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
               </div>
             </ScrollReveal>
           ))}
@@ -240,7 +244,8 @@ function UseCases() {
                     Turn briefs and specs into a working knowledge base.
                   </h3>
                   <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                    Upload requirements, meeting notes, and research docs. Ask questions across every file — get answers with exact citations to the source paragraph.
+                    Upload requirements, meeting notes, and research docs. Ask questions across
+                    every file — get answers with exact citations to the source paragraph.
                   </p>
                 </div>
 
@@ -251,15 +256,21 @@ function UseCases() {
                     <span className="text-emerald-500 font-medium">3 Grounded</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-foreground font-medium mt-1">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px]">PDF</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px]">
+                      PDF
+                    </span>
                     <span>Product_Requirements_V2.pdf</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-foreground font-medium">
-                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[10px]">DOCX</span>
+                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[10px]">
+                      DOCX
+                    </span>
                     <span>Sprint_Brief_July.docx</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-foreground font-medium">
-                    <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[10px]">JSON</span>
+                    <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[10px]">
+                      JSON
+                    </span>
                     <span>API_Spec_Final.json</span>
                   </div>
                 </div>
@@ -283,7 +294,8 @@ function UseCases() {
                     Master dense papers without re-reading them five times.
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    Load textbooks, journal articles, and lecture recordings. Generate structured summaries, definitions, and quizzes calibrated to your gaps.
+                    Load textbooks, journal articles, and lecture recordings. Generate structured
+                    summaries, definitions, and quizzes calibrated to your gaps.
                   </p>
                 </div>
 
@@ -293,7 +305,9 @@ function UseCases() {
                     <span>Quiz Preview</span>
                     <span>Linear Algebra</span>
                   </div>
-                  <p className="text-[11px] font-semibold text-foreground">Geometric interpretation of determinants:</p>
+                  <p className="text-[11px] font-semibold text-foreground">
+                    Geometric interpretation of determinants:
+                  </p>
                   <div className="flex flex-col gap-1">
                     <div className="rounded border border-primary bg-primary/5 px-2 py-1 text-[10px] text-primary font-medium">
                       ✓ Scaling factor of area/volume transformation
@@ -320,7 +334,8 @@ function UseCases() {
                     Make sense of everything you save but never revisit.
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    Drop in articles, videos, and voice memos. Search by meaning, not keywords, and turn scattered notes into a personal library you actually use.
+                    Drop in articles, videos, and voice memos. Search by meaning, not keywords, and
+                    turn scattered notes into a personal library you actually use.
                   </p>
                 </div>
 
@@ -331,7 +346,8 @@ function UseCases() {
                     <span>01:42</span>
                   </div>
                   <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 text-[10px] text-foreground italic">
-                    "...need to research whether optimal compute allocation applies to small fine-tunes..."
+                    "...need to research whether optimal compute allocation applies to small
+                    fine-tunes..."
                   </div>
                   <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
                     <span>Research</span>
@@ -360,7 +376,8 @@ function AppDownloadCTA() {
             Learn on the go. <br className="hidden sm:inline" /> Download the Clarity app.
           </h2>
           <p className="mt-4 text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto">
-            Available on iOS, Android, macOS, and Windows. Sync your documents, highlight citations, and review study cards seamlessly across all your devices.
+            Available on iOS, Android, macOS, and Windows. Sync your documents, highlight citations,
+            and review study cards seamlessly across all your devices.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
@@ -408,14 +425,12 @@ const testimonials = [
     title: "Law Student",
   },
   {
-    quote:
-      "Turned a 3-hour keynote into a 10-minute briefing I could actually share with my team.",
+    quote: "Turned a 3-hour keynote into a 10-minute briefing I could actually share with my team.",
     name: "Priya Ramanathan",
     title: "Strategy Lead",
   },
   {
-    quote:
-      "The generated quizzes are shockingly good. They target exactly what I don't know yet.",
+    quote: "The generated quizzes are shockingly good. They target exactly what I don't know yet.",
     name: "Daniel Weiss",
     title: "Medical Resident",
   },
@@ -432,12 +447,7 @@ function Testimonials() {
         </div>
         <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {testimonials.map((t, i) => (
-            <ScrollReveal
-              key={t.name}
-              animation="fade-up"
-              delay={(i % 3) * 150}
-              className="flex"
-            >
+            <ScrollReveal key={t.name} animation="fade-up" delay={(i % 3) * 150} className="flex">
               <figure className="flex flex-col justify-between rounded-lg border border-border bg-background p-6 w-full">
                 <blockquote className="text-base leading-relaxed text-foreground">
                   &ldquo;{t.quote}&rdquo;
@@ -499,9 +509,7 @@ function FAQ() {
                     className="flex w-full items-center justify-between gap-6 py-5 text-left"
                     aria-expanded={isOpen}
                   >
-                    <span className="text-base font-medium text-foreground">
-                      {f.q}
-                    </span>
+                    <span className="text-base font-medium text-foreground">{f.q}</span>
                     {isOpen ? (
                       <Minus className="h-4 w-4 shrink-0 text-foreground" />
                     ) : (
@@ -509,12 +517,11 @@ function FAQ() {
                     )}
                   </button>
                   <div
-                    className={`grid overflow-hidden transition-all duration-300 ${isOpen ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"
-                      }`}
+                    className={`grid overflow-hidden transition-all duration-300 ${
+                      isOpen ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"
+                    }`}
                   >
-                    <p className="min-h-0 text-sm leading-relaxed text-muted-foreground">
-                      {f.a}
-                    </p>
+                    <p className="min-h-0 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
                   </div>
                 </div>
               );
@@ -536,8 +543,7 @@ function FinalCTA() {
               Your smarter study session starts now.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-              Join 2,000,000+ learners turning static material into interactive
-              understanding.
+              Join 2,000,000+ learners turning static material into interactive understanding.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
@@ -567,22 +573,14 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           <div className="col-span-2">
-            <div className="text-sm font-bold tracking-wider text-foreground">
-              {APP}
-            </div>
+            <div className="text-sm font-bold tracking-wider text-foreground">{APP}</div>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
               An AI tutor made exactly for you.
             </p>
           </div>
-          <FooterCol
-            title="Product"
-            links={["Features", "Pricing", "Changelog"]}
-          />
+          <FooterCol title="Product" links={["Features", "Pricing", "Changelog"]} />
           <FooterCol title="Company" links={["Community", "Blog", "Contact us"]} />
-          <FooterCol
-            title="Legal"
-            links={["Terms & conditions", "Privacy policy"]}
-          />
+          <FooterCol title="Legal" links={["Terms & conditions", "Privacy policy"]} />
         </div>
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
@@ -602,10 +600,7 @@ function FooterCol({ title, links }: { title: string; links: string[] }) {
       <ul className="mt-3 space-y-2">
         {links.map((l) => (
           <li key={l}>
-            <a
-              href="#"
-              className="text-sm text-muted-foreground transition hover:text-foreground"
-            >
+            <a href="#" className="text-sm text-muted-foreground transition hover:text-foreground">
               {l}
             </a>
           </li>

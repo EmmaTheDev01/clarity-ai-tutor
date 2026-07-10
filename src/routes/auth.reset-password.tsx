@@ -13,7 +13,10 @@ function Reset() {
       title="Set a new password."
       subtitle="Choose something you'll remember."
       footer={
-        <Link to="/auth/sign-in" className="font-medium text-foreground underline underline-offset-2">
+        <Link
+          to="/auth/sign-in"
+          className="font-medium text-foreground underline underline-offset-2"
+        >
           Back to sign in
         </Link>
       }
@@ -21,7 +24,12 @@ function Reset() {
       <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
         <div>
           <Label htmlFor="password">New password</Label>
-          <Input id="password" type="password" placeholder="At least 8 characters" autoComplete="new-password" />
+          <Input
+            id="password"
+            type="password"
+            placeholder="At least 8 characters"
+            autoComplete="new-password"
+          />
         </div>
         <div>
           <Label htmlFor="confirm">Confirm password</Label>

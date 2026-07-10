@@ -1,12 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, Sparkles, ChevronRight, Plus } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, Sparkles, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { MaterialUploader } from "@/components/material-uploader";
-import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
+import {
+  LearningMaterial,
+  createGeneralChatMaterial,
+  deleteMaterial,
+  mapMaterialRow,
+  renameMaterial,
+  togglePinMaterial,
+  uploadLearningMaterial,
+} from "@/lib/learning-materials";
 import { geminiModel, generateGeminiText } from "@/lib/gemini";
+import { DragDropOverlay } from "@/components/drag-drop-overlay";
+import { toast } from "sonner";
 
 const getStoredItem = (key: string, fallback = "") => {
   if (typeof window === "undefined" || !window.localStorage) return fallback;
@@ -34,6 +44,71 @@ const encryptText = (text: string): { cipher: string; iv: string } => {
   const iv = Math.random().toString(36).substring(2, 10);
   const cipher = btoa(unescape(encodeURIComponent(text))) + "::" + iv;
   return { cipher, iv };
+};
+
+const decryptText = (cipher: string): string => {
+  if (!cipher) return "";
+  try {
+    const base64 = cipher.split("::")[0];
+    return decodeURIComponent(escape(atob(base64)));
+  } catch {
+    return cipher;
+  }
+};
+
+const loadSessionMessages = async (studentId: string, activeMaterialId: string | null) => {
+  let query = supabase.from("chat_sessions").select("id").eq("student_id", studentId);
+
+  if (activeMaterialId) {
+    query = query.eq("active_material_id", activeMaterialId);
+  } else {
+    query = query.is("active_material_id", null);
+  }
+
+  const { data: session } = await query.limit(1).maybeSingle();
+  let sessionId = session?.id;
+
+  if (!sessionId) {
+    const { data: newSession, error: insertErr } = await supabase
+      .from("chat_sessions")
+      .insert({
+        student_id: studentId,
+        active_material_id: activeMaterialId,
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (insertErr || !newSession) {
+      const { data: retrySession } = await query.limit(1).maybeSingle();
+      sessionId = retrySession?.id;
+    } else {
+      sessionId = newSession.id;
+    }
+  }
+
+  if (sessionId) {
+    const { data: dbMessages } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    if (dbMessages) {
+      return {
+        sessionId,
+        messages: dbMessages.map((m) => ({
+          from: m.sender_role === "student" ? ("user" as const) : ("ai" as const),
+          text: decryptText(m.encrypted_content),
+          citation: m.citation || undefined,
+          timestamp: new Date(m.created_at).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        })),
+      };
+    }
+  }
+  return { sessionId, messages: [] };
 };
 
 export const Route = createFileRoute("/app/")({
@@ -103,6 +178,7 @@ function Dashboard() {
   const [focusedMsgIndex, setFocusedMsgIndex] = useState<number | null>(null);
   const [showAutoSaveNotice, setShowAutoSaveNotice] = useState(false);
   const [attachmentMessage, setAttachmentMessage] = useState("");
+  const [attachedFilePreview, setAttachedFilePreview] = useState<{ name: string; size: string; type: string } | null>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
 
   // Gamification metrics
@@ -111,6 +187,43 @@ function Dashboard() {
   const [unlockedBadges, setUnlockedBadges] = useState<string[]>([]);
   const [showAddMaterialForm, setShowAddMaterialForm] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isDropUploading, setIsDropUploading] = useState(false);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    doc: LearningMaterial;
+  } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ doc: LearningMaterial; value: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LearningMaterial | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
+
+  const handleFilesDropped = async (files: FileList) => {
+    if (files.length === 0) return;
+    setIsDropUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const material = await uploadLearningMaterial({ file });
+        setMaterials((prev) => [material, ...prev]);
+        setActiveDoc(material);
+        setInputText((prev) => prev || `Help me study ${material.title}`);
+        setAttachedFilePreview({ name: file.name, size: formatFileSize(file.size), type: file.type });
+      }
+      toast.success(`${files.length} file(s) attached as chat context.`);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Could not attach dropped file(s)."));
+    } finally {
+      setIsDropUploading(false);
+    }
+  };
 
   // Read student profile for customized Socratic tutorials
   const [studentProfile, setStudentProfile] = useState<{
@@ -127,6 +240,13 @@ function Dashboard() {
     setIsHydrated(true);
   }, []);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handlePointerDown = () => setContextMenu(null);
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [contextMenu]);
+
   // Auth Guard & Dynamic DB loader
   useEffect(() => {
     const checkAuthAndLoad = async () => {
@@ -138,11 +258,41 @@ function Dashboard() {
 
       // Load Profile
       try {
-        const { data: stdProf } = await supabase
+        let stdProf = null;
+        const { data: existingStdProf, error: stdProfErr } = await supabase
           .from("student_profiles")
           .select("*")
           .eq("student_id", data.session.user.id)
-          .single();
+          .maybeSingle();
+
+        if (stdProfErr || !existingStdProf) {
+          const newName = data.session.user.user_metadata?.full_name || data.session.user.email?.split("@")[0] || "Student User";
+          await supabase
+            .from("profiles")
+            .insert({
+              id: data.session.user.id,
+              name: newName,
+              email: data.session.user.email || "",
+              role: "student",
+            })
+            .select("*")
+            .maybeSingle();
+
+          const { data: createdStdProf } = await supabase
+            .from("student_profiles")
+            .insert({
+              student_id: data.session.user.id,
+              education_level: "Undergraduate",
+              grade_level: "2nd Year",
+              cognitive_profile: "standard",
+            })
+            .select("*")
+            .maybeSingle();
+          stdProf = createdStdProf;
+        } else {
+          stdProf = existingStdProf;
+        }
+
         if (stdProf) {
           setStudentProfile({
             educationLevel: stdProf.education_level || "Undergraduate",
@@ -168,6 +318,7 @@ function Dashboard() {
         if (dbMats && dbMats.length > 0) {
           const mapped = dbMats.map(mapMaterialRow);
           setMaterials(mapped);
+          setPinnedIds(new Set(mapped.filter((item) => item.pinned).map((item) => item.id)));
           setActiveDoc(mapped[0]);
           setShowOnboarding(false);
         } else {
@@ -208,6 +359,35 @@ function Dashboard() {
       ],
     [activeDoc, activeDocId, chatHistories],
   );
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const materialId = activeDoc ? activeDoc.id : null;
+          const { messages: dbMsgs } = await loadSessionMessages(userData.user.id, materialId);
+          setChatHistories((prev) => ({
+            ...prev,
+            [activeDocId]:
+              dbMsgs.length > 0
+                ? dbMsgs
+                : [
+                  {
+                    from: "ai",
+                    text: activeDoc
+                      ? `This workspace is ready for ${activeDoc.title}. Ask your first question to begin.`
+                      : onboardingPrompt,
+                  },
+                ],
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to load chat history from database:", err);
+      }
+    };
+    fetchHistory();
+  }, [activeDocId, activeDoc]);
   const avatarLabel =
     userDisplayName
       .split(" ")
@@ -218,19 +398,19 @@ function Dashboard() {
   const reminderItems =
     materials.length > 0
       ? [
-          "Keep momentum by asking one focused question about the current material.",
-          "Add another lesson or link when you are ready to expand the workspace.",
-        ]
+        "Keep momentum by asking one focused question about the current material.",
+        "Add another lesson or link when you are ready to expand the workspace.",
+      ]
       : [
-          "Add your first lesson or link to build a study workspace.",
-          "Ask the tutor a question and it will guide you from there.",
-        ];
+        "Add your first lesson or link to build a study workspace.",
+        "Ask the tutor a question and it will guide you from there.",
+      ];
   const quickPrompts = activeDoc
     ? [
-        `Explain ${activeDoc.title} simply`,
-        `Create a study plan from ${activeDoc.title}`,
-        `Quiz me on the key ideas`,
-      ]
+      `Explain ${activeDoc.title} simply`,
+      `Create a study plan from ${activeDoc.title}`,
+      `Quiz me on the key ideas`,
+    ]
     : materials.length > 0
       ? ["Summarize the newest material", "Create practice questions", "Help me study this topic"]
       : ["Upload or link a lesson", "Start with a study question", "Show me how to begin"];
@@ -268,7 +448,6 @@ function Dashboard() {
         noteSummary = `\n\n[NOTE_SUMMARY] Title: AI Study Workflow | Subject: App Learning Skills | Content: Use uploaded materials and focused questions so the tutor can explain concepts, generate notes, and guide practice from source context.`;
       }
 
-      // Save summary note to local storage in the background (AI Detection)
       if (noteSummary) {
         const titleMatch = noteSummary.match(/Title:\s*([^|]+)/);
         const subjectMatch = noteSummary.match(/Subject:\s*([^|]+)/);
@@ -311,6 +490,12 @@ function Dashboard() {
     const trimmed = textToSend.trim();
     if (!trimmed) return;
 
+    const resolvedDoc = activeDoc ?? (await createGeneralChatMaterial());
+    if (!activeDoc && resolvedDoc) {
+      setMaterials((prev) => (prev.some((item) => item.id === resolvedDoc.id) ? prev : [resolvedDoc, ...prev]));
+      setActiveDoc(resolvedDoc);
+    }
+
     // Encrypt the chat message block before database write log simulation
     const encryptedPayload = encryptText(trimmed);
 
@@ -320,10 +505,12 @@ function Dashboard() {
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
     };
     const updatedHistory = [...currentMessages, userMessage];
+    const activeDocForResponse = resolvedDoc;
+    const activeDocIdForResponse = activeDocForResponse ? activeDocForResponse.id : "general";
 
     setChatHistories((prev) => ({
       ...prev,
-      [activeDocId]: updatedHistory,
+      [activeDocIdForResponse]: updatedHistory,
     }));
     setInputText("");
     setIsTyping(true);
@@ -351,11 +538,13 @@ The student you are teaching is at the ${studentProfile.educationLevel || "Under
 YOUR CORE INSTRUCTION:
 - Coach the student so they learn how to solve their own technical and scientific problems.
 - If the student's message is a greeting or simple pleasantry, reply briefly and warmly.
+- If the student asks for study notes, conceptual explanations, summaries, or definitions of general topics (e.g., Machine Learning, Calculus, physics concepts), you MUST provide a detailed, highly descriptive, structured, and complete explanation with key notes, terms, and practical examples.
+- The restriction on providing final answers or direct solutions only applies to specific homework problems, direct code debugging requests (do not write the direct code fix), or math assignments. Do not withhold educational notes or concepts.
 - If the student's message is not a greeting, provide a detailed, helpful explanation with context, clear structure, and practical examples.
 - Treat uploaded files, links, images, audio, video, and pasted text as study sources. If source text is sparse, say what context is available and ask for the missing page, section, timestamp, or image detail.
-- Use the active source when present: ${activeDoc ? `Title: ${activeDoc.title}; Type: ${activeDoc.type}; URL: ${activeDoc.url || "not available"}; Extracted content: ${activeDoc.content || "No extracted text yet."}` : "No active source selected."}
+- Use the active source when present: ${activeDocForResponse ? `Title: ${activeDocForResponse.title}; Type: ${activeDocForResponse.type}; URL: ${activeDocForResponse.url || "not available"}; Extracted content: ${activeDocForResponse.content || "No extracted text yet."}` : "No active source selected."}
 - Use short paragraphs or bullet points, explain the idea in plain language, and end with one concrete next step or question.
-- You are EXPLICITLY FORBIDDEN from providing final answers, completed code files, or direct mathematical solutions.
+- You are EXPLICITLY FORBIDDEN from providing final answers, completed code files, or direct mathematical solutions to assignment questions.
 - Identify the logical flaw or missing fundamental principle in the student's question.
 - Offer structured hints, mention governing laws (e.g. det(A-λI)=0, Ohm's law, Big-O limits, Chain rule), and ask 1 or 2 guiding questions.
 - If they debug code, point to the conceptual issue or line range. Explain why it fails and provide small analogies. Do NOT write patch code.
@@ -364,115 +553,139 @@ YOUR CORE INSTRUCTION:
 [NOTE_SUMMARY] Title: [Short note title] | Subject: [Subject field] | Content: [One sentence high-level summary of the concept discussed for their notebook]`;
 
     try {
+      const chatHistoryContext = currentMessages
+        .slice(-10)
+        .map((msg) => `${msg.from === "user" ? "Student" : "Mentor"}: ${msg.text}`)
+        .join("\n\n");
+
       const { text: generatedText, model: respondingModel } = await generateGeminiText(
-        `${systemInstruction}\n\nStudent Message:\n${trimmed}`,
-        700,
+        `${systemInstruction}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
+        1200,
       );
 
       let coachText = generatedText;
       let noteSummary = "";
 
-        const summaryIdx = generatedText.indexOf("[NOTE_SUMMARY]");
-        if (summaryIdx !== -1) {
-          coachText = generatedText.substring(0, summaryIdx).trim();
-          noteSummary = generatedText.substring(summaryIdx).trim();
+      const summaryIdx = generatedText.indexOf("[NOTE_SUMMARY]");
+      if (summaryIdx !== -1) {
+        coachText = generatedText.substring(0, summaryIdx).trim();
+        noteSummary = generatedText.substring(summaryIdx).trim();
+        if (!coachText) {
+          coachText = generatedText;
         }
+      }
 
-        // Process Note Auto-save in the background
-        if (noteSummary) {
-          const titleMatch = noteSummary.match(/Title:\s*([^|]+)/);
-          const subjectMatch = noteSummary.match(/Subject:\s*([^|]+)/);
-          const contentMatch = noteSummary.match(/Content:\s*(.+)$/);
+      // Process Note Auto-save in the background
+      if (noteSummary) {
+        const titleMatch = noteSummary.match(/Title:\s*([^|]+)/);
+        const subjectMatch = noteSummary.match(/Subject:\s*([^|]+)/);
+        const contentMatch = noteSummary.match(/Content:\s*(.+)$/);
 
-          if (titleMatch && subjectMatch && contentMatch) {
-            const newNote = {
-              id: "auto_" + Date.now(),
-              title: titleMatch[1].trim(),
-              subject: subjectMatch[1].trim(),
-              content: contentMatch[1].trim(),
-              updated: "Just now",
-              isAi: true,
-            };
+        if (titleMatch && subjectMatch && contentMatch) {
+          const newNote = {
+            id: "auto_" + Date.now(),
+            title: titleMatch[1].trim(),
+            subject: subjectMatch[1].trim(),
+            content: contentMatch[1].trim(),
+            updated: "Just now",
+            isAi: true,
+          };
 
-            const stored = getStoredItem("digital_notebook", "[]");
-            const currentNotes = stored ? JSON.parse(stored) : [];
-            setStoredItem("digital_notebook", JSON.stringify([newNote, ...currentNotes]));
+          const stored = getStoredItem("digital_notebook", "[]");
+          const currentNotes = stored ? JSON.parse(stored) : [];
+          setStoredItem("digital_notebook", JSON.stringify([newNote, ...currentNotes]));
 
-            // Sync note to Supabase "notes" table
-            try {
-              const { data: userData } = await supabase.auth.getUser();
-              if (userData?.user) {
-                await supabase.from("notes").insert({
-                  student_id: userData.user.id,
-                  title: newNote.title,
-                  subject: newNote.subject,
-                  content: newNote.content,
-                  is_ai_generated: true,
-                });
-              }
-            } catch (err) {
-              console.warn("Supabase notes save fail:", err);
+          // Sync note to Supabase "notes" table
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            if (userData?.user) {
+              await supabase.from("notes").insert({
+                student_id: userData.user.id,
+                title: newNote.title,
+                subject: newNote.subject,
+                content: newNote.content,
+                is_ai_generated: true,
+              });
             }
-
-            setShowAutoSaveNotice(true);
-            setTimeout(() => setShowAutoSaveNotice(false), 3000);
+          } catch (err) {
+            console.warn("Supabase notes save fail:", err);
           }
-        }
 
-        // Encrypt messages for Supabase write logs
-        const cipherObj = encryptText(coachText);
-        try {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user) {
-            const { data: session } = await supabase
+          setShowAutoSaveNotice(true);
+          setTimeout(() => setShowAutoSaveNotice(false), 3000);
+        }
+      }
+
+      // Encrypt messages for Supabase write logs
+      const cipherObj = encryptText(coachText);
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const materialId = activeDocForResponse ? activeDocForResponse.id : null;
+          let query = supabase
+            .from("chat_sessions")
+            .select("id")
+            .eq("student_id", userData.user.id);
+
+          if (materialId) {
+            query = query.eq("active_material_id", materialId);
+          } else {
+            query = query.is("active_material_id", null);
+          }
+
+          const { data: session } = await query.limit(1).maybeSingle();
+
+          let sId = session?.id;
+          if (!sId) {
+            const { data: newSession, error: insertErr } = await supabase
               .from("chat_sessions")
+              .insert({
+                student_id: userData.user.id,
+                active_material_id: materialId,
+              })
               .select("id")
-              .eq("student_id", userData.user.id)
-              .limit(1)
-              .single();
+              .maybeSingle();
 
-            let sId = session?.id;
-            if (!sId) {
-              const { data: newSession } = await supabase
-                .from("chat_sessions")
-                .insert({ student_id: userData.user.id })
-                .select("id")
-                .single();
-              sId = newSession?.id;
-            }
-
-            if (sId) {
-              await supabase.from("messages").insert([
-                {
-                  session_id: sId,
-                  sender_role: "student",
-                  encrypted_content: encryptedPayload.cipher,
-                  encryption_iv: encryptedPayload.iv,
-                },
-                {
-                  session_id: sId,
-                  sender_role: "assistant",
-                  encrypted_content: cipherObj.cipher,
-                  encryption_iv: cipherObj.iv,
-                },
-              ]);
+            if (insertErr || !newSession) {
+              const { data: retrySession } = await query.limit(1).maybeSingle();
+              sId = retrySession?.id;
+            } else {
+              sId = newSession.id;
             }
           }
-        } catch (err) {
-          console.warn("Supabase messages sync failure:", err);
+
+          if (sId) {
+            await supabase.from("messages").insert([
+              {
+                session_id: sId,
+                sender_role: "student",
+                encrypted_content: encryptedPayload.cipher,
+                encryption_iv: encryptedPayload.iv,
+              },
+              {
+                session_id: sId,
+                sender_role: "assistant",
+                encrypted_content: cipherObj.cipher,
+                encryption_iv: cipherObj.iv,
+              },
+            ]);
+          }
         }
+      } catch (err) {
+        console.warn("Supabase messages sync failure:", err);
+      }
 
       setIsTyping(false);
       const aiMessage: Message = {
         from: "ai",
         text: coachText,
-        citation: activeDoc ? `p. 1 · ${activeDoc.title}` : `Gemini ${respondingModel}`,
+        citation: activeDocForResponse ? `p. 1 · ${activeDocForResponse.title}` : `Gemini ${respondingModel}`,
         timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
       };
 
       setChatHistories((prev) => ({
         ...prev,
-        [activeDocId]: [...updatedHistory, aiMessage],
+        [activeDocIdForResponse]: [...updatedHistory, aiMessage],
       }));
     } catch (err) {
       console.error("Gemini API error:", err);
@@ -485,7 +698,7 @@ YOUR CORE INSTRUCTION:
       setIsTyping(false);
       setChatHistories((prev) => ({
         ...prev,
-        [activeDocId]: [...updatedHistory, fallbackMessage],
+        [activeDocIdForResponse]: [...updatedHistory, fallbackMessage],
       }));
     }
   };
@@ -499,40 +712,197 @@ YOUR CORE INSTRUCTION:
     setShowOnboarding(false);
   };
 
-  const filteredDocs = materials.filter((doc) => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
+  const filteredDocs = [...materials]
+    .filter((doc) => {
+      const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchesSearch) return false;
 
-    if (activeFilter === "PDFs") return doc.type === "PDF";
-    if (activeFilter === "Videos") return doc.type === "YouTube" || doc.type === "Video";
-    if (activeFilter === "Slides") return doc.type === "Slides";
-    if (activeFilter === "Audio") return doc.type === "Audio";
-    if (activeFilter === "Images") return doc.type === "Image";
-    if (activeFilter === "Links") return doc.type === "Link" || doc.type === "YouTube";
-    if (activeFilter === "Files")
-      return doc.type === "File" || doc.type === "Word" || doc.type === "Text";
-    return true;
-  });
+      if (activeFilter === "PDFs") return doc.type === "PDF";
+      if (activeFilter === "Videos") return doc.type === "YouTube" || doc.type === "Video";
+      if (activeFilter === "Slides") return doc.type === "Slides";
+      if (activeFilter === "Audio") return doc.type === "Audio";
+      if (activeFilter === "Images") return doc.type === "Image";
+      if (activeFilter === "Links") return doc.type === "Link" || doc.type === "YouTube";
+      if (activeFilter === "Files")
+        return doc.type === "File" || doc.type === "Word" || doc.type === "Text";
+      return true;
+    })
+    .sort((a, b) => {
+      const aPinned = pinnedIds.has(a.id) || Boolean(a.pinned);
+      const bPinned = pinnedIds.has(b.id) || Boolean(b.pinned);
+      if (aPinned === bPinned) return 0;
+      return aPinned ? -1 : 1;
+    });
+
+  const handlePinToggle = async (doc: LearningMaterial, nextPinned: boolean) => {
+    try {
+      await togglePinMaterial(doc.id, nextPinned);
+      setMaterials((prev) => prev.map((item) => (item.id === doc.id ? { ...item, pinned: nextPinned } : item)));
+      setPinnedIds((prev) => {
+        const next = new Set(prev);
+        if (nextPinned) next.add(doc.id);
+        else next.delete(doc.id);
+        return next;
+      });
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not update pin state."));
+    }
+  };
+
+  const handleRenameSubmit = async (doc: LearningMaterial, nextValue: string) => {
+    const normalized = nextValue.trim();
+    if (!normalized || normalized === doc.title) {
+      setRenameTarget(null);
+      return;
+    }
+
+    setIsRenaming(true);
+    try {
+      await renameMaterial(doc.id, normalized);
+      setMaterials((prev) => prev.map((item) => (item.id === doc.id ? { ...item, title: normalized } : item)));
+      if (activeDoc?.id === doc.id) {
+        setActiveDoc((prev) => (prev && prev.id === doc.id ? { ...prev, title: normalized } : prev));
+      }
+      toast.success(`Renamed to “${normalized}”.`);
+      setRenameTarget(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not rename the material."));
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteMaterial(deleteTarget.id);
+      setMaterials((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setPinnedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
+      if (activeDoc?.id === deleteTarget.id) {
+        setActiveDoc(null);
+      }
+      toast.success(`“${deleteTarget.title}” deleted.`);
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not delete the material."));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleAttachFile = async (file?: File | null) => {
     if (!file) return;
+    setAttachedFilePreview({ name: file.name, size: formatFileSize(file.size), type: file.type });
     setAttachmentMessage("Uploading attachment...");
     try {
       const material = await uploadLearningMaterial({ file });
       setMaterials((prev) => [material, ...prev]);
       setActiveDoc(material);
       setInputText((prev) => prev || `Help me study ${material.title}`);
-      setAttachmentMessage(`${material.title} attached as chat context.`);
+      setAttachmentMessage("");
+      toast.success(`"${material.title}" attached as chat context.`);
     } catch (err: unknown) {
-      setAttachmentMessage(getErrorMessage(err, "Could not attach this file."));
+      toast.error(getErrorMessage(err, "Could not attach this file."));
+      setAttachedFilePreview(null);
+      setAttachmentMessage("");
     } finally {
       if (attachInputRef.current) attachInputRef.current.value = "";
-      setTimeout(() => setAttachmentMessage(""), 3500);
     }
   };
 
   return (
     <>
+      <DragDropOverlay onFilesDropped={handleFilesDropped} />
+
+      {isDropUploading && (
+        <div className="fixed bottom-4 right-4 z-40 bg-elevated/90 backdrop-blur border border-border p-4 rounded-xl shadow-xl flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-xs font-semibold">Uploading dropped files...</span>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-elevated/95 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10">
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </div>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-lg p-1 text-muted-foreground transition hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <h3 className="mt-4 text-sm font-black uppercase tracking-wider text-foreground">Delete Material</h3>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              Are you sure you want to permanently delete “{deleteTarget.title}”? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-red-600"
+              >
+                {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          className="fixed z-[60] min-w-30 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setRenameTarget({ doc: contextMenu.doc, value: contextMenu.doc.title });
+              setContextMenu(null);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-muted"
+          >
+            <PencilLine className="h-3.5 w-3.5" />
+            Rename
+          </button>
+          <button
+            onClick={() => {
+              void handlePinToggle(contextMenu.doc, !pinnedIds.has(contextMenu.doc.id));
+              setContextMenu(null);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-muted"
+          >
+            {pinnedIds.has(contextMenu.doc.id) ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+            {pinnedIds.has(contextMenu.doc.id) ? "Unpin" : "Pin"}
+          </button>
+          <button
+            onClick={() => {
+              setDeleteTarget(contextMenu.doc);
+              setContextMenu(null);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-red-500/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
+
       {showOnboarding && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 px-4 py-8 backdrop-blur-sm">
           <Card className="w-full max-w-2xl border-border/80 p-6 shadow-2xl sm:p-8">
@@ -647,15 +1017,13 @@ YOUR CORE INSTRUCTION:
         }
       >
         <div
-          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${
-            cognitiveProfile === "sensory" ? "grayscale animate-none" : ""
-          }`}
+          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${cognitiveProfile === "sensory" ? "grayscale animate-none" : ""
+            }`}
         >
           {/* Left Side: Library Drawer/Column - Chat Sidebar */}
           <div
-            className={`shrink-0 flex flex-col transition-all duration-300 ${
-              cognitiveProfile === "adhd" ? "w-full xl:w-64" : "w-full xl:w-72 2xl:w-80"
-            }`}
+            className={`shrink-0 flex flex-col transition-all duration-300 ${cognitiveProfile === "adhd" ? "w-full xl:w-64" : "w-full xl:w-72 2xl:w-80"
+              }`}
           >
             <Card className="flex h-full min-h-0 flex-col overflow-hidden">
               {/* Search + Add material toggle */}
@@ -698,11 +1066,10 @@ YOUR CORE INSTRUCTION:
                     <button
                       key={f}
                       onClick={() => setActiveFilter(f)}
-                      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition ${
-                        activeFilter === f
-                          ? "border-foreground bg-primary text-primary-foreground"
-                          : "border-border bg-background text-foreground hover:bg-muted"
-                      }`}
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${activeFilter === f
+                        ? "border-foreground bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                        }`}
                     >
                       {f}
                     </button>
@@ -713,47 +1080,176 @@ YOUR CORE INSTRUCTION:
               {/* Documents List */}
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {filteredDocs.length > 0 ? (
-                  filteredDocs.map((doc) => {
-                    const isSelected = activeDoc?.id === doc.id;
+                  (() => {
+                    const pinnedDocs = filteredDocs.filter((doc) => pinnedIds.has(doc.id) || Boolean(doc.pinned));
+                    const regularDocs = filteredDocs.filter((doc) => !pinnedIds.has(doc.id) && !doc.pinned);
                     return (
-                      <button
-                        key={doc.id}
-                        onClick={() => setActiveDoc(doc)}
-                        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition ${
-                          isSelected
-                            ? "bg-elevated font-medium text-foreground"
-                            : "hover:bg-elevated/40"
-                        }`}
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${
-                              isSelected
-                                ? "border-foreground/30 bg-background"
-                                : "border-border bg-elevated"
-                            }`}
-                          >
-                            <doc.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                      <>
+                        {pinnedDocs.length > 0 && (
+                          <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                            Pinned
                           </div>
-                          <div className="min-w-0">
-                            <div className="truncate text-xs font-semibold text-foreground">
-                              {doc.title}
+                        )}
+                        {pinnedDocs.map((doc) => {
+                          const isSelected = activeDoc?.id === doc.id;
+                          const isEditing = renameTarget?.doc.id === doc.id;
+                          return (
+                            <div key={doc.id} className="group relative border-b border-border/60 last:border-b-0">
+                              <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-elevated font-medium text-foreground" : "hover:bg-elevated/40"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveDoc(doc)}
+                                  onContextMenu={(event) => {
+                                    event.preventDefault();
+                                    setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                  }}
+                                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                >
+                                  <div
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${isSelected
+                                      ? "border-foreground/30 bg-background"
+                                      : "border-border bg-elevated"
+                                      }`}
+                                  >
+                                    <doc.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    {isEditing ? (
+                                      <input
+                                        autoFocus
+                                        value={renameTarget?.value ?? doc.title}
+                                        onChange={(event) => setRenameTarget((current) => current ? { ...current, value: event.target.value } : current)}
+                                        onBlur={() => {
+                                          if (renameTarget) {
+                                            void handleRenameSubmit(doc, renameTarget.value);
+                                          }
+                                        }}
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter") {
+                                            event.preventDefault();
+                                            void handleRenameSubmit(doc, renameTarget?.value ?? doc.title);
+                                          }
+                                          if (event.key === "Escape") {
+                                            setRenameTarget(null);
+                                          }
+                                        }}
+                                        className="w-full truncate rounded-md border border-primary/30 bg-background px-2 py-1 text-xs font-semibold text-foreground"
+                                      />
+                                    ) : (
+                                      <div className="truncate text-xs font-semibold text-foreground">{doc.title}</div>
+                                    )}
+                                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <span>{doc.type}</span>
+                                      <span>·</span>
+                                      <span>{doc.updated}</span>
+                                    </div>
+                                  </div>
+                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                    }}
+                                    className="rounded-md p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                                    aria-label="More options"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </button>
+                                  <ChevronRight
+                                    className={`h-3.5 w-3.5 transition-transform ${isSelected ? "text-foreground translate-x-0.5" : "text-muted-foreground"
+                                      }`}
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                              <span>{doc.type}</span>
-                              <span>·</span>
-                              <span>{doc.updated}</span>
-                            </div>
+                          );
+                        })}
+                        {regularDocs.length > 0 && pinnedDocs.length > 0 && (
+                          <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                            Other materials
                           </div>
-                        </div>
-                        <ChevronRight
-                          className={`h-3.5 w-3.5 transition-transform ${
-                            isSelected ? "text-foreground translate-x-0.5" : "text-muted-foreground"
-                          }`}
-                        />
-                      </button>
+                        )}
+                        {regularDocs.map((doc) => {
+                          const isSelected = activeDoc?.id === doc.id;
+                          const isEditing = renameTarget?.doc.id === doc.id;
+                          return (
+                            <div key={doc.id} className="group relative border-b border-border/60 last:border-b-0">
+                              <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-elevated font-medium text-foreground" : "hover:bg-elevated/40"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveDoc(doc)}
+                                  onContextMenu={(event) => {
+                                    event.preventDefault();
+                                    setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                  }}
+                                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                >
+                                  <div
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${isSelected
+                                      ? "border-foreground/30 bg-background"
+                                      : "border-border bg-elevated"
+                                      }`}
+                                  >
+                                    <doc.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    {isEditing ? (
+                                      <input
+                                        autoFocus
+                                        value={renameTarget?.value ?? doc.title}
+                                        onChange={(event) => setRenameTarget((current) => current ? { ...current, value: event.target.value } : current)}
+                                        onBlur={() => {
+                                          if (renameTarget) {
+                                            void handleRenameSubmit(doc, renameTarget.value);
+                                          }
+                                        }}
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter") {
+                                            event.preventDefault();
+                                            void handleRenameSubmit(doc, renameTarget?.value ?? doc.title);
+                                          }
+                                          if (event.key === "Escape") {
+                                            setRenameTarget(null);
+                                          }
+                                        }}
+                                        className="w-full truncate rounded-md border border-primary/30 bg-background px-2 py-1 text-xs font-semibold text-foreground"
+                                      />
+                                    ) : (
+                                      <div className="truncate text-xs font-semibold text-foreground">{doc.title}</div>
+                                    )}
+                                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <span>{doc.type}</span>
+                                      <span>·</span>
+                                      <span>{doc.updated}</span>
+                                    </div>
+                                  </div>
+                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                    }}
+                                    className="rounded-md p-1.5 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                                    aria-label="More options"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </button>
+                                  <ChevronRight
+                                    className={`h-3.5 w-3.5 transition-transform ${isSelected ? "text-foreground translate-x-0.5" : "text-muted-foreground"
+                                      }`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
                     );
-                  })
+                  })()
                 ) : (
                   <div className="flex h-40 items-center justify-center px-4 text-center text-xs text-muted-foreground">
                     No materials yet. Add your first lesson or upload a file to start.
@@ -775,36 +1271,31 @@ YOUR CORE INSTRUCTION:
           {/* Right Side: Chat Workspace */}
           <div className="flex min-w-0 flex-1 flex-col min-h-0 overflow-hidden">
             <Card
-              className={`flex h-full flex-col overflow-hidden transition-all duration-300 ${
-                cognitiveProfile === "dyslexia" ? "bg-[#FAF6EE] border-[#E6DCC8]" : ""
-              }`}
+              className={`flex h-full flex-col overflow-hidden transition-all duration-300 ${cognitiveProfile === "dyslexia" ? "bg-[#FAF6EE] border-[#E6DCC8]" : ""
+                }`}
             >
               {/* Chat Context Header */}
               <div
-                className={`flex items-center justify-between border-b border-border bg-elevated/30 px-5 py-3 ${
-                  cognitiveProfile === "dyslexia" ? "border-b-[#E6DCC8] bg-[#F3EFE6]/50" : ""
-                }`}
+                className={`flex items-center justify-between border-b border-border bg-elevated/30 px-5 py-3 ${cognitiveProfile === "dyslexia" ? "border-b-[#E6DCC8] bg-[#F3EFE6]/50" : ""
+                  }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary ${
-                      cognitiveProfile === "dyslexia" ? "bg-[#E6DCC8] text-[#605544]" : ""
-                    }`}
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary ${cognitiveProfile === "dyslexia" ? "bg-[#E6DCC8] text-[#605544]" : ""
+                      }`}
                   >
                     <Sparkles className="h-3 w-3" />
                   </div>
                   <div className="min-w-0">
                     <h3
-                      className={`truncate text-xs font-semibold ${
-                        cognitiveProfile === "dyslexia" ? "text-[#2D281E]" : "text-foreground"
-                      }`}
+                      className={`truncate text-xs font-semibold ${cognitiveProfile === "dyslexia" ? "text-[#2D281E]" : "text-foreground"
+                        }`}
                     >
                       {activeDoc ? `Chatting with: ${activeDoc.title}` : "General Library Chat"}
                     </h3>
                     <p
-                      className={`text-[10px] truncate ${
-                        cognitiveProfile === "dyslexia" ? "text-[#605544]" : "text-muted-foreground"
-                      }`}
+                      className={`text-xs truncate ${cognitiveProfile === "dyslexia" ? "text-[#605544]" : "text-muted-foreground"
+                        }`}
                     >
                       {activeDoc
                         ? `Grounded in ${activeDoc.type} source`
@@ -815,11 +1306,10 @@ YOUR CORE INSTRUCTION:
                 {activeDoc && (
                   <button
                     onClick={() => setActiveDoc(null)}
-                    className={`rounded border px-2 py-0.5 text-[10px] transition ${
-                      cognitiveProfile === "dyslexia"
-                        ? "border-[#E6DCC8] bg-[#FAF6EE] text-[#605544] hover:bg-[#F3EFE6]"
-                        : "border-border bg-background text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`rounded border px-2 py-0.5 text-xs transition ${cognitiveProfile === "dyslexia"
+                      ? "border-[#E6DCC8] bg-[#FAF6EE] text-[#605544] hover:bg-[#F3EFE6]"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     Clear focus
                   </button>
@@ -829,13 +1319,13 @@ YOUR CORE INSTRUCTION:
               {/* Chat Message Feed */}
               <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-5 space-y-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {showAutoSaveNotice && (
-                  <div className="sticky top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-white border border-emerald-400/20 rounded-full px-4 py-1.5 text-[10px] font-bold shadow-lg flex items-center gap-1.5 animate-bounce z-20">
+                  <div className="sticky top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-white border border-emerald-400/20 rounded-full px-4 py-1.5 text-xs font-bold shadow-lg flex items-center gap-1.5 animate-bounce z-20">
                     <Sparkles className="h-3 w-3 text-white" />
                     Concept auto-saved to Digital Notebook in background!
                   </div>
                 )}
                 {cognitiveProfile === "adhd" && (
-                  <p className="mb-2 text-center text-[10px] text-muted-foreground italic">
+                  <p className="mb-2 text-center text-xs text-muted-foreground italic">
                     ADHD Mode: Click any chat bubble to focus attention on that block.
                   </p>
                 )}
@@ -846,18 +1336,16 @@ YOUR CORE INSTRUCTION:
                   return (
                     <div
                       key={i}
-                      className={`flex gap-3 transition-all duration-300 ${isAi ? "" : "flex-row-reverse"} ${
-                        isDimmed ? "opacity-25 blur-[0.5px]" : "opacity-100"
-                      }`}
+                      className={`flex gap-3 transition-all duration-300 ${isAi ? "" : "flex-row-reverse"} ${isDimmed ? "opacity-25 blur-[0.5px]" : "opacity-100"
+                        }`}
                     >
                       <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold ${
-                          isAi
-                            ? cognitiveProfile === "dyslexia"
-                              ? "border-[#E6DCC8] bg-[#F3EFE6] text-[#605544]"
-                              : "border-primary/20 bg-primary/5 text-primary"
-                            : "border-border bg-elevated"
-                        }`}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${isAi
+                          ? cognitiveProfile === "dyslexia"
+                            ? "border-[#E6DCC8] bg-[#F3EFE6] text-[#605544]"
+                            : "border-primary/20 bg-primary/5 text-primary"
+                          : "border-border bg-elevated"
+                          }`}
                       >
                         {isAi ? <Sparkles className="h-3 w-3" /> : avatarLabel}
                       </div>
@@ -868,26 +1356,23 @@ YOUR CORE INSTRUCTION:
                               setFocusedMsgIndex(focusedMsgIndex === i ? null : i);
                             }
                           }}
-                          className={`w-fit max-w-[min(${isAi ? "90%" : "70%"},42rem)] rounded-xl border px-3 py-2.5 transition-all shadow-sm ${
-                            isAi
-                              ? cognitiveProfile === "dyslexia"
-                                ? "bg-[#FFFDF9] border-[#E6DCC8] text-[#2D281E]"
-                                : "bg-background border-border/80"
-                              : cognitiveProfile === "dyslexia"
-                                ? "bg-[#F3EFE6] border-[#E6DCC8] text-[#2D281E]"
-                                : "bg-foreground text-background border-foreground"
-                          } ${isFocused ? "ring-2 ring-primary ring-offset-2 scale-[1.01]" : ""} ${
-                            cognitiveProfile === "adhd"
+                          className={`w-fit max-w-[min(${isAi ? "90%" : "70%"},42rem)] rounded-xl border px-3 py-2.5 transition-all shadow-sm ${isAi
+                            ? cognitiveProfile === "dyslexia"
+                              ? "bg-[#FFFDF9] border-[#E6DCC8] text-[#2D281E]"
+                              : "bg-background border-border/80"
+                            : cognitiveProfile === "dyslexia"
+                              ? "bg-[#F3EFE6] border-[#E6DCC8] text-[#2D281E]"
+                              : "bg-foreground text-background border-foreground"
+                            } ${isFocused ? "ring-2 ring-primary ring-offset-2 scale-[1.01]" : ""} ${cognitiveProfile === "adhd"
                               ? "cursor-pointer hover:border-primary/50"
                               : ""
-                          }`}
+                            }`}
                         >
                           <p
-                            className={`text-xs leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere ${
-                              cognitiveProfile === "dyslexia"
-                                ? "tracking-wide leading-loose text-[14px]"
-                                : ""
-                            }`}
+                            className={`text-xs leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere ${cognitiveProfile === "dyslexia"
+                              ? "tracking-wide leading-loose text-[14px]"
+                              : ""
+                              }`}
                           >
                             {cognitiveProfile === "dyslexia" && isAi
                               ? toBionic(msg.text)
@@ -907,23 +1392,21 @@ YOUR CORE INSTRUCTION:
                 {isTyping && (
                   <div className="flex gap-3">
                     <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] ${
-                        cognitiveProfile === "dyslexia"
-                          ? "border-[#E6DCC8] bg-[#F3EFE6] text-[#605544]"
-                          : "border-primary/20 bg-primary/5 text-primary"
-                      }`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs ${cognitiveProfile === "dyslexia"
+                        ? "border-[#E6DCC8] bg-[#F3EFE6] text-[#605544]"
+                        : "border-primary/20 bg-primary/5 text-primary"
+                        }`}
                     >
                       <Sparkles className="h-3 w-3" />
                     </div>
                     <div
-                      className={`max-w-[85%] rounded-lg border p-3.5 flex items-center gap-1.5 ${
-                        cognitiveProfile === "dyslexia"
-                          ? "bg-[#FFFDF9] border-[#E6DCC8]"
-                          : "border-border bg-background"
-                      }`}
+                      className={`max-w-[85%] rounded-lg border p-3.5 flex items-center gap-1.5 ${cognitiveProfile === "dyslexia"
+                        ? "bg-[#FFFDF9] border-[#E6DCC8]"
+                        : "border-border bg-background"
+                        }`}
                     >
                       {cognitiveProfile === "sensory" ? (
-                        <span className="text-[10px] text-muted-foreground font-medium">
+                        <span className="text-xs text-muted-foreground font-medium">
                           Tutor is compiling response...
                         </span>
                       ) : (
@@ -978,7 +1461,7 @@ YOUR CORE INSTRUCTION:
                     <button
                       key={sug}
                       onClick={() => handleSuggestionClick(sug)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-[10px] text-muted-foreground hover:border-foreground hover:text-foreground transition"
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground transition"
                     >
                       {sug} <ArrowUpRight className="h-2.5 w-2.5" />
                     </button>
@@ -988,16 +1471,14 @@ YOUR CORE INSTRUCTION:
 
               {/* Message input */}
               <div
-                className={`border-t border-border p-4 ${
-                  cognitiveProfile === "dyslexia"
-                    ? "bg-[#FAF6EE] border-[#E6DCC8]"
-                    : "bg-background"
-                }`}
+                className={`border-t border-border p-4 ${cognitiveProfile === "dyslexia"
+                  ? "bg-[#FAF6EE] border-[#E6DCC8]"
+                  : "bg-background"
+                  }`}
               >
                 <div
-                  className={`relative rounded-xl border border-border bg-elevated/40 p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all ${
-                    cognitiveProfile === "dyslexia" ? "border-[#E6DCC8] bg-[#FFFDF9]" : ""
-                  }`}
+                  className={`relative rounded-xl border border-border bg-elevated/40 p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all input-glow-pulse ${cognitiveProfile === "dyslexia" ? "border-[#E6DCC8] bg-[#FFFDF9]" : ""
+                    }`}
                 >
                   <Textarea
                     placeholder="Ask anything across your entire library…"
@@ -1034,21 +1515,42 @@ YOUR CORE INSTRUCTION:
                     <button
                       onClick={() => handleSend()}
                       disabled={!inputText.trim()}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition shrink-0 ${
-                        inputText.trim()
-                          ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
-                          : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition shrink-0 ${inputText.trim()
+                        ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
+                        : "bg-muted text-muted-foreground/60 cursor-not-allowed"
+                        }`}
                       aria-label="Send message"
                     >
                       <span>Send</span>
                       <Send className="h-3 w-3" />
                     </button>
                   </div>
-                  {attachmentMessage && (
-                    <p className="px-2 pt-2 text-[10px] font-medium text-muted-foreground">
-                      {attachmentMessage}
-                    </p>
+                  {/* File preview chip */}
+                  {attachedFilePreview && (
+                    <div className="mx-2 mb-2 mt-1 flex items-center gap-2 rounded-xl border border-border bg-elevated/60 backdrop-blur px-3 py-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+                        {attachedFilePreview.type.startsWith("image/") ? (
+                          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-foreground">{attachedFilePreview.name}</p>
+                        <p className="text-xs text-muted-foreground">{attachedFilePreview.size}</p>
+                      </div>
+                      {attachmentMessage ? (
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+                      ) : (
+                        <button
+                          onClick={() => setAttachedFilePreview(null)}
+                          className="rounded p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                          aria-label="Remove attachment"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1069,9 +1571,11 @@ YOUR CORE INSTRUCTION:
                   <p className="font-semibold text-foreground">
                     Scholar Level {Math.floor((isHydrated ? xp : 0) / 300) + 1}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{isHydrated ? xp : 0} total XP</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isHydrated ? xp : 0} total XP
+                  </p>
                 </div>
-                <div className="flex items-center gap-1 rounded-full border border-orange-500/20 bg-orange-500/10 px-2 py-0.5 text-[10px] font-bold text-orange-500">
+                <div className="flex items-center gap-1 rounded-full border border-orange-500/20 bg-orange-500/10 px-2 py-0.5 text-xs font-bold text-orange-500">
                   {isHydrated ? streak : 0} day streak
                 </div>
               </div>
@@ -1092,7 +1596,7 @@ YOUR CORE INSTRUCTION:
 
               {/* Badges */}
               <div className="mt-4 pt-3 border-t border-border/50">
-                <Label className="text-[10px] text-muted-foreground uppercase font-bold">
+                <Label className="text-xs text-muted-foreground uppercase font-bold">
                   Highlights
                 </Label>
                 <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1113,7 +1617,7 @@ YOUR CORE INSTRUCTION:
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center gap-1.5">
                 Study reminders
               </h3>
-              <div className="mt-3 space-y-2 text-[10px] text-muted-foreground">
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                 {reminderItems.map((item) => (
                   <div key={item} className="flex items-start gap-1.5 leading-normal">
                     <span className="mt-0.5 text-primary">•</span>
@@ -1123,7 +1627,9 @@ YOUR CORE INSTRUCTION:
                 {(isHydrated ? xp : 0) < 1000 && (
                   <div className="flex items-start gap-1.5 leading-normal font-medium text-amber-500">
                     <span className="mt-0.5">•</span>
-                    <span>Only {1000 - (isHydrated ? xp : 0)} XP needed to reach the next milestone.</span>
+                    <span>
+                      Only {1000 - (isHydrated ? xp : 0)} XP needed to reach the next milestone.
+                    </span>
                   </div>
                 )}
               </div>
@@ -1139,25 +1645,24 @@ YOUR CORE INSTRUCTION:
 
                 {/* Micro-reward Banner */}
                 {showReward && (
-                  <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-center text-[10px] font-semibold text-emerald-500 animate-bounce">
+                  <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-center text-xs font-semibold text-emerald-500 animate-bounce">
                     Focus check complete. +15 XP
                   </div>
                 )}
 
                 <div className="mt-4 flex-1 space-y-2.5 overflow-y-auto min-h-[200px]">
                   {checkpoints.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border bg-background/70 p-3 text-[10px] text-muted-foreground">
+                    <div className="rounded-lg border border-dashed border-border bg-background/70 p-3 text-xs text-muted-foreground">
                       Add your first study goal to see checkpoints here.
                     </div>
                   ) : (
                     checkpoints.map((c) => (
                       <label
                         key={c.id}
-                        className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition ${
-                          c.completed
-                            ? "bg-emerald-500/5 border-emerald-500/20"
-                            : "bg-background border-border hover:bg-muted"
-                        }`}
+                        className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition ${c.completed
+                          ? "bg-emerald-500/5 border-emerald-500/20"
+                          : "bg-background border-border hover:bg-muted"
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -1178,11 +1683,10 @@ YOUR CORE INSTRUCTION:
                           className="mt-0.5 rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
                         />
                         <span
-                          className={`text-[11px] leading-tight ${
-                            c.completed
-                              ? "line-through text-muted-foreground font-medium"
-                              : "text-foreground font-semibold"
-                          }`}
+                          className={`text-xs leading-tight ${c.completed
+                            ? "line-through text-muted-foreground font-medium"
+                            : "text-foreground font-semibold"
+                            }`}
                         >
                           {c.label}
                         </span>

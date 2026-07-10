@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
@@ -7,8 +7,8 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/auth/sign-in")({
   head: () => ({
     meta: [
-      { title: "Sign in — tutor.vigilance.rw" },
-      { name: "description", content: "Sign in to your tutor.vigilance.rw account." },
+      { title: "Sign in to Clarity — tutor.vigilance.rw" },
+      { name: "description", content: "Sign in to Clarity AI Tutor." },
     ],
   }),
   component: SignIn,
@@ -18,6 +18,16 @@ function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) {
+        navigate({ to: "/app" as any });
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +46,7 @@ function SignIn() {
       }
 
       let role = "student";
-      
+
       if (data?.user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -57,11 +67,14 @@ function SignIn() {
         }
 
         // Save local profile settings sync
-        localStorage.setItem("user_profile", JSON.stringify({
-          name: profile?.name || "User",
-          email: data.user.email,
-          role: role,
-        }));
+        localStorage.setItem(
+          "user_profile",
+          JSON.stringify({
+            name: profile?.name || "User",
+            email: data.user.email,
+            role: role,
+          }),
+        );
       } else {
         alert("Authentication failed: User details not returned.");
         return;
@@ -97,7 +110,10 @@ function SignIn() {
       footer={
         <>
           Don&apos;t have an account?{" "}
-          <Link to="/auth/sign-up" className="font-medium text-foreground underline underline-offset-2">
+          <Link
+            to="/auth/sign-up"
+            className="font-medium text-foreground underline underline-offset-2"
+          >
             Create one
           </Link>
         </>

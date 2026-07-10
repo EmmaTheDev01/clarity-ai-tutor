@@ -57,22 +57,11 @@ type Note = {
 const removedStaticNoteIds = new Set(["n1", "n2", "n3"]);
 
 const readStoredNotes = () => {
-  if (typeof window === "undefined") return appGuideNotes;
-  try {
-    const stored = localStorage.getItem("digital_notebook");
-    const parsed = stored ? JSON.parse(stored) : [];
-    const userNotes = Array.isArray(parsed)
-      ? parsed.filter((note: Note) => !removedStaticNoteIds.has(note.id))
-      : [];
-    return [...appGuideNotes, ...userNotes];
-  } catch {
-    return appGuideNotes;
-  }
+  return appGuideNotes;
 };
 
 const persistUserNotes = (notes: Note[]) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("digital_notebook", JSON.stringify(notes.filter((note) => !note.readOnly)));
+  // Local storage persistence disabled
 };
 
 function NotesPage() {

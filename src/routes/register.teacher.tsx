@@ -34,7 +34,7 @@ function TeacherRegister() {
 
   const toggleSubject = (s: string) => {
     setSelectedSubjects((prev) =>
-      prev.includes(s) ? prev.filter((item) => item !== s) : [...prev, s]
+      prev.includes(s) ? prev.filter((item) => item !== s) : [...prev, s],
     );
   };
 
@@ -76,14 +76,17 @@ function TeacherRegister() {
     }
 
     // Direct local state simulation fallbacks
-    localStorage.setItem("user_profile", JSON.stringify({
-      name,
-      email,
-      role: "teacher",
-      institution,
-      credentialId,
-      subjects: selectedSubjects,
-    }));
+    localStorage.setItem(
+      "user_profile",
+      JSON.stringify({
+        name,
+        email,
+        role: "teacher",
+        institution,
+        credentialId,
+        subjects: selectedSubjects,
+      }),
+    );
 
     navigate({ to: "/teacher" as any });
   };
@@ -95,7 +98,10 @@ function TeacherRegister() {
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/auth/sign-in" className="font-medium text-foreground underline underline-offset-2">
+          <Link
+            to="/auth/sign-in"
+            className="font-medium text-foreground underline underline-offset-2"
+          >
             Sign in
           </Link>
         </>
@@ -165,7 +171,9 @@ function TeacherRegister() {
         {/* Areas of Expertise */}
         <div className="border-t border-border pt-4">
           <Label>Subjects of Expertise</Label>
-          <p className="text-[10px] text-muted-foreground mb-3">Select the subjects you instruct to map dynamic AI sandbox prompts.</p>
+          <p className="text-[10px] text-muted-foreground mb-3">
+            Select the subjects you instruct to map dynamic AI sandbox prompts.
+          </p>
           <div className="flex flex-col gap-2">
             {subjects.map((s) => {
               const active = selectedSubjects.includes(s);

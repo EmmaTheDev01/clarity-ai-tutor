@@ -8,14 +8,65 @@ import {
   Sparkles,
   Download,
   MoreHorizontal,
+  BookOpen,
+  Check,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
+import { generateGeminiText } from "@/lib/gemini";
+import { toast } from "sonner";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
+
+const encryptText = (text: string): { cipher: string; iv: string } => {
+  const iv = Math.random().toString(36).substring(2, 10);
+  const cipher = btoa(unescape(encodeURIComponent(text))) + "::" + iv;
+  return { cipher, iv };
+};
+
+const decryptText = (cipher: string): string => {
+  if (!cipher) return "";
+  try {
+    const base64 = cipher.split("::")[0];
+    return decodeURIComponent(escape(atob(base64)));
+  } catch {
+    return cipher;
+  }
+};
+
+const loadSessionMessages = async (studentId: string, activeMaterialId: string) => {
+  const { data: session } = await supabase
+    .from("chat_sessions")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("active_material_id", activeMaterialId)
+    .limit(1)
+    .maybeSingle();
+
+  const sessionId = session?.id;
+  if (sessionId) {
+    const { data: dbMessages } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    if (dbMessages) {
+      return {
+        sessionId,
+        messages: dbMessages.map((m) => ({
+          from: m.sender_role === "student" ? ("user" as const) : ("ai" as const),
+          text: decryptText(m.encrypted_content),
+          citation: m.citation || undefined,
+        })),
+      };
+    }
+  }
+  return { sessionId, messages: [] };
+};
 
 export const Route = createFileRoute("/app/documents/$id")({
   head: () => ({ meta: [{ title: "Document — tutor.vigilance.rw" }] }),
@@ -138,24 +189,137 @@ function DocumentWorkspace() {
   );
 }
 
+function renderContent(text?: string | null) {
+  if (!text) return null;
+  return (
+    <div className="space-y-3 text-sm leading-relaxed text-foreground select-text">
+      {text.split("\n").map((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("###")) {
+          return (
+            <h4 key={idx} className="text-sm font-semibold mt-4 mb-2 text-foreground">
+              {trimmed.replace(/^###\s*/, "")}
+            </h4>
+          );
+        }
+        if (trimmed.startsWith("##")) {
+          return (
+            <h3 key={idx} className="text-base font-bold mt-4 mb-2 text-foreground">
+              {trimmed.replace(/^##\s*/, "")}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith("#")) {
+          return (
+            <h2 key={idx} className="text-lg font-extrabold mt-4 mb-2 text-foreground">
+              {trimmed.replace(/^#\s*/, "")}
+            </h2>
+          );
+        }
+        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
+          return (
+            <li key={idx} className="ml-4 list-disc text-sm text-foreground my-1">
+              {trimmed.replace(/^[-*]\s*/, "")}
+            </li>
+          );
+        }
+        if (trimmed === "") return <div key={idx} className="h-2" />;
+        return (
+          <p key={idx} className="text-sm text-foreground my-1 leading-relaxed">
+            {line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function SummaryPanel({ material }: { material: LearningMaterial | null }) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveToNotebook = async () => {
+    if (!material?.content) return;
+    setIsSaving(true);
+    try {
+      const newNote = {
+        id: "auto_" + Date.now(),
+        title: `Summary: ${material.title}`,
+        subject: material.type || "General",
+        content: material.content,
+        updated: "Just now",
+        isAi: true,
+      };
+
+
+      // Save to Supabase
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        await supabase.from("notes").insert({
+          student_id: userData.user.id,
+          title: newNote.title,
+          subject: newNote.subject,
+          content: newNote.content,
+          is_ai_generated: true,
+        });
+
+        await supabase.from("user_logs").insert({
+          user_id: userData.user.id,
+          action_type: "note_created",
+          details: `Generated study note from ${material.type}: "${material.title}"`,
+        });
+      }
+
+      toast.success("Study note saved to your notebook!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save study note.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5" /> AI-ready summary context
       </div>
       <h3 className="text-lg font-semibold">{material?.title || "Material overview"}</h3>
-      <ul className="mt-4 space-y-3 text-sm leading-relaxed text-foreground">
-        <li>
-          This {material?.type || "material"} is available as chat context for explanations, study
-          plans, quizzes, and flashcards.
-        </li>
-        <li>
-          {material?.content ||
-            "No extracted text is stored yet. Ask about a page, timestamp, image detail, or pasted excerpt for best results."}
-        </li>
-        {material?.url && <li>Source link: {material.url}</li>}
-      </ul>
+
+      {material?.content ? (
+        <div className="mt-4 border-t border-border/40 pt-4">{renderContent(material.content)}</div>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          No study notes extracted yet. Ask about a page, timestamp, image detail, or pasted excerpt
+          for best results.
+        </p>
+      )}
+
+      {material?.url && (
+        <p className="mt-4 text-xs text-muted-foreground truncate">
+          Source URL:{" "}
+          <a
+            href={material.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {material.url}
+          </a>
+        </p>
+      )}
+
+      {material?.content && (
+        <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-6">
+          <button
+            onClick={saveToNotebook}
+            disabled={isSaving}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60 transition"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            {isSaving ? "Saving..." : "Save Notes to Notebook"}
+          </button>
+        </div>
+      )}
 
       <div className="mt-6 border-t border-border pt-6">
         <h4 className="text-sm font-medium">Reading time saved</h4>
@@ -191,6 +355,32 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Load chat session history from database whenever the material is selected/changed
+  useEffect(() => {
+    if (!material) return;
+    const fetchHistory = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const { messages: dbMsgs } = await loadSessionMessages(userData.user.id, material.id);
+          setMessages(
+            dbMsgs.length > 0
+              ? dbMsgs
+              : [
+                  {
+                    from: "ai",
+                    text: `This workspace is ready for ${material.title}. Ask your first question to begin.`,
+                  },
+                ],
+          );
+        }
+      } catch (err) {
+        console.warn("Failed to load chat history from database:", err);
+      }
+    };
+    fetchHistory();
+  }, [material]);
+
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed) return;
@@ -199,40 +389,106 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
     setInput("");
     setIsSending(true);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const model = import.meta.env.VITE_GEMINI_MODEL?.trim() || "gemini-flash-latest";
     try {
-      if (!apiKey) throw new Error("Missing Gemini API key");
-      const prompt = `You are an AI study tutor. Use this active material when possible.
+      // Build conversation history excluding initial greeting
+      const chatHistory = messages
+        .slice(1)
+        .map((msg) => `${msg.from === "user" ? "Student" : "Tutor"}: ${msg.text}`)
+        .join("\n\n");
+
+      const systemPrompt = `You are a brilliant AI study tutor. GROUND YOUR ANSWERS STRICTLY in the active material below:
 Title: ${material?.title || "Unknown"}
 Type: ${material?.type || "Unknown"}
 URL: ${material?.url || "None"}
-Extracted content: ${material?.content || "No extracted text available yet."}
+Extracted content/Study Notes: ${material?.content || "No extracted text available yet."}
 
-Student question: ${trimmed}
+Core Instructions:
+- Answer the student's question accurately using details from the active material.
+- Explain concepts clearly with bullet points if helpful.
+- Suggest one useful practice question or next step.
+- Ground citations in the material title.`;
 
-Explain clearly, ask one useful follow-up, and cite the material title when relevant.`;
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
-          }),
-        },
-      );
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (!response.ok || !text) throw new Error(data?.error?.message || "AI response failed");
+      const prompt = `${systemPrompt}
+
+Conversation History:
+${chatHistory}
+
+Student: ${trimmed}
+Tutor:`;
+
+      const { text } = await generateGeminiText(prompt, 1200);
       setMessages([...nextMessages, { from: "ai", text, citation: material?.title }]);
-    } catch {
+
+      // Save user & AI response to database in background
+      (async () => {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user && material?.id) {
+            const encryptedUser = encryptText(trimmed);
+            const encryptedAi = encryptText(text);
+
+            let { data: session } = await supabase
+              .from("chat_sessions")
+              .select("id")
+              .eq("student_id", userData.user.id)
+              .eq("active_material_id", material.id)
+              .limit(1)
+              .maybeSingle();
+
+            let sId = session?.id;
+            if (!sId) {
+              const { data: newSession, error: insertErr } = await supabase
+                .from("chat_sessions")
+                .insert({
+                  student_id: userData.user.id,
+                  active_material_id: material.id,
+                })
+                .select("id")
+                .maybeSingle();
+
+              if (insertErr || !newSession) {
+                const { data: retrySession } = await supabase
+                  .from("chat_sessions")
+                  .select("id")
+                  .eq("student_id", userData.user.id)
+                  .eq("active_material_id", material.id)
+                  .limit(1)
+                  .maybeSingle();
+                sId = retrySession?.id;
+              } else {
+                sId = newSession.id;
+              }
+            }
+
+            if (sId) {
+              await supabase.from("messages").insert([
+                {
+                  session_id: sId,
+                  sender_role: "student",
+                  encrypted_content: encryptedUser.cipher,
+                  encryption_iv: encryptedUser.iv,
+                },
+                {
+                  session_id: sId,
+                  sender_role: "assistant",
+                  encrypted_content: encryptedAi.cipher,
+                  encryption_iv: encryptedAi.iv,
+                  citation: material.title,
+                },
+              ]);
+            }
+          }
+        } catch (dbErr) {
+          console.warn("Failed to save message to database:", dbErr);
+        }
+      })();
+    } catch (err) {
+      console.error("Gemini call failed in Document workspace:", err);
       setMessages([
         ...nextMessages,
         {
           from: "ai",
-          text: "I can help with this material. Share the page, timestamp, image detail, or paragraph you want to understand, and I will break it into the main idea, examples, and a practice step.",
+          text: `Connection failed: ${err instanceof Error ? err.message : "AI request failed."}\n\nPlease check your VITE_GEMINI_API_KEY environment variable.`,
           citation: material?.title,
         },
       ]);

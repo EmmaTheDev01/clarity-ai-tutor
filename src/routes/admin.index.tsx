@@ -26,17 +26,77 @@ export const Route = createFileRoute("/admin/")({
 
 // Mock telemetry stats for subscriptions & platform usage
 const mockSubscriptionLogs = [
-  { id: "sub1", name: "David M.", email: "david.m@univ.edu", plan: "Pro", status: "Active", price: "$15/mo", renewal: "2026-08-01" },
-  { id: "sub2", name: "Clara Umutoni", email: "clara@mit.edu", plan: "Enterprise", status: "Active", price: "$49/mo", renewal: "2026-09-12" },
-  { id: "sub3", name: "Marc K.", email: "m.marc@school.rw", plan: "Pro", status: "Trialing", price: "$0 (Trial)", renewal: "2026-07-20" },
-  { id: "sub4", name: "Jean de Dieu", email: "jdd@ur.ac.rw", plan: "Free", status: "Active", price: "$0", renewal: "N/A" },
+  {
+    id: "sub1",
+    name: "David M.",
+    email: "david.m@univ.edu",
+    plan: "Pro",
+    status: "Active",
+    price: "$15/mo",
+    renewal: "2026-08-01",
+  },
+  {
+    id: "sub2",
+    name: "Clara Umutoni",
+    email: "clara@mit.edu",
+    plan: "Enterprise",
+    status: "Active",
+    price: "$49/mo",
+    renewal: "2026-09-12",
+  },
+  {
+    id: "sub3",
+    name: "Marc K.",
+    email: "m.marc@school.rw",
+    plan: "Pro",
+    status: "Trialing",
+    price: "$0 (Trial)",
+    renewal: "2026-07-20",
+  },
+  {
+    id: "sub4",
+    name: "Jean de Dieu",
+    email: "jdd@ur.ac.rw",
+    plan: "Free",
+    status: "Active",
+    price: "$0",
+    renewal: "N/A",
+  },
 ];
 
 const mockClassroomAudits = [
-  { id: "c1", name: "Linear Algebra 101", teacher: "Dr. Sarah Adeyemi", materials: 4, quizLoop: "Pass", students: 4 },
-  { id: "c2", name: "Introduction to Calculus", teacher: "Prof. Jean Pierre", materials: 2, quizLoop: "Fail", students: 18 },
-  { id: "c3", name: "Advanced Deep Learning", teacher: "Dr. Sarah Adeyemi", materials: 8, quizLoop: "Pass", students: 25 },
-  { id: "c4", name: "Cell Biology Practice", teacher: "Dr. Janet Mukamana", materials: 3, quizLoop: "Pass", students: 12 },
+  {
+    id: "c1",
+    name: "Linear Algebra 101",
+    teacher: "Dr. Sarah Adeyemi",
+    materials: 4,
+    quizLoop: "Pass",
+    students: 4,
+  },
+  {
+    id: "c2",
+    name: "Introduction to Calculus",
+    teacher: "Prof. Jean Pierre",
+    materials: 2,
+    quizLoop: "Fail",
+    students: 18,
+  },
+  {
+    id: "c3",
+    name: "Advanced Deep Learning",
+    teacher: "Dr. Sarah Adeyemi",
+    materials: 8,
+    quizLoop: "Pass",
+    students: 25,
+  },
+  {
+    id: "c4",
+    name: "Cell Biology Practice",
+    teacher: "Dr. Janet Mukamana",
+    materials: 3,
+    quizLoop: "Pass",
+    students: 12,
+  },
 ];
 
 const cognitiveBreakdown = [
@@ -77,20 +137,19 @@ function AdminPortal() {
         if (matCount) setMaterialsCount(matCount);
 
         // Fetch subscriptions from database
-        const { data: subs } = await supabase
-          .from("subscriptions")
-          .select("*")
-          .limit(10);
+        const { data: subs } = await supabase.from("subscriptions").select("*").limit(10);
         if (subs && subs.length > 0) {
-          setSubscriptionsList(subs.map((s, index) => ({
-            id: s.id || `sub_${index}`,
-            name: s.subscriber_name || "Platform Student",
-            email: s.subscriber_email || "student@tutor.vigilance.rw",
-            plan: s.plan_name || "Pro",
-            status: s.status || "Active",
-            price: s.status === "Trialing" ? "$0 (Trial)" : "$15/mo",
-            renewal: s.renewal_date || "2026-08-01"
-          })));
+          setSubscriptionsList(
+            subs.map((s, index) => ({
+              id: s.id || `sub_${index}`,
+              name: s.subscriber_name || "Platform Student",
+              email: s.subscriber_email || "student@tutor.vigilance.rw",
+              plan: s.plan_name || "Pro",
+              status: s.status || "Active",
+              price: s.status === "Trialing" ? "$0 (Trial)" : "$15/mo",
+              renewal: s.renewal_date || "2026-08-01",
+            })),
+          );
         }
       } catch (err) {
         console.warn("Could not retrieve live database statistics for administrator portal:", err);
@@ -108,7 +167,9 @@ function AdminPortal() {
             <span className="text-sm font-bold tracking-wider text-foreground flex items-center gap-1.5">
               <Brain className="h-4 w-4 text-primary" />
               tutor.vigilance.rw
-              <span className="rounded bg-red-500/10 text-red-500 px-1.5 py-0.5 text-[10px] font-semibold">System Administrator</span>
+              <span className="rounded bg-red-500/10 text-red-500 px-1.5 py-0.5 text-[10px] font-semibold">
+                System Administrator
+              </span>
             </span>
           </div>
 
@@ -130,14 +191,17 @@ function AdminPortal() {
 
       {/* Main Admin Workspace Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        
         {/* Core Stats Overview Row */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="p-5 flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Active Users</p>
-                <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">{totalUsers.toLocaleString()}</h3>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Total Active Users
+                </p>
+                <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">
+                  {totalUsers.toLocaleString()}
+                </h3>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg text-blue-500 bg-blue-500/10">
                 <Users className="h-4 w-4" />
@@ -152,8 +216,12 @@ function AdminPortal() {
           <Card className="p-5 flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active Classrooms</p>
-                <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">{activeClassrooms}</h3>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Active Classrooms
+                </p>
+                <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">
+                  {activeClassrooms}
+                </h3>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-500 bg-emerald-500/10">
                 <CreditCard className="h-4 w-4" />
@@ -168,8 +236,12 @@ function AdminPortal() {
           <Card className="p-5 flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Course Materials</p>
-                <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">{materialsCount}</h3>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Course Materials
+                </p>
+                <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">
+                  {materialsCount}
+                </h3>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg text-purple-500 bg-purple-500/10">
                 <BookmarkCheck className="h-4 w-4" />
@@ -184,7 +256,9 @@ function AdminPortal() {
           <Card className="p-5 flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Queries & Tokens</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  AI Queries & Tokens
+                </p>
                 <h3 className="mt-1 text-2xl font-bold text-foreground tracking-tight">48.9k</h3>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 bg-orange-500/10">
@@ -200,7 +274,6 @@ function AdminPortal() {
 
         {/* Secondary Dashboard Grid */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          
           {/* Left Column: Cognitive Profile Distributions (5/12 columns) */}
           <Card className="lg:col-span-5 p-6 flex flex-col justify-between">
             <div>
@@ -282,25 +355,31 @@ function AdminPortal() {
                           <p className="text-[10px] text-muted-foreground">{log.email}</p>
                         </td>
                         <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-semibold border ${
-                            log.plan === "Enterprise"
-                              ? "bg-purple-500/10 border-purple-500/20 text-purple-500"
-                              : log.plan === "Pro"
-                              ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
-                              : "bg-slate-500/10 border-slate-500/20 text-muted-foreground"
-                          }`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[9px] font-semibold border ${
+                              log.plan === "Enterprise"
+                                ? "bg-purple-500/10 border-purple-500/20 text-purple-500"
+                                : log.plan === "Pro"
+                                  ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
+                                  : "bg-slate-500/10 border-slate-500/20 text-muted-foreground"
+                            }`}
+                          >
                             {log.plan}
                           </span>
                         </td>
                         <td className="py-3">
-                          <span className={`text-[10px] font-medium ${
-                            log.status === "Active" ? "text-emerald-500" : "text-amber-500"
-                          }`}>
+                          <span
+                            className={`text-[10px] font-medium ${
+                              log.status === "Active" ? "text-emerald-500" : "text-amber-500"
+                            }`}
+                          >
                             ● {log.status}
                           </span>
                         </td>
                         <td className="py-3 font-medium text-foreground">{log.price}</td>
-                        <td className="py-3 text-right text-muted-foreground font-mono text-[10px]">{log.renewal}</td>
+                        <td className="py-3 text-right text-muted-foreground font-mono text-[10px]">
+                          {log.renewal}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -323,12 +402,18 @@ function AdminPortal() {
                         <td className="py-3">
                           <p className="text-foreground">{item.teacher}</p>
                         </td>
-                        <td className="py-3 text-center font-medium text-foreground">{item.students}</td>
-                        <td className="py-3 text-center text-muted-foreground">{item.materials} files</td>
+                        <td className="py-3 text-center font-medium text-foreground">
+                          {item.students}
+                        </td>
+                        <td className="py-3 text-center text-muted-foreground">
+                          {item.materials} files
+                        </td>
                         <td className="py-3 text-right">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                            item.quizLoop === "Pass" ? "text-emerald-500" : "text-red-500"
-                          }`}>
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                              item.quizLoop === "Pass" ? "text-emerald-500" : "text-red-500"
+                            }`}
+                          >
                             {item.quizLoop === "Pass" ? (
                               <>
                                 <CheckCircle className="h-3 w-3" /> Passes Check
@@ -347,9 +432,7 @@ function AdminPortal() {
               )}
             </div>
           </Card>
-
         </div>
-
       </main>
     </div>
   );

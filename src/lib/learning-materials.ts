@@ -16,6 +16,7 @@ export type LearningMaterial = {
   mimeType?: string | null;
   fileSize?: number | null;
   icon: typeof FileText;
+  pinned?: boolean;
 };
 
 type MaterialRow = {
@@ -30,6 +31,7 @@ type MaterialRow = {
   file_size?: number | null;
   updated_at?: string | null;
   created_at?: string | null;
+  pinned?: boolean | null;
 };
 
 const readableBytes = (bytes?: number | null) => {
@@ -42,6 +44,25 @@ const readableBytes = (bytes?: number | null) => {
     unit += 1;
   }
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+};
+
+const PINNED_MATERIALS_STORAGE_KEY = "clarity_material_pins";
+
+const getPinnedMaterialIds = (): string[] => {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  const raw = window.localStorage.getItem(PINNED_MATERIALS_STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as string[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const setPinnedMaterialIds = (ids: string[]) => {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  window.localStorage.setItem(PINNED_MATERIALS_STORAGE_KEY, JSON.stringify(ids));
 };
 
 export const getMaterialIcon = (type?: string) => {
@@ -85,6 +106,7 @@ export const detectMaterialType = (input: {
 
 export const mapMaterialRow = (item: MaterialRow): LearningMaterial => {
   const type = (item.type || item.material_type || "File") as MaterialType;
+  const pinnedIds = getPinnedMaterialIds();
   return {
     id: item.id,
     title: item.title,
@@ -101,10 +123,97 @@ export const mapMaterialRow = (item: MaterialRow): LearningMaterial => {
     mimeType: item.mime_type,
     fileSize: item.file_size,
     icon: getMaterialIcon(type),
+    pinned: typeof item.pinned === "boolean" ? item.pinned : pinnedIds.includes(item.id),
   };
 };
 
+export async function renameMaterial(id: string, title: string) {
+  const { error } = await supabase.from("materials").update({ title }).eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
+export async function deleteMaterial(id: string) {
+  const { error } = await supabase.from("materials").delete().eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
+export async function togglePinMaterial(id: string, pinned: boolean) {
+  try {
+    const { error } = await supabase.from("materials").update({ pinned }).eq("id", id);
+    if (error) {
+      const message = error.message || "";
+      if (message.includes("pinned") || message.includes("column")) {
+        const pinnedIds = getPinnedMaterialIds();
+        const nextIds = pinned ? [...new Set([...pinnedIds, id])] : pinnedIds.filter((itemId) => itemId !== id);
+        setPinnedMaterialIds(nextIds);
+        return false;
+      }
+      throw error;
+    }
+    const pinnedIds = getPinnedMaterialIds();
+    const nextIds = pinned ? [...new Set([...pinnedIds, id])] : pinnedIds.filter((itemId) => itemId !== id);
+    setPinnedMaterialIds(nextIds);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("pinned") || message.includes("column")) {
+      const pinnedIds = getPinnedMaterialIds();
+      const nextIds = pinned ? [...new Set([...pinnedIds, id])] : pinnedIds.filter((itemId) => itemId !== id);
+      setPinnedMaterialIds(nextIds);
+      return false;
+    }
+    throw error;
+  }
+}
+
+export async function createGeneralChatMaterial() {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) throw new Error("Please sign in before chatting.");
+
+  const { data: existing } = await supabase
+    .from("materials")
+    .select("*")
+    .eq("title", "General Chat")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) return mapMaterialRow(existing);
+
+  const { data, error } = await supabase
+    .from("materials")
+    .insert({
+      title: "General Chat",
+      type: "Text",
+      content: "General chat workspace",
+      uploaded_by: authData.user.id,
+      source_kind: "text",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapMaterialRow(data);
+}
+
+import { generateGeminiText, generateGeminiMultimodal } from "./gemini";
+
 const cleanFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
 
 export async function uploadLearningMaterial({
   file,
@@ -140,13 +249,57 @@ export async function uploadLearningMaterial({
     publicUrl = data.publicUrl;
   }
 
+  // AI-assisted study guide/notes extraction
+  let extractedContent = content?.trim() || null;
+
+  try {
+    if (file) {
+      if (
+        file.type.startsWith("text/") ||
+        file.name.endsWith(".txt") ||
+        file.name.endsWith(".md")
+      ) {
+        extractedContent = await file.text();
+      } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+        const base64 = await fileToBase64(file);
+        const prompt = `You are a brilliant AI study tutor. Please generate comprehensive study notes, a detailed summary, and key terms/concepts from this PDF document.
+Use clean, well-spaced markdown format with headings (## and ###) and bullet points. Make sure you cover all the major sections of the document to help the student learn effectively.`;
+        const result = await generateGeminiMultimodal(prompt, base64, "application/pdf");
+        extractedContent = result.text;
+      } else if (file.type.startsWith("image/")) {
+        const base64 = await fileToBase64(file);
+        const prompt = `Explain this image or diagram in detail. Generate structured study notes and lists of all key terms and visual concepts visible in the image. Use clean markdown format.`;
+        const result = await generateGeminiMultimodal(prompt, base64, file.type);
+        extractedContent = result.text;
+      } else if (file.type.startsWith("audio/")) {
+        const base64 = await fileToBase64(file);
+        const prompt = `Analyze this audio recording. Summarize the main topics, transcribe/explain the key talking points, and generate detailed study notes. Use clean markdown format.`;
+        const result = await generateGeminiMultimodal(prompt, base64, file.type);
+        extractedContent = result.text;
+      } else if (file.type.startsWith("video/")) {
+        const base64 = await fileToBase64(file);
+        const prompt = `Analyze this video clip. Explain the core concepts, outline the key visual and audio elements, and generate detailed study notes/summaries. Use clean markdown format.`;
+        const result = await generateGeminiMultimodal(prompt, base64, file.type);
+        extractedContent = result.text;
+      }
+    } else if (link) {
+      const prompt = `You are an expert AI study assistant. The user added this link for learning: ${link} (${normalizedTitle}).
+Analyze this source. Explain what it contains and generate detailed study notes, a comprehensive summary, and lists of key concepts for studying.
+Use clear, beautiful markdown format with headings and bullet points.`;
+      const result = await generateGeminiText(prompt, 1200);
+      extractedContent = result.text;
+    }
+  } catch (err) {
+    console.warn("AI text extraction failed during upload, proceeding with default content:", err);
+  }
+
   const { data, error } = await supabase
     .from("materials")
     .insert({
       title: normalizedTitle,
       type,
       url: publicUrl,
-      content: content?.trim() || null,
+      content: extractedContent,
       storage_path: storagePath,
       mime_type: file?.type || null,
       file_size: file?.size || null,

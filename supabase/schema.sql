@@ -303,44 +303,54 @@ CREATE POLICY "Users view own logs" ON public.user_logs
 -- GLOBAL ADMIN BYPASS OVERRIDES (RLS Policies for Admins)
 -- =========================================================================
 
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid() AND role = 'admin'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE POLICY "Admins have full access on profiles" ON public.profiles FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on student_profiles" ON public.student_profiles FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on classrooms" ON public.classrooms FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on classroom_students" ON public.classroom_students FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on quizzes" ON public.quizzes FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on materials" ON public.materials FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on quiz_attempts" ON public.quiz_attempts FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on notes" ON public.notes FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on favorites" ON public.favorites FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on chat_sessions" ON public.chat_sessions FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on messages" ON public.messages FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on subscriptions" ON public.subscriptions FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 CREATE POLICY "Admins have full access on user_logs" ON public.user_logs FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.is_admin()
 );
 
 

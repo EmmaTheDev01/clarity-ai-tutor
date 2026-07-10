@@ -14,28 +14,32 @@ const mockRiddles = [
   {
     id: 1,
     subject: "Mathematics",
-    question: "I am a vector space element. When multiplied by a transformation matrix A, my direction remains unchanged, only my length is scaled. What am I?",
+    question:
+      "I am a vector space element. When multiplied by a transformation matrix A, my direction remains unchanged, only my length is scaled. What am I?",
     answer: "eigenvector",
     hints: "Av = λv. Think about eigenvalues.",
   },
   {
     id: 2,
     subject: "Neural Networks",
-    question: "I am the calculus rule used in backpropagation to compute composite partial derivatives layer-by-layer. What am I?",
+    question:
+      "I am the calculus rule used in backpropagation to compute composite partial derivatives layer-by-layer. What am I?",
     answer: "chain rule",
     hints: "dy/dx = (dy/du) * (du/dx).",
   },
   {
     id: 3,
     subject: "Physics",
-    question: "I am the law stating that current through a conductor is directly proportional to voltage and inversely proportional to resistance. What am I?",
+    question:
+      "I am the law stating that current through a conductor is directly proportional to voltage and inversely proportional to resistance. What am I?",
     answer: "ohm's law",
     hints: "V = IR.",
   },
   {
     id: 4,
     subject: "Computer Science",
-    question: "I am the algorithmic notation describing the worst-case execution time or space limits of a function. What am I?",
+    question:
+      "I am the algorithmic notation describing the worst-case execution time or space limits of a function. What am I?",
     answer: "big-o",
     hints: "For example, O(N log N) or O(1).",
   },
@@ -78,7 +82,7 @@ function BrainTeasersPage() {
       if (!isAlreadySolved) {
         const updatedSolved = [...solvedIds, currentRiddle.id];
         setSolvedIds(updatedSolved);
-        
+
         // Award +15 XP
         const newXp = xp + 15;
         setXp(newXp);
@@ -109,7 +113,6 @@ function BrainTeasersPage() {
   return (
     <AppShell title="Brain Teasers & Riddles">
       <div className="flex flex-col gap-6 lg:flex-row max-w-5xl mx-auto items-stretch">
-        
         {/* Left Card: Dynamic Puzzle Interface */}
         <div className="flex-1 space-y-4">
           <Card className="p-6 md:p-8 flex flex-col justify-between min-h-[450px] relative overflow-hidden">
@@ -199,14 +202,20 @@ function BrainTeasersPage() {
           {/* Trophy Scoreboard */}
           <Card className="p-5 border-primary/20 bg-elevated/40 flex flex-col items-center text-center">
             <Trophy className="h-8 w-8 text-primary mb-3" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Scholar Achievements</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Scholar Achievements
+            </h3>
             <p className="text-2xl font-bold text-foreground mt-2">{xp} XP</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Rank: Level {Math.floor(xp / 300) + 1} Scholar</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Rank: Level {Math.floor(xp / 300) + 1} Scholar
+            </p>
 
             <div className="mt-4 pt-3 border-t border-border w-full text-left space-y-2 text-[10px] text-muted-foreground">
               <div className="flex justify-between">
                 <span>Riddles Solved:</span>
-                <span className="font-bold text-foreground">{solvedIds.length} / {mockRiddles.length}</span>
+                <span className="font-bold text-foreground">
+                  {solvedIds.length} / {mockRiddles.length}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Current Streak:</span>
@@ -221,7 +230,7 @@ function BrainTeasersPage() {
               <Gamepad2 className="h-3.5 w-3.5 text-primary" />
               Riddle Collection
             </h3>
-            
+
             <div className="mt-3 flex-1 space-y-2 overflow-y-auto">
               {mockRiddles.map((r, idx) => {
                 const active = idx === activeIdx;
@@ -241,7 +250,9 @@ function BrainTeasersPage() {
                         : "border-border bg-background text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    <span>#{r.id} - {r.subject}</span>
+                    <span>
+                      #{r.id} - {r.subject}
+                    </span>
                     {solved ? (
                       <span className="text-emerald-500 font-bold text-[10px]">✓ Done</span>
                     ) : (
@@ -253,7 +264,6 @@ function BrainTeasersPage() {
             </div>
           </Card>
         </div>
-
       </div>
     </AppShell>
   );

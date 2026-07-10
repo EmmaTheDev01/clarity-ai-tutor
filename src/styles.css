@@ -99,9 +99,10 @@
   .reveal-wrapper {
     /* Fallback default state */
     opacity: 0;
-    transition: opacity var(--reveal-duration, 750ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
-                transform var(--reveal-duration, 750ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
-                scale var(--reveal-duration, 750ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+    transition:
+      opacity var(--reveal-duration, 750ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+      transform var(--reveal-duration, 750ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+      scale var(--reveal-duration, 750ms) cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
     will-change: opacity, transform, scale;
   }
 
@@ -276,6 +277,23 @@
     width: 100%;
     max-width: 64rem; /* fallback max-w-5xl */
     transform: scale(0.95);
-    transition: max-width 0.5s ease, transform 0.5s ease;
+    transition:
+      max-width 0.5s ease,
+      transform 0.5s ease;
+  }
+
+  @keyframes input-pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 4px color-mix(in srgb, var(--color-primary) 15%, transparent);
+      border-color: var(--color-border);
+    }
+    50% {
+      box-shadow: 0 0 16px color-mix(in srgb, var(--color-primary) 40%, transparent);
+      border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    }
+  }
+
+  .input-glow-pulse {
+    animation: input-pulse-glow 3s infinite ease-in-out;
   }
 }

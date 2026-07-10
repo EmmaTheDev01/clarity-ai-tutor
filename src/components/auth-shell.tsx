@@ -45,8 +45,8 @@ export function AuthShell({
           </div>
           <div>
             <p className="text-2xl font-semibold leading-snug tracking-tight text-foreground">
-              &ldquo;This has become an integral part of my daily learning workflow.
-              It completely changes how I process long video lectures.&rdquo;
+              &ldquo;This has become an integral part of my daily learning workflow. It completely
+              changes how I process long video lectures.&rdquo;
             </p>
             <div className="mt-6 border-t border-border pt-4">
               <div className="text-sm font-medium text-foreground">Mihir Wadekar</div>

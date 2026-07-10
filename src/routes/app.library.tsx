@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Search, Filter, MoreHorizontal } from "lucide-react";
+import { FileText, Search, Filter, MoreHorizontal, Loader2, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Input, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { MaterialUploader } from "@/components/material-uploader";
-import { LearningMaterial, mapMaterialRow } from "@/lib/learning-materials";
+import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
+import { DragDropOverlay } from "@/components/drag-drop-overlay";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/library")({
   head: () => ({ meta: [{ title: "Library — tutor.vigilance.rw" }] }),
@@ -18,6 +20,27 @@ function LibraryPage() {
   const [active, setActive] = useState<(typeof filters)[number]>("All");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<LearningMaterial[]>([]);
+  const [isDropUploading, setIsDropUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<LearningMaterial | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleFilesDropped = async (files: FileList) => {
+    if (files.length === 0) return;
+    setIsDropUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const material = await uploadLearningMaterial({ file });
+        setItems((prev) => [material, ...prev]);
+      }
+      toast.success(`${files.length} file(s) uploaded to library.`);
+    } catch (err) {
+      toast.error("Failed to upload dropped files.");
+      console.warn("Drop upload error:", err);
+    } finally {
+      setIsDropUploading(false);
+    }
+  };
 
   useEffect(() => {
     const loadMaterials = async () => {
@@ -35,6 +58,22 @@ function LibraryPage() {
     loadMaterials();
   }, []);
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from("materials").delete().eq("id", deleteTarget.id);
+      if (error) throw error;
+      setItems((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      toast.success(`"${deleteTarget.title}" deleted from library.`);
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete material.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const visibleItems = useMemo(() => {
     return items.filter((item) => {
       const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
@@ -51,9 +90,64 @@ function LibraryPage() {
       return true;
     });
   }, [active, items, query]);
+
   return (
     <AppShell title="Library">
-      <MaterialUploader onUploaded={(material) => setItems((prev) => [material, ...prev])} />
+      <DragDropOverlay onFilesDropped={handleFilesDropped} />
+
+      {/* Confirm Delete Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-elevated/95 backdrop-blur-xl p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20">
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </div>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-lg p-1 hover:bg-muted text-muted-foreground transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Delete Material</h3>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete{" "}
+              <span className="font-semibold text-foreground">"{deleteTarget.title}"</span>? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="rounded-xl bg-red-500 hover:bg-red-600 text-white px-4 py-2 text-xs font-extrabold transition flex items-center gap-2"
+              >
+                {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDropUploading && (
+        <div className="fixed bottom-4 right-4 z-40 bg-elevated/90 backdrop-blur border border-border p-4 rounded-xl shadow-xl flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-xs font-semibold">Uploading dropped files...</span>
+        </div>
+      )}
+
+      <MaterialUploader
+        onUploaded={(material) => {
+          setItems((prev) => [material, ...prev]);
+          toast.success(`"${material.title}" added to library.`);
+        }}
+      />
 
       {/* Toolbar */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
@@ -90,7 +184,7 @@ function LibraryPage() {
 
       {/* Table */}
       <div className="mt-6 overflow-hidden rounded-lg border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_120px_120px_40px] items-center gap-4 border-b border-border bg-elevated px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_120px_120px_80px] items-center gap-4 border-b border-border bg-elevated px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           <div>Name</div>
           <div className="hidden md:block">Size</div>
           <div className="hidden md:block">Updated</div>
@@ -99,12 +193,12 @@ function LibraryPage() {
         <ul>
           {visibleItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
-              <Link
-                to="/app/documents/$id"
-                params={{ id: it.id }}
-                className="grid grid-cols-[minmax(0,1fr)_120px_120px_40px] items-center gap-4 px-5 py-4 transition hover:bg-elevated"
-              >
-                <div className="flex min-w-0 items-center gap-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_120px_120px_80px] items-center gap-4 px-5 py-4 transition hover:bg-elevated">
+                <Link
+                  to="/app/documents/$id"
+                  params={{ id: it.id }}
+                  className="flex min-w-0 items-center gap-3"
+                >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
                     <it.icon className="h-4 w-4" strokeWidth={1.75} />
                   </div>
@@ -114,17 +208,26 @@ function LibraryPage() {
                       <Pill>{it.type}</Pill>
                     </div>
                   </div>
-                </div>
+                </Link>
                 <div className="hidden text-sm text-muted-foreground md:block">{it.size}</div>
                 <div className="hidden text-sm text-muted-foreground md:block">{it.updated}</div>
-                <button
-                  onClick={(e) => e.preventDefault()}
-                  className="justify-self-end rounded-md p-1.5 text-muted-foreground hover:bg-muted"
-                  aria-label="More"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </Link>
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    onClick={() => setDeleteTarget(it)}
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition"
+                    aria-label="Delete material"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted transition"
+                    aria-label="More options"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             </li>
           ))}
           {visibleItems.length === 0 && (

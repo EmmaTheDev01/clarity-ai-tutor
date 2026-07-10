@@ -74,9 +74,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "tutor.vigilance.rw — An AI tutor made exactly for you" },
-      { name: "description", content: "Turn your notes, documents, and reference materials into interactive chats, summaries, and personalized practice exams instantly." },
+      {
+        name: "description",
+        content:
+          "Turn your notes, documents, and reference materials into interactive chats, summaries, and personalized practice exams instantly.",
+      },
       { property: "og:title", content: "tutor.vigilance.rw — An AI tutor made exactly for you" },
-      { property: "og:description", content: "Turn your notes, documents, and reference materials into interactive chats, summaries, and personalized practice exams instantly." },
+      {
+        property: "og:description",
+        content:
+          "Turn your notes, documents, and reference materials into interactive chats, summaries, and personalized practice exams instantly.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -87,7 +95,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+      },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -111,6 +122,8 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { Toaster } from "@/components/ui/sonner";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -118,6 +131,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <Toaster />
     </QueryClientProvider>
   );
 }

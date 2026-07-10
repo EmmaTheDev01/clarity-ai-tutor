@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   LayoutGrid,
   Library,
@@ -14,6 +15,9 @@ import {
   Layers,
   BarChart3,
   Gamepad2,
+  AlertTriangle,
+  User,
+  CreditCard,
 } from "lucide-react";
 import { Kbd } from "./ui-kit";
 
@@ -39,20 +43,109 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const notifications = [];
+
+  useEffect(() => {
+    let userId = "";
+
+    const loadProfile = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          userId = userData.user.id;
+          const { data: prof, error: profErr } = await supabase
+            .from("profiles")
+            .select("name, avatar_url")
+            .eq("id", userId)
+            .maybeSingle();
+
+          if (profErr || !prof) {
+            const newName = userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "Student User";
+            const { data: createdProf } = await supabase
+              .from("profiles")
+              .insert({
+                id: userId,
+                name: newName,
+                email: userData.user.email || "",
+                role: "student",
+              })
+              .select("name, avatar_url")
+              .maybeSingle();
+
+            if (createdProf) {
+              setProfile({
+                name: createdProf.name || "Student User",
+                avatarUrl: createdProf.avatar_url || null,
+              });
+            }
+          } else {
+            setProfile({
+              name: prof.name || "Student User",
+              avatarUrl: prof.avatar_url || null,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load user profile in header:", err);
+      }
+    };
+
+    loadProfile();
+
+    // Subscribe to realtime updates on profiles table
+    const channel = supabase
+      .channel("profiles-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+        },
+        (payload) => {
+          if (userId && payload.new && payload.new.id === userId) {
+            setProfile({
+              name: payload.new.name || "Student User",
+              avatarUrl: payload.new.avatar_url || null,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showNotifications && !target.closest(".notifications-trigger-container")) {
+        setShowNotifications(false);
+      }
+      if (showUserDropdown && !target.closest(".profile-trigger-container")) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showNotifications, showUserDropdown]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 border-r border-border bg-background transition-all duration-300 lg:translate-x-0 ${
-          open ? "translate-x-0 w-64" : "-translate-x-full"
-        } ${
-          isCollapsed ? "lg:w-16" : "lg:w-64"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 border-r border-border bg-background transition-all duration-300 lg:translate-x-0 ${open ? "translate-x-0 w-64" : "-translate-x-full"
+          } ${isCollapsed ? "lg:w-16" : "lg:w-64"}`}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link to="/app" className="text-sm font-bold tracking-wider truncate">
-            {isCollapsed ? "Clarity" : "tutor.vigilance.rw"}
+            <span className="lg:hidden">tutor.vigilance.rw</span>
+            <span className="hidden lg:inline">{isCollapsed ? "Clarity" : "tutor.vigilance.rw"}</span>
           </Link>
           <div className="flex items-center gap-1">
             <button
@@ -79,16 +172,16 @@ export function AppShell({
             title="Upload material"
           >
             <Plus className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="truncate">Upload material</span>}
+            <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+              Upload material
+            </span>
           </Link>
         </div>
 
         <nav className="px-2">
-          {!isCollapsed && (
-            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
-              Workspace
-            </div>
-          )}
+          <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}>
+            Workspace
+          </div>
           {nav.map((item) => {
             const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
             return (
@@ -96,24 +189,25 @@ export function AppShell({
                 key={item.to}
                 to={item.to}
                 onClick={() => setOpen(false)}
-                className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all ${
-                  isCollapsed ? "justify-center" : ""
-                } ${
-                  active
+                className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all lg:justify-start ${isCollapsed ? "lg:justify-center" : "lg:justify-start"
+                  } ${active
                     ? "bg-elevated font-medium text-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
+                  }`}
                 title={item.label}
               >
                 <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
+                <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+                  {item.label}
+                </span>
               </Link>
             );
           })}
         </nav>
 
         <div className="absolute inset-x-0 bottom-0 border-t border-border p-3">
-          {isCollapsed ? (
+          {/* Desktop Collapsed view */}
+          <div className={`hidden lg:block ${isCollapsed ? "lg:block" : "lg:hidden"}`}>
             <Link
               to="/app/settings"
               className="flex h-10 w-full items-center justify-center rounded-md border border-border bg-elevated hover:bg-muted text-primary"
@@ -121,15 +215,16 @@ export function AppShell({
             >
               <Sparkles className="h-4 w-4 text-primary" />
             </Link>
-          ) : (
+          </div>
+
+          {/* Mobile and Desktop Expanded view */}
+          <div className={`block ${isCollapsed ? "lg:hidden" : "lg:block"}`}>
             <div className="rounded-md border border-border bg-elevated p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                 <Sparkles className="h-3.5 w-3.5" />
                 Free plan
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                20 / 50 daily queries used.
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">20 / 50 daily queries used.</p>
               <Link
                 to="/app/settings"
                 className="mt-2 inline-block text-xs font-medium text-foreground underline underline-offset-2"
@@ -137,7 +232,7 @@ export function AppShell({
                 Upgrade
               </Link>
             </div>
-          )}
+          </div>
         </div>
       </aside>
 
@@ -164,23 +259,132 @@ export function AppShell({
               </button>
               <h1 className="truncate text-base font-semibold text-foreground">{title}</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="hidden items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground md:flex">
-                <Search className="h-3.5 w-3.5" />
-                <span>Search…</span>
-                <Kbd>Ctrl K</Kbd>
+            <div className="flex items-center gap-3">
+              {/* Enlarge Search input field */}
+              <div className="hidden items-center gap-2 rounded-xl border border-border bg-background/50 backdrop-blur-md px-3.5 py-2 text-sm text-muted-foreground md:flex md:w-80 lg:w-96 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all duration-300">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search notes, documents, quizzes..."
+                  className="bg-transparent border-none outline-none text-xs text-foreground placeholder-muted-foreground/70 flex-1 min-w-0"
+                />
+                <Kbd className="shrink-0 bg-muted/60 text-xs px-1.5 py-0.5 rounded font-mono">cmd + K</Kbd>
               </div>
-              <button className="rounded-md border border-border p-2 hover:bg-muted" aria-label="Notifications">
-                <Bell className="h-4 w-4" />
-              </button>
+
+              {/* Dynamic Notification Bell Dropdown */}
+              <div className="relative notifications-trigger-container">
+                <button
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
+                    setShowUserDropdown(false);
+                  }}
+                  className="relative rounded-xl border border-border p-2 hover:bg-muted bg-elevated/20 transition duration-200"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
+                    3
+                  </span>
+                </button>
+
+                {showNotifications && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
+                    <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-border/80 bg-elevated/90 backdrop-blur-xl shadow-2xl p-4 z-40 animate-fade-in origin-top-right">
+                      <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Notifications</span>
+                        <span className="text-[9px] font-extrabold text-primary hover:underline cursor-pointer" onClick={() => setShowNotifications(false)}>Mark read</span>
+                      </div>
+                      <div className="mt-3 space-y-3 max-h-72 overflow-y-auto">
+                        {notifications.map((notification) => (
+                          <div key={notification.id} className="p-2.5 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition cursor-pointer">
+                            <div className="flex gap-2.5">
+                              <span className="text-sm">{notification.icon}</span>
+                              <div>
+                                <div className="text-[11px] font-bold text-foreground">{notification.title}</div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 leading-normal">{notification.message}</p>
+                                <span className="text-[8px] text-primary mt-1 block font-medium">{notification.time}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {actions}
-              <Link
-                to="/app/settings"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-elevated text-xs font-medium"
-                aria-label="Account"
-              >
-                AJ
-              </Link>
+
+              {/* User Dropdown Menu */}
+              <div className="relative profile-trigger-container">
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(!showUserDropdown);
+                    setShowNotifications(false);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-elevated text-xs font-medium overflow-hidden hover:opacity-90 transition duration-200"
+                  aria-label="Account"
+                >
+                  {profile?.avatarUrl ? (
+                    <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    profile?.name ? profile.name.substring(0, 2).toUpperCase() : "ST"
+                  )}
+                </button>
+
+                {showUserDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowUserDropdown(false)} />
+                    <div className="absolute right-0 mt-2.5 w-56 rounded-2xl border border-border/80 bg-white backdrop-blur-xl shadow-2xl p-2 z-40 animate-fade-in origin-top-right">
+                      <div className="px-3.5 py-2.5 border-b border-border/40">
+                        <div className="text-[11px] font-bold text-foreground truncate">{profile?.name || "Scholar User"}</div>
+                        <div className="text-[9px] text-muted-foreground truncate mt-0.5">Logged in User</div>
+                      </div>
+                      <div className="p-1 space-y-0.5">
+                        <Link
+                          to="/app/settings"
+                          onClick={() => setShowUserDropdown(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl transition"
+                        >
+                          <User className="h-3.5 w-3.5" />
+                          My Profile
+                        </Link>
+                        <Link
+                          to="/app/settings"
+                          onClick={() => setShowUserDropdown(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl transition"
+                        >
+                          <Settings className="h-3.5 w-3.5" />
+                          Preferences
+                        </Link>
+                        <Link
+                          to="/app/settings"
+                          onClick={() => setShowUserDropdown(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl transition"
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Billing & Plan
+                        </Link>
+                      </div>
+                      <div className="border-t border-border/40 p-1 mt-1">
+                        <button
+                          onClick={async () => {
+                            setShowUserDropdown(false);
+                            await supabase.auth.signOut();
+                            localStorage.clear();
+                            window.location.href = "/auth/sign-in";
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10 rounded-xl transition text-left"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </header>

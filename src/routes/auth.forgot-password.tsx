@@ -15,7 +15,10 @@ function Forgot() {
       footer={
         <>
           Remembered it?{" "}
-          <Link to="/auth/sign-in" className="font-medium text-foreground underline underline-offset-2">
+          <Link
+            to="/auth/sign-in"
+            className="font-medium text-foreground underline underline-offset-2"
+          >
             Sign in
           </Link>
         </>
