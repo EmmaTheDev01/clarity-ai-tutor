@@ -13,7 +13,7 @@ type ButtonVariant = "primary" | "outline" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97] active:translate-y-[0.5px] duration-100 ease-out";
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-primary-foreground hover:opacity-90",
@@ -104,11 +104,18 @@ export function Label({
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-lg border border-border bg-background ${className}`}>{children}</div>
-  );
-}
+export const Card = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ children, className = "", ...rest }, ref) => (
+    <div
+      ref={ref}
+      className={`rounded-lg border border-border bg-background ${className}`}
+      {...rest}
+    >
+      {children}
+    </div>
+  )
+);
+Card.displayName = "Card";
 
 export function Divider() {
   return <div className="h-px w-full bg-border" />;
@@ -122,10 +129,15 @@ export function Kbd({ children }: { children: ReactNode }) {
   );
 }
 
-export function Pill({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-elevated px-2.5 py-0.5 text-xs text-muted-foreground">
+export const Pill = forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanElement>>(
+  ({ children, className = "", ...rest }, ref) => (
+    <span
+      ref={ref}
+      className={`inline-flex items-center gap-1.5 rounded-full border border-border bg-elevated px-2.5 py-0.5 text-xs text-muted-foreground ${className}`}
+      {...rest}
+    >
       {children}
     </span>
-  );
-}
+  )
+);
+Pill.displayName = "Pill";

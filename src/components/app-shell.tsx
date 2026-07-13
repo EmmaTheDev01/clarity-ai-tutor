@@ -20,6 +20,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { Kbd } from "./ui-kit";
+import { toast } from "sonner";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, exact: true },
@@ -46,7 +47,16 @@ export function AppShell({
   const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const notifications = [];
+
+  interface NotificationItem {
+    id: string;
+    icon: string;
+    title: string;
+    message: string;
+    time: string;
+  }
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
     let userId = "";
@@ -87,6 +97,72 @@ export function AppShell({
               avatarUrl: prof.avatar_url || null,
             });
           }
+
+          // Fetch dynamic notifications from Supabase
+          const loadedNotifications: NotificationItem[] = [];
+
+          // 1. Fetch note share invitations
+          try {
+            const { data: dbShares } = await supabase
+              .from("note_shares")
+              .select(`
+                id,
+                created_at,
+                notes (
+                  title
+                )
+              `)
+              .eq("shared_with_email", userData.user.email)
+              .eq("status", "pending");
+
+            if (dbShares) {
+              dbShares.forEach((share: any) => {
+                loadedNotifications.push({
+                  id: share.id,
+                  icon: "📬",
+                  title: "Note Share Request",
+                  message: `A classmate shared the note "${share.notes?.title || "Untitled"}" with you. Accept it from notes page!`,
+                  time: "New Request",
+                });
+              });
+            }
+          } catch (e) {
+            console.warn("Could not query note shares for notification:", e);
+          }
+
+          // 2. Add streak notifications if streak exists
+          try {
+            const { data: stdProf } = await supabase
+              .from("student_profiles")
+              .select("streak")
+              .eq("student_id", userId)
+              .maybeSingle();
+            
+            if (stdProf && Number(stdProf.streak) > 0) {
+              loadedNotifications.push({
+                id: "streak_alert",
+                icon: "🔥",
+                title: `${stdProf.streak} Day Study Streak!`,
+                message: "You are on fire! Keep learning today to maintain your streak score.",
+                time: "Today",
+              });
+            }
+          } catch (e) {
+            console.warn("Could not query streak score for notification:", e);
+          }
+
+          // 3. Fallback welcome notification if empty
+          if (loadedNotifications.length === 0) {
+            loadedNotifications.push({
+              id: "welcome_alert",
+              icon: "✨",
+              title: "Welcome to Clarity!",
+              message: "Start learning by uploading a document in the study workspace.",
+              time: "Just now",
+            });
+          }
+
+          setNotifications(loadedNotifications);
         }
       } catch (err) {
         console.warn("Could not load user profile in header:", err);
@@ -282,32 +358,52 @@ export function AppShell({
                   aria-label="Notifications"
                 >
                   <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
-                    3
-                  </span>
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
+                      {notifications.length}
+                    </span>
+                  )}
                 </button>
 
                 {showNotifications && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
-                    <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-border/80 bg-elevated/90 backdrop-blur-xl shadow-2xl p-4 z-40 animate-fade-in origin-top-right">
+                    <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-border bg-white shadow-2xl p-4 z-40 animate-fade-in origin-top-right">
                       <div className="flex items-center justify-between pb-3 border-b border-border/40">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Notifications</span>
-                        <span className="text-[9px] font-extrabold text-primary hover:underline cursor-pointer" onClick={() => setShowNotifications(false)}>Mark read</span>
+                        <span
+                          className="text-[9px] font-extrabold text-primary hover:underline cursor-pointer"
+                          onClick={() => {
+                            setNotifications([]);
+                            toast.success("All notifications marked as read.");
+                          }}
+                        >
+                          Mark read
+                        </span>
                       </div>
                       <div className="mt-3 space-y-3 max-h-72 overflow-y-auto">
-                        {notifications.map((notification) => (
-                          <div key={notification.id} className="p-2.5 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition cursor-pointer">
-                            <div className="flex gap-2.5">
-                              <span className="text-sm">{notification.icon}</span>
-                              <div>
-                                <div className="text-[11px] font-bold text-foreground">{notification.title}</div>
-                                <p className="text-[10px] text-muted-foreground mt-0.5 leading-normal">{notification.message}</p>
-                                <span className="text-[8px] text-primary mt-1 block font-medium">{notification.time}</span>
+                        {notifications.length === 0 ? (
+                          <div className="py-8 text-center flex flex-col items-center justify-center">
+                            <span className="text-2xl mb-2">🔔</span>
+                            <div className="text-[11px] font-bold text-foreground">All caught up!</div>
+                            <p className="text-[10px] text-muted-foreground mt-1 px-4 leading-normal">
+                              No new study suggestions or note invitations at this time. Go ahead and start a study session!
+                            </p>
+                          </div>
+                        ) : (
+                          notifications.map((notification) => (
+                            <div key={notification.id} className="p-2.5 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition cursor-pointer">
+                              <div className="flex gap-2.5">
+                                <span className="text-sm">{notification.icon}</span>
+                                <div>
+                                  <div className="text-[11px] font-bold text-foreground">{notification.title}</div>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-normal">{notification.message}</p>
+                                  <span className="text-[8px] text-primary mt-1 block font-medium">{notification.time}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
                   </>

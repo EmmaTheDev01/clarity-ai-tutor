@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth/sign-in")({
   head: () => ({
@@ -18,6 +19,7 @@ function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -28,6 +30,21 @@ function SignIn() {
     };
     checkSession();
   }, [navigate]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/app",
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.warn("Google login redirect failed, navigating directly:", err);
+      navigate({ to: "/app" as any });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,15 +159,25 @@ function SignIn() {
               Forgot?
             </Link>
           </div>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
         <Button type="submit" size="lg" className="w-full">
           Sign in
@@ -166,8 +193,8 @@ function SignIn() {
       <Button
         variant="outline"
         size="lg"
-        className="w-full"
-        onClick={() => navigate({ to: "/app" as any })}
+        className="w-full flex items-center justify-center gap-2"
+        onClick={handleGoogleLogin}
       >
         Continue with Google
       </Button>

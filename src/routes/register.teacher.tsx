@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/register/teacher")({
   head: () => ({
@@ -28,9 +29,25 @@ function TeacherRegister() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [institution, setInstitution] = useState("");
   const [credentialId, setCredentialId] = useState("");
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/app",
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.warn("Google login redirect failed, navigating directly:", err);
+      navigate({ to: "/app" as any });
+    }
+  };
 
   const toggleSubject = (s: string) => {
     setSelectedSubjects((prev) =>
@@ -57,7 +74,7 @@ function TeacherRegister() {
 
       if (data?.user) {
         // 2. Insert profile record
-        await supabase.from("profiles").insert({
+        await supabase.from("profiles").upsert({
           id: data.user.id,
           name,
           email,
@@ -133,14 +150,24 @@ function TeacherRegister() {
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -157,10 +184,10 @@ function TeacherRegister() {
             />
           </div>
           <div>
-            <Label htmlFor="credential">Teacher Credential / Faculty ID</Label>
+            <Label htmlFor="credential">Academic Credential / Badge ID</Label>
             <Input
               id="credential"
-              placeholder="FED-8294-A9"
+              placeholder="EDU-8902-UR"
               value={credentialId}
               onChange={(e) => setCredentialId(e.target.value)}
               required
@@ -200,6 +227,21 @@ function TeacherRegister() {
           Complete Educator Profile
         </Button>
       </form>
+
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full flex items-center justify-center gap-2"
+        onClick={handleGoogleLogin}
+      >
+        Sign up with Google
+      </Button>
     </AuthShell>
   );
 }

@@ -1,0 +1,482 @@
+import React, { useRef, useCallback, useEffect, useState } from "react";
+import {
+  Bold,
+  Italic,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Quote,
+  Code,
+  Link,
+  Minus,
+  Strikethrough,
+  Undo,
+  Redo,
+} from "lucide-react";
+
+/* ─── Markdown → HTML ───────────────────────────────────────────────── */
+
+function formatInlineHtml(text: string): string {
+  // 1. Block Math (double dollar signs)
+  text = text.replace(
+    /\$\$([^$]+)\$\$/g,
+    '<div style="margin:12px 0;text-align:center;font-family:serif;font-size:1.05em;color:var(--color-primary);background:var(--color-elevated);padding:8px;border-radius:8px;border:1px solid var(--color-border);overflow-x:auto;">$1</div>'
+  );
+
+  // 2. Inline Math (single dollar signs)
+  text = text.replace(
+    /(?<!\$)\$([^$]+)\$(?!\$)/g,
+    '<span style="font-family:serif;color:var(--color-primary);font-style:italic;background:var(--color-elevated);padding:2px 4px;border-radius:4px;">$1</span>'
+  );
+
+  // 3. Heuristic: identify unwrapped LaTeX expressions and format them as math style
+  const latexPattern = /(\\[a-zA-Z]+(?:_{[a-zA-Z0-9\-]+})?(?:\^{?[a-zA-Z0-9\-]+}?)?(?:\^T)?)/g;
+  text = text.replace(latexPattern, (match) => {
+    // Avoid double-wrapping styled markup or HTML tags
+    if (match.startsWith("<") || match.includes("style=")) return match;
+    return `<span style="font-family:serif;color:var(--color-primary);font-style:italic;background:var(--color-elevated);padding:2px 4px;border-radius:4px;">${match}</span>`;
+  });
+
+  // 4. Regular formatting rules
+  text = text
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>")
+    .replace(/~~(.+?)~~/g, "<del>$1</del>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--color-primary);text-decoration:underline;">$1</a>');
+
+  return text;
+}
+
+function markdownToHtml(md: string): string {
+  // First split by $$ to separate block math equations from general text content
+  const parts = md.split("$$");
+  let html = "";
+
+  parts.forEach((part, partIdx) => {
+    const isMathBlock = partIdx % 2 === 1;
+    if (isMathBlock) {
+      // Format as display block math
+      html += `<div style="margin:18px auto;text-align:center;font-family:serif;font-size:1.15em;color:var(--color-primary);background:var(--color-primary-5);padding:16px 24px;border-radius:16px;border:1px solid var(--color-border);overflow-x:auto;max-width:100%;white-space:pre-wrap;line-height:1.6;box-shadow:0 1px 3px rgba(0,0,0,0.02);">${part.trim()}</div>`;
+    } else {
+      // Parse regular markdown elements (headers, lists, paragraphs)
+      const lines = part.split("\n");
+      let inUl = false;
+      let inOl = false;
+
+      const closeList = () => {
+        if (inUl) {
+          html += "</ul>";
+          inUl = false;
+        }
+        if (inOl) {
+          html += "</ol>";
+          inOl = false;
+        }
+      };
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Code blocks (skip for inline editor)
+        if (trimmed.startsWith("```")) continue;
+
+        // Headers
+        const hMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+        if (hMatch) {
+          closeList();
+          const level = hMatch[1].length;
+          const sizes = ["1.5em", "1.3em", "1.15em", "1em", "0.95em", "0.9em"];
+          html += `<h${level} style="font-size:${sizes[level - 1]};font-weight:700;margin:0.75em 0 0.4em;">${formatInlineHtml(hMatch[2])}</h${level}>`;
+          continue;
+        }
+
+        // Horizontal rule
+        if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+          closeList();
+          html += '<hr style="border:none;border-top:1px solid var(--color-border);margin:1em 0;">';
+          continue;
+        }
+
+        // Blockquote
+        if (trimmed.startsWith("> ")) {
+          closeList();
+          html += `<blockquote style="border-left:3px solid var(--color-primary);padding:4px 12px;margin:0.5em 0;background:var(--color-elevated);border-radius:4px;font-style:italic;color:var(--color-muted-foreground);">${formatInlineHtml(trimmed.slice(2))}</blockquote>`;
+          continue;
+        }
+
+        // Bullet list
+        const bulletMatch = trimmed.match(/^[\-\*]\s+(.*)/);
+        if (bulletMatch) {
+          if (inOl) {
+            html += "</ol>";
+            inOl = false;
+          }
+          if (!inUl) {
+            html += '<ul style="list-style:disc;padding-left:1.5em;margin:0.4em 0;">';
+            inUl = true;
+          }
+          html += `<li style="margin:0.15em 0;">${formatInlineHtml(bulletMatch[1])}</li>`;
+          continue;
+        }
+
+        // Numbered list
+        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+        if (numMatch) {
+          if (inUl) {
+            html += "</ul>";
+            inUl = false;
+          }
+          if (!inOl) {
+            html += '<ol style="list-style:decimal;padding-left:1.5em;margin:0.4em 0;">';
+            inOl = true;
+          }
+          html += `<li style="margin:0.15em 0;">${formatInlineHtml(numMatch[2])}</li>`;
+          continue;
+        }
+
+        // Empty line
+        if (trimmed === "") {
+          closeList();
+          html += "<br>";
+          continue;
+        }
+
+        // Regular paragraph
+        closeList();
+        html += `<p style="margin:0.3em 0;">${formatInlineHtml(trimmed)}</p>`;
+      }
+
+      closeList();
+    }
+  });
+
+  return html;
+}
+
+/* ─── HTML → Markdown ───────────────────────────────────────────────── */
+
+function htmlToMarkdown(element: HTMLElement): string {
+  let result = "";
+
+  for (const node of Array.from(element.childNodes)) {
+    result += nodeToMd(node);
+  }
+
+  return result.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function nodeToMd(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent || "";
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+  const el = node as HTMLElement;
+  const tag = el.tagName.toLowerCase();
+  const children = Array.from(el.childNodes).map(nodeToMd).join("");
+
+  switch (tag) {
+    case "h1":
+      return `# ${children.trim()}\n\n`;
+    case "h2":
+      return `## ${children.trim()}\n\n`;
+    case "h3":
+      return `### ${children.trim()}\n\n`;
+    case "h4":
+      return `#### ${children.trim()}\n\n`;
+    case "h5":
+      return `##### ${children.trim()}\n\n`;
+    case "h6":
+      return `###### ${children.trim()}\n\n`;
+    case "p":
+      return `${children}\n\n`;
+    case "br":
+      return "\n";
+    case "strong":
+    case "b":
+      return `**${children}**`;
+    case "em":
+    case "i":
+      return `*${children}*`;
+    case "del":
+    case "s":
+      return `~~${children}~~`;
+    case "code":
+      return `\`${children}\``;
+    case "a":
+      return `[${children}](${el.getAttribute("href") || ""})`;
+    case "blockquote":
+      return `> ${children.trim()}\n\n`;
+    case "ul":
+      return (
+        Array.from(el.children)
+          .map((li) => `- ${childrenMd(li).trim()}\n`)
+          .join("") + "\n"
+      );
+    case "ol":
+      return (
+        Array.from(el.children)
+          .map((li, i) => `${i + 1}. ${childrenMd(li).trim()}\n`)
+          .join("") + "\n"
+      );
+    case "li":
+      return children;
+    case "hr":
+      return "---\n\n";
+    case "span":
+      // Math spans
+      if (el.style.fontFamily?.includes("serif")) return `$${children}$`;
+      return children;
+    case "div":
+      if (el.style.fontFamily?.includes("serif")) return `$$\n${children.trim()}\n$$\n\n`;
+      return `${children}\n`;
+    default:
+      return children;
+  }
+}
+
+function childrenMd(node: Node): string {
+  return Array.from(node.childNodes).map(nodeToMd).join("");
+}
+
+/* ─── Rich Editor Component ─────────────────────────────────────────── */
+
+interface RichEditorProps {
+  value: string;
+  onChange: (markdown: string) => void;
+  readOnly?: boolean;
+  placeholder?: string;
+  className?: string;
+}
+
+export const RichEditor: React.FC<RichEditorProps> = ({
+  value,
+  onChange,
+  readOnly = false,
+  placeholder = "Start writing...",
+  className = "",
+}) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isInternalChange = useRef(false);
+  const [isEmpty, setIsEmpty] = useState(!value);
+  const debounceTimer = useRef<any>(null);
+
+  // Initialize content
+  useEffect(() => {
+    if (editorRef.current && !isInternalChange.current) {
+      const html = markdownToHtml(value);
+      editorRef.current.innerHTML = html;
+      setIsEmpty(!value);
+    }
+    isInternalChange.current = false;
+  }, [value]);
+
+  const handleInput = useCallback(() => {
+    if (!editorRef.current) return;
+    isInternalChange.current = true;
+    setIsEmpty(!editorRef.current.textContent?.trim());
+
+    // Debounce save to avoid too many updates
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      if (editorRef.current) {
+        const md = htmlToMarkdown(editorRef.current);
+        onChange(md);
+      }
+    }, 400);
+  }, [onChange]);
+
+  const execCmd = useCallback(
+    (command: string, val?: string) => {
+      if (readOnly) return;
+      editorRef.current?.focus();
+      document.execCommand(command, false, val);
+      handleInput();
+    },
+    [readOnly, handleInput],
+  );
+
+  const formatBlock = useCallback(
+    (tag: string) => {
+      if (readOnly) return;
+      editorRef.current?.focus();
+      document.execCommand("formatBlock", false, tag);
+      handleInput();
+    },
+    [readOnly, handleInput],
+  );
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === "b") {
+        e.preventDefault();
+        execCmd("bold");
+      } else if (mod && e.key === "i") {
+        e.preventDefault();
+        execCmd("italic");
+      } else if (mod && e.key === "u") {
+        e.preventDefault();
+        execCmd("underline");
+      } else if (mod && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          execCmd("redo");
+        } else {
+          execCmd("undo");
+        }
+      }
+    },
+    [execCmd],
+  );
+
+  const toolbarButtons: Array<{
+    icon: React.ElementType;
+    label: string;
+    action: () => void;
+    separator?: boolean;
+  }> = [
+    { icon: Undo, label: "Undo (⌘Z)", action: () => execCmd("undo") },
+    {
+      icon: Redo,
+      label: "Redo (⌘⇧Z)",
+      action: () => execCmd("redo"),
+      separator: true,
+    },
+    { icon: Bold, label: "Bold (⌘B)", action: () => execCmd("bold") },
+    { icon: Italic, label: "Italic (⌘I)", action: () => execCmd("italic") },
+    {
+      icon: Strikethrough,
+      label: "Strikethrough",
+      action: () => execCmd("strikethrough"),
+    },
+    {
+      icon: Code,
+      label: "Inline Code",
+      action: () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const code = document.createElement("code");
+          code.style.background = "var(--color-elevated)";
+          code.style.padding = "1px 4px";
+          code.style.borderRadius = "3px";
+          code.style.fontFamily = "monospace";
+          code.style.fontSize = "0.85em";
+          try {
+            range.surroundContents(code);
+            handleInput();
+          } catch {
+            /* selection spans multiple nodes */
+          }
+        }
+      },
+      separator: true,
+    },
+    {
+      icon: Heading1,
+      label: "Heading 1",
+      action: () => formatBlock("<h1>"),
+    },
+    {
+      icon: Heading2,
+      label: "Heading 2",
+      action: () => formatBlock("<h2>"),
+    },
+    {
+      icon: Heading3,
+      label: "Heading 3",
+      action: () => formatBlock("<h3>"),
+      separator: true,
+    },
+    {
+      icon: List,
+      label: "Bullet List",
+      action: () => execCmd("insertUnorderedList"),
+    },
+    {
+      icon: ListOrdered,
+      label: "Numbered List",
+      action: () => execCmd("insertOrderedList"),
+    },
+    {
+      icon: Quote,
+      label: "Blockquote",
+      action: () => formatBlock("<blockquote>"),
+      separator: true,
+    },
+    {
+      icon: Minus,
+      label: "Divider",
+      action: () => execCmd("insertHorizontalRule"),
+    },
+    {
+      icon: Link,
+      label: "Insert Link",
+      action: () => {
+        const url = prompt("Enter URL:");
+        if (url) execCmd("createLink", url);
+      },
+    },
+  ];
+
+  return (
+    <div className={`flex flex-col flex-1 ${className}`}>
+      {/* Formatting Toolbar */}
+      {!readOnly && (
+        <div className="flex items-center gap-0.5 flex-wrap rounded-t-xl border border-border bg-elevated/80 px-2 py-1.5 sticky top-0 z-10 backdrop-blur-sm">
+          {toolbarButtons.map((btn, i) => (
+            <React.Fragment key={btn.label}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent losing selection
+                  btn.action();
+                }}
+                className="rounded-md p-1.5 text-muted-foreground transition hover:bg-background hover:text-foreground hover:shadow-sm"
+                title={btn.label}
+              >
+                <btn.icon className="h-3.5 w-3.5" />
+              </button>
+              {btn.separator && (
+                <div className="mx-0.5 h-4 w-px bg-border/60 shrink-0" />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
+      {/* Editable Content Area */}
+      <div className="relative flex-1">
+        <div
+          ref={editorRef}
+          contentEditable={!readOnly}
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          className={`w-full min-h-[300px] flex-1 text-foreground leading-relaxed text-xs focus:outline-none ${
+            readOnly
+              ? "cursor-default"
+              : "border border-border rounded-b-xl p-4 focus:ring-1 focus:ring-primary/30 bg-background"
+          }`}
+          style={{
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+          }}
+          data-placeholder={placeholder}
+        />
+        {isEmpty && !readOnly && (
+          <div className="absolute top-4 left-4 text-muted-foreground/50 text-xs pointer-events-none select-none">
+            {placeholder}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

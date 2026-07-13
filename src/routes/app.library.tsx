@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Search, Filter, MoreHorizontal, Loader2, Trash2, X } from "lucide-react";
+import { FileText, Search, Filter, MoreHorizontal, Loader2, Trash2, X, Pin, PinOff, PencilLine } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Input, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { MaterialUploader } from "@/components/material-uploader";
-import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
+import { LearningMaterial, mapMaterialRow, uploadLearningMaterial, togglePinMaterial, renameMaterial } from "@/lib/learning-materials";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { toast } from "sonner";
 
@@ -23,6 +23,26 @@ function LibraryPage() {
   const [isDropUploading, setIsDropUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LearningMaterial | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<LearningMaterial | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const handleRenameSubmit = async () => {
+    if (!renameTarget || !renameValue.trim()) return;
+    setIsRenaming(true);
+    try {
+      await renameMaterial(renameTarget.id, renameValue.trim());
+      setItems((prev) =>
+        prev.map((item) => (item.id === renameTarget.id ? { ...item, title: renameValue.trim() } : item))
+      );
+      toast.success(`Material renamed to "${renameValue.trim()}"`);
+      setRenameTarget(null);
+    } catch (err: any) {
+      toast.error("Failed to rename material.");
+    } finally {
+      setIsRenaming(false);
+    }
+  };
 
   const handleFilesDropped = async (files: FileList) => {
     if (files.length === 0) return;
@@ -74,21 +94,40 @@ function LibraryPage() {
     }
   };
 
+  const handlePinToggle = async (doc: LearningMaterial, nextPinned: boolean) => {
+    try {
+      await togglePinMaterial(doc.id, nextPinned);
+      setItems((prev) =>
+        prev.map((item) => (item.id === doc.id ? { ...item, pinned: nextPinned } : item))
+      );
+      toast.success(nextPinned ? `Pinned "${doc.title}"` : `Unpinned "${doc.title}"`);
+    } catch (error) {
+      toast.error("Could not update pin state.");
+    }
+  };
+
   const visibleItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
-      if (!matchesQuery) return false;
-      if (active === "All") return true;
-      if (active === "PDFs") return item.type === "PDF";
-      if (active === "Videos") return item.type === "YouTube" || item.type === "Video";
-      if (active === "Slides") return item.type === "Slides";
-      if (active === "Audio") return item.type === "Audio";
-      if (active === "Images") return item.type === "Image";
-      if (active === "Links") return item.type === "Link" || item.type === "YouTube";
-      if (active === "Files")
-        return item.type === "File" || item.type === "Word" || item.type === "Text";
-      return true;
-    });
+    return items
+      .filter((item) => {
+        const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
+        if (!matchesQuery) return false;
+        if (active === "All") return true;
+        if (active === "PDFs") return item.type === "PDF";
+        if (active === "Videos") return item.type === "YouTube" || item.type === "Video";
+        if (active === "Slides") return item.type === "Slides";
+        if (active === "Audio") return item.type === "Audio";
+        if (active === "Images") return item.type === "Image";
+        if (active === "Links") return item.type === "Link" || item.type === "YouTube";
+        if (active === "Files")
+          return item.type === "File" || item.type === "Word" || item.type === "Text";
+        return true;
+      })
+      .sort((a, b) => {
+        const aPinned = Boolean(a.pinned);
+        const bPinned = Boolean(b.pinned);
+        if (aPinned === bPinned) return 0;
+        return aPinned ? -1 : 1;
+      });
   }, [active, items, query]);
 
   return (
@@ -129,6 +168,53 @@ function LibraryPage() {
               >
                 {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirm Rename Modal */}
+      {renameTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-elevated/95 backdrop-blur-xl p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+                <PencilLine className="h-4 w-4 text-primary" />
+              </div>
+              <button
+                onClick={() => setRenameTarget(null)}
+                className="rounded-lg p-1 hover:bg-muted text-muted-foreground transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Rename Material</h3>
+            <div className="mt-4">
+              <label htmlFor="rename-input" className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Material Title
+              </label>
+              <input
+                id="rename-input"
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setRenameTarget(null)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameSubmit}
+                disabled={isRenaming || !renameValue.trim() || renameValue.trim() === renameTarget.title}
+                className="rounded-xl bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 text-xs font-extrabold transition flex items-center gap-2"
+              >
+                {isRenaming && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Rename
               </button>
             </div>
           </div>
@@ -203,7 +289,12 @@ function LibraryPage() {
                     <it.icon className="h-4 w-4" strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground">{it.title}</div>
+                    <div className="truncate text-sm font-medium text-foreground flex items-center gap-1.5">
+                      {it.title}
+                      {it.pinned && (
+                        <Pin className="h-3 w-3 text-primary shrink-0" />
+                      )}
+                    </div>
                     <div className="mt-0.5 md:hidden">
                       <Pill>{it.type}</Pill>
                     </div>
@@ -213,12 +304,35 @@ function LibraryPage() {
                 <div className="hidden text-sm text-muted-foreground md:block">{it.updated}</div>
                 <div className="flex items-center justify-end gap-1">
                   <button
+                    onClick={() => handlePinToggle(it, !it.pinned)}
+                    className={`rounded-md p-1.5 transition ${
+                      it.pinned
+                        ? "text-primary hover:bg-primary/10"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                    aria-label={it.pinned ? "Unpin material" : "Pin material"}
+                    title={it.pinned ? "Unpin" : "Pin"}
+                  >
+                    <Pin className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => setDeleteTarget(it)}
                     className="rounded-md p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition"
                     aria-label="Delete material"
                     title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRenameTarget(it);
+                      setRenameValue(it.title);
+                    }}
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                    aria-label="Rename material"
+                    title="Rename"
+                  >
+                    <PencilLine className="h-4 w-4" />
                   </button>
                   <button
                     className="rounded-md p-1.5 text-muted-foreground hover:bg-muted transition"

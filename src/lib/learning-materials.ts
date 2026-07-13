@@ -198,6 +198,28 @@ export async function createGeneralChatMaterial() {
   return mapMaterialRow(data);
 }
 
+export async function createNewChatSession(title?: string) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user) throw new Error("Please sign in before starting a new chat.");
+
+  const finalTitle = title?.trim() || `General Chat (${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`;
+
+  const { data, error } = await supabase
+    .from("materials")
+    .insert({
+      title: finalTitle,
+      type: "Text",
+      content: "General chat workspace",
+      uploaded_by: authData.user.id,
+      source_kind: "text",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapMaterialRow(data);
+}
+
 import { generateGeminiText, generateGeminiMultimodal } from "./gemini";
 
 const cleanFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");

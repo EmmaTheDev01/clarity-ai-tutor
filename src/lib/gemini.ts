@@ -7,6 +7,7 @@ const fallbackModels = ["gemini-flash-latest", "gemini-flash-latest"];
 const getGeminiError = (payload: unknown, fallback: string) => {
   if (
     payload &&
+
     typeof payload === "object" &&
     "error" in payload &&
     payload.error &&
@@ -18,7 +19,7 @@ const getGeminiError = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
-export async function generateGeminiText(prompt: string, maxOutputTokens = 700) {
+export async function generateGeminiText(prompt: string, maxOutputTokens = 2048) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("Missing VITE_GEMINI_API_KEY in .env. Restart the dev server after adding it.");
@@ -62,9 +63,9 @@ export async function generateGeminiText(prompt: string, maxOutputTokens = 700) 
 
 export async function generateGeminiMultimodal(
   prompt: string,
-  fileBase64: string,
-  mimeType: string,
-  maxOutputTokens = 1500,
+  images: Array<{ base64: string; mimeType: string }> | string,
+  mimeType?: string,
+  maxOutputTokens = 2048,
 ) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
   if (!apiKey) {
@@ -76,6 +77,10 @@ export async function generateGeminiMultimodal(
 
   for (const model of models) {
     try {
+      const imageParts = typeof images === "string"
+        ? [{ inlineData: { mimeType: mimeType || "image/jpeg", data: images } }]
+        : images.map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.base64 } }));
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
         {
@@ -86,12 +91,7 @@ export async function generateGeminiMultimodal(
               {
                 role: "user",
                 parts: [
-                  {
-                    inlineData: {
-                      mimeType,
-                      data: fileBase64,
-                    },
-                  },
+                  ...imageParts,
                   {
                     text: prompt,
                   },
@@ -121,3 +121,4 @@ export async function generateGeminiMultimodal(
 
   throw new Error(`Gemini did not respond. ${failures.join(" | ")}`);
 }
+

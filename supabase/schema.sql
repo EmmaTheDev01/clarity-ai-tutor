@@ -86,6 +86,12 @@ CREATE TABLE public.materials (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+ALTER TABLE materials
+ADD COLUMN IF NOT EXISTS pinned boolean NOT NULL DEFAULT false;
+
+-- Create an index for fast sorted queries on pinned
+CREATE INDEX IF NOT EXISTS materials_pinned_idx ON materials (pinned DESC, created_at DESC);
+
 ALTER TABLE public.materials ENABLE ROW LEVEL SECURITY;
 
 -- 8. Quiz Attempts (Performance + Self-Rated Confidence loops)
@@ -109,11 +115,26 @@ CREATE TABLE public.notes (
     subject TEXT,
     is_ai_generated BOOLEAN DEFAULT false NOT NULL,
     is_starred BOOLEAN DEFAULT false NOT NULL,
+    pinned BOOLEAN DEFAULT false NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
+
+-- 9b. Note Shares (Email-based sharing with accept/reject)
+CREATE TABLE public.note_shares (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    note_id UUID REFERENCES public.notes(id) ON DELETE CASCADE NOT NULL,
+    shared_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    shared_with_email TEXT NOT NULL,
+    shared_with UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    status TEXT CHECK (status IN ('pending', 'accepted', 'rejected')) DEFAULT 'pending' NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(note_id, shared_with_email)
+);
+
+ALTER TABLE public.note_shares ENABLE ROW LEVEL SECURITY;
 
 -- 10. Favorites (Bookmarks for materials, flashcards, notes)
 CREATE TABLE public.favorites (
@@ -270,9 +291,30 @@ CREATE POLICY "Teachers view student attempts" ON public.quiz_attempts
         )
     );
 
--- Notes: Exclusive to student author.
+-- Notes: Exclusive to student author + shared notes (accepted)
 CREATE POLICY "Students manage own notes" ON public.notes
     FOR ALL USING (student_id = auth.uid());
+
+CREATE POLICY "Users can view accepted shared notes" ON public.notes
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.note_shares ns
+            WHERE ns.note_id = notes.id
+              AND ns.shared_with = auth.uid()
+              AND ns.status = 'accepted'
+        )
+    );
+
+-- Note Shares: sender manages own shares, recipient can view/update their own
+CREATE POLICY "Users manage shares they sent" ON public.note_shares
+    FOR ALL USING (shared_by = auth.uid());
+
+CREATE POLICY "Recipients view and respond to shares" ON public.note_shares
+    FOR SELECT USING (shared_with = auth.uid());
+
+CREATE POLICY "Recipients can accept or reject shares" ON public.note_shares
+    FOR UPDATE USING (shared_with = auth.uid())
+    WITH CHECK (shared_with = auth.uid());
 
 -- Favorites: Exclusive to student author.
 CREATE POLICY "Students manage own favorites" ON public.favorites
@@ -365,6 +407,10 @@ CREATE INDEX idx_materials_uploaded_by ON public.materials(uploaded_by);
 CREATE INDEX idx_materials_quiz ON public.materials(quiz_id);
 CREATE INDEX idx_quiz_attempts_student ON public.quiz_attempts(student_id);
 CREATE INDEX idx_notes_student ON public.notes(student_id);
+CREATE INDEX idx_notes_pinned ON public.notes(pinned DESC, created_at DESC);
+CREATE INDEX idx_note_shares_note ON public.note_shares(note_id);
+CREATE INDEX idx_note_shares_recipient ON public.note_shares(shared_with);
+CREATE INDEX idx_note_shares_email ON public.note_shares(shared_with_email);
 CREATE INDEX idx_favorites_student ON public.favorites(student_id);
 CREATE INDEX idx_chat_sessions_student ON public.chat_sessions(student_id);
 CREATE INDEX idx_messages_session ON public.messages(session_id);
