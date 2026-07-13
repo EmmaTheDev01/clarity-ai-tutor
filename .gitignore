@@ -32,3 +32,5 @@ dist-ssr
 *.sw?
 .env
 /node_modules
+next_implementation.md
+system_goals_and_architecture.md

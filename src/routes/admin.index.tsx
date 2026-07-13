@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Card, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import {
   Users,
   ShieldAlert,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
-  head: () => ({ meta: [{ title: "Admin Portal — tutor.vigilance.rw" }] }),
+  head: () => ({ meta: [{ title: "Admin Portal — purelearn.ai" }] }),
   component: AdminPortal,
 });
 
@@ -110,13 +111,43 @@ function AdminPortal() {
   const navigate = useNavigate();
 
   // Selected sub tab
-  const [activeTab, setActiveTab] = useState<"subscriptions" | "classrooms">("subscriptions");
+  const [activeTab, setActiveTab] = useState<"subscriptions" | "classrooms" | "teachers">("subscriptions");
 
   // Dynamic DB state metrics
   const [totalUsers, setTotalUsers] = useState(2831);
   const [activeClassrooms, setActiveClassrooms] = useState(14);
   const [materialsCount, setMaterialsCount] = useState(174);
   const [subscriptionsList, setSubscriptionsList] = useState<any[]>(mockSubscriptionLogs);
+  const [teachersList, setTeachersList] = useState<any[]>([]);
+
+  const fetchTeachers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "teacher")
+        .order("created_at", { ascending: false });
+      if (data) {
+        setTeachersList(data);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch teacher accounts:", err);
+    }
+  };
+
+  const handleVerifyTeacher = async (id: string, status: "approved" | "rejected") => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ approval_status: status })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success(`Teacher account status updated to ${status}!`);
+      fetchTeachers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update teacher status.");
+    }
+  };
 
   useEffect(() => {
     const fetchAdminStats = async () => {
@@ -143,7 +174,7 @@ function AdminPortal() {
             subs.map((s, index) => ({
               id: s.id || `sub_${index}`,
               name: s.subscriber_name || "Platform Student",
-              email: s.subscriber_email || "student@tutor.vigilance.rw",
+              email: s.subscriber_email || "student@purelearn.ai",
               plan: s.plan_name || "Pro",
               status: s.status || "Active",
               price: s.status === "Trialing" ? "$0 (Trial)" : "$15/mo",
@@ -156,6 +187,7 @@ function AdminPortal() {
       }
     };
     fetchAdminStats();
+    fetchTeachers();
   }, []);
 
   return (
@@ -165,8 +197,8 @@ function AdminPortal() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold tracking-wider text-foreground flex items-center gap-1.5">
-              <Brain className="h-4 w-4 text-primary" />
-              tutor.vigilance.rw
+
+              purelearn.ai
               <span className="rounded bg-red-500/10 text-red-500 px-1.5 py-0.5 text-[10px] font-semibold">
                 System Administrator
               </span>
@@ -278,7 +310,7 @@ function AdminPortal() {
           <Card className="lg:col-span-5 p-6 flex flex-col justify-between">
             <div>
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                <Brain className="h-4 w-4 text-primary" />
+
                 Adaptive Cognitive Profiles
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -312,23 +344,30 @@ function AdminPortal() {
               <div className="flex gap-4">
                 <button
                   onClick={() => setActiveTab("subscriptions")}
-                  className={`text-xs font-bold uppercase tracking-wider pb-1 transition border-b-2 ${
-                    activeTab === "subscriptions"
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`text-xs font-bold uppercase tracking-wider pb-1 transition border-b-2 ${activeTab === "subscriptions"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Subscriptions Log
                 </button>
                 <button
                   onClick={() => setActiveTab("classrooms")}
-                  className={`text-xs font-bold uppercase tracking-wider pb-1 transition border-b-2 ${
-                    activeTab === "classrooms"
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`text-xs font-bold uppercase tracking-wider pb-1 transition border-b-2 ${activeTab === "classrooms"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Classrooms Compliance
+                </button>
+                <button
+                  onClick={() => setActiveTab("teachers")}
+                  className={`text-xs font-bold uppercase tracking-wider pb-1 transition border-b-2 ${activeTab === "teachers"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  Teacher Approvals
                 </button>
               </div>
 
@@ -356,22 +395,20 @@ function AdminPortal() {
                         </td>
                         <td className="py-3">
                           <span
-                            className={`px-2 py-0.5 rounded text-[9px] font-semibold border ${
-                              log.plan === "Enterprise"
-                                ? "bg-purple-500/10 border-purple-500/20 text-purple-500"
-                                : log.plan === "Pro"
-                                  ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
-                                  : "bg-slate-500/10 border-slate-500/20 text-muted-foreground"
-                            }`}
+                            className={`px-2 py-0.5 rounded text-[9px] font-semibold border ${log.plan === "Enterprise"
+                              ? "bg-purple-500/10 border-purple-500/20 text-purple-500"
+                              : log.plan === "Pro"
+                                ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
+                                : "bg-slate-500/10 border-slate-500/20 text-muted-foreground"
+                              }`}
                           >
                             {log.plan}
                           </span>
                         </td>
                         <td className="py-3">
                           <span
-                            className={`text-[10px] font-medium ${
-                              log.status === "Active" ? "text-emerald-500" : "text-amber-500"
-                            }`}
+                            className={`text-[10px] font-medium ${log.status === "Active" ? "text-emerald-500" : "text-amber-500"
+                              }`}
                           >
                             ● {log.status}
                           </span>
@@ -384,7 +421,7 @@ function AdminPortal() {
                     ))}
                   </tbody>
                 </table>
-              ) : (
+              ) : activeTab === "classrooms" ? (
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 text-[10px] uppercase font-bold text-muted-foreground">
@@ -410,9 +447,8 @@ function AdminPortal() {
                         </td>
                         <td className="py-3 text-right">
                           <span
-                            className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                              item.quizLoop === "Pass" ? "text-emerald-500" : "text-red-500"
-                            }`}
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold ${item.quizLoop === "Pass" ? "text-emerald-500" : "text-red-500"
+                              }`}
                           >
                             {item.quizLoop === "Pass" ? (
                               <>
@@ -427,6 +463,70 @@ function AdminPortal() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border/80 text-[10px] uppercase font-bold text-muted-foreground">
+                      <th className="py-2.5 font-semibold">Instructor Details</th>
+                      <th className="py-2.5 font-semibold">Date Registered</th>
+                      <th className="py-2.5 font-semibold">Approval Status</th>
+                      <th className="py-2.5 font-semibold text-right">Moderation Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40 text-xs">
+                    {teachersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                          No registered teacher accounts found in system.
+                        </td>
+                      </tr>
+                    ) : (
+                      teachersList.map((teacher) => (
+                        <tr key={teacher.id} className="hover:bg-muted/30">
+                          <td className="py-3 pr-2">
+                            <p className="font-semibold text-foreground">{teacher.name || "Unknown Teacher"}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{teacher.email}</p>
+                          </td>
+                          <td className="py-3 text-muted-foreground font-mono text-[10px]">
+                            {teacher.created_at ? new Date(teacher.created_at).toLocaleDateString() : "N/A"}
+                          </td>
+                          <td className="py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${teacher.approval_status === "approved"
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                  : teacher.approval_status === "rejected"
+                                    ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                                    : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                                }`}
+                            >
+                              {teacher.approval_status || "pending"}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex justify-end gap-2">
+                              {teacher.approval_status !== "approved" && (
+                                <button
+                                  onClick={() => handleVerifyTeacher(teacher.id, "approved")}
+                                  className="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 transition-colors"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {teacher.approval_status !== "rejected" && (
+                                <button
+                                  onClick={() => handleVerifyTeacher(teacher.id, "rejected")}
+                                  className="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-[10px] font-bold border border-rose-500/30 transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               )}

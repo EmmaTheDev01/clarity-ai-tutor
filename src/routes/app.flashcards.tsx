@@ -11,7 +11,9 @@ import {
   ChevronRight,
   Download,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
+import { MarkdownRenderer } from "@/components/markdown";
 
 export const Route = createFileRoute("/app/flashcards")({
   head: () => ({ meta: [{ title: "Flashcards — tutor.vigilance.rw" }] }),
@@ -63,27 +65,134 @@ const defaultDecks = [
   },
 ];
 
+function generateCardsFromNoteContent(content: string): Array<{ q: string; a: string }> {
+  const cards: Array<{ q: string; a: string }> = [];
+  if (!content) return cards;
+
+  // Split by headings
+  const sections = content.split(/(?=###?#? )/g);
+  sections.forEach((sec) => {
+    const lines = sec.trim().split("\n");
+    const heading = lines[0].replace(/^###* /, "").trim();
+    const body = lines.slice(1).join(" ").replace(/\s+/g, " ").trim();
+    if (heading && body && body.length > 10) {
+      cards.push({
+        q: `What is the significance of "${heading}"?`,
+        a: body.substring(0, 220) + (body.length > 220 ? "..." : ""),
+      });
+    }
+  });
+
+  // Extract bold definitions: **Term**: Definition or **Term** - Definition
+  const listRegex = /[*\-]\s+\*\*([^*:]+)\*\*[\s:-]+([^\n]+)/g;
+  let listMatch;
+  while ((listMatch = listRegex.exec(content)) !== null) {
+    cards.push({
+      q: `What is defined as "${listMatch[1].trim()}"?`,
+      a: listMatch[2].trim(),
+    });
+  }
+
+  // Fallback: If no cards were extracted, split by sentences or generate a default one
+  if (cards.length === 0) {
+    cards.push({
+      q: "What is the main topic of this note?",
+      a: content.substring(0, 150) + (content.length > 150 ? "..." : "") || "Please expand the note content to generate detailed study flashcards.",
+    });
+  }
+  
+  // Unique filter
+  const unique: typeof cards = [];
+  const seen = new Set();
+  cards.forEach((c) => {
+    const key = c.q.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(c);
+    }
+  });
+  
+  return unique.slice(0, 10); // Max 10 cards per note
+}
+
 function FlashcardsPage() {
-  const [selectedDeck, setSelectedDeck] = useState(defaultDecks[0]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [activeDeckId, setActiveDeckId] = useState<string>("deck1");
   const [currentCardIdx, setCurrentCardIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState({ correct: 0, incorrect: 0 });
 
-  const currentCard = selectedDeck.cards[currentCardIdx];
-  const progressPercent = Math.round((currentCardIdx / selectedDeck.cards.length) * 100);
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const { data: dbNotes } = await supabase
+            .from("notes")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+          // Load from LocalStorage fallback
+          const stored = window.localStorage.getItem("digital_notebook");
+          const localNotes = stored ? JSON.parse(stored) : [];
+
+          const allNotes = [...(dbNotes || []), ...localNotes];
+          
+          // Unique by ID or title
+          const seen = new Set();
+          const uniqueNotes: any[] = [];
+          allNotes.forEach((n) => {
+            if (n.id && !seen.has(n.id)) {
+              seen.add(n.id);
+              uniqueNotes.push(n);
+            }
+          });
+          setNotes(uniqueNotes);
+        }
+      } catch (err) {
+        console.warn("Failed to load notes for flashcards:", err);
+      }
+    };
+    fetchNotes();
+  }, []);
+
+  const noteDecks = useMemo(() => {
+    return notes.map((n) => {
+      const generatedCards = generateCardsFromNoteContent(n.content);
+      return {
+        id: `note_${n.id}`,
+        title: n.title,
+        subject: n.subject || "Study Note",
+        cards: generatedCards,
+      };
+    });
+  }, [notes]);
+
+  const allDecks = useMemo(() => {
+    return [...noteDecks, ...defaultDecks];
+  }, [noteDecks]);
+
+  const selectedDeck = useMemo(() => {
+    return allDecks.find((d) => d.id === activeDeckId) || allDecks[0] || defaultDecks[0];
+  }, [allDecks, activeDeckId]);
+
+  const currentCard = selectedDeck.cards[currentCardIdx] || { q: "No question", a: "No answer" };
+  const progressPercent = selectedDeck.cards.length > 0 ? Math.round((currentCardIdx / selectedDeck.cards.length) * 100) : 0;
 
   const handleNext = () => {
+    if (selectedDeck.cards.length === 0) return;
     setShowAnswer(false);
     setCurrentCardIdx((prev) => (prev + 1) % selectedDeck.cards.length);
   };
 
   const handlePrev = () => {
+    if (selectedDeck.cards.length === 0) return;
     setShowAnswer(false);
     setCurrentCardIdx((prev) => (prev - 1 + selectedDeck.cards.length) % selectedDeck.cards.length);
   };
 
-  const selectDeck = (deck: (typeof defaultDecks)[number]) => {
-    setSelectedDeck(deck);
+  const selectDeck = (deck: typeof allDecks[number]) => {
+    setActiveDeckId(deck.id);
     setCurrentCardIdx(0);
     setShowAnswer(false);
     setScore({ correct: 0, incorrect: 0 });
@@ -91,83 +200,95 @@ function FlashcardsPage() {
 
   // Canvas Card Exporter (Flashcard-to-Image Engine)
   const exportCardToImage = () => {
+    if (!selectedDeck || selectedDeck.cards.length === 0) return;
     const canvas = document.createElement("canvas");
     canvas.width = 800;
     canvas.height = 500;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Draw background gradient
-    const grad = ctx.createLinearGradient(0, 0, 800, 500);
-    grad.addColorStop(0, "#0f172a"); // slate-900
-    grad.addColorStop(1, "#1e293b"); // slate-800
-    ctx.fillStyle = grad;
+    // Draw white background
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, 800, 500);
 
-    // Draw card borders
-    ctx.strokeStyle = "#334155";
+    // Draw light card borders
+    ctx.strokeStyle = "#cbd5e1"; // slate-300
     ctx.lineWidth = 6;
     ctx.strokeRect(15, 15, 770, 470);
 
     // Logo & header metadata
-    ctx.fillStyle = "#38bdf8"; // sky-400
+    ctx.fillStyle = "#0f172a"; // dark slate
     ctx.font = "bold 20px sans-serif";
     ctx.fillText("CLARITY AI TUTOR", 45, 65);
 
-    ctx.fillStyle = "#94a3b8"; // slate-400
+    ctx.fillStyle = "#64748b"; // slate-500
     ctx.font = "12px tracking-wider sans-serif";
     ctx.fillText(
-      "tutor.vigilance.rw  •  " + selectedDeck.subject.toUpperCase() + " STUDY GUIDE",
+      "Purelearn.ai  •  " + selectedDeck.subject.toUpperCase() + " STUDY GUIDE",
       45,
       90,
     );
 
     // Draw active card mode tag
-    ctx.fillStyle = showAnswer ? "#10b981" : "#f59e0b"; // emerald or amber
+    ctx.fillStyle = "#0f172a";
     ctx.font = "bold 11px sans-serif";
-    ctx.fillText(showAnswer ? "ANSWER DECK" : "CONCEPT FLASHCARD", 650, 65);
+    ctx.fillText("STUDY FLASHCARD", 640, 65);
 
     // Divider line
-    ctx.strokeStyle = "#334155";
+    ctx.strokeStyle = "#e2e8f0"; // slate-200
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(45, 115);
     ctx.lineTo(755, 115);
     ctx.stroke();
 
-    // Word Wrap Text Content
-    ctx.fillStyle = "#f8fafc"; // slate-50
-    ctx.font = "semibold 22px sans-serif";
-    const text = showAnswer ? currentCard.a : currentCard.q;
-    const words = text.split(" ");
-    let line = "";
-    const x = 50;
-    let y = 190;
-    const maxWidth = 700;
-    const lineHeight = 35;
-
-    for (let n = 0; n < words.length; n++) {
-      let testLine = line + words[n] + " ";
-      let metrics = ctx.measureText(testLine);
-      let testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        ctx.fillText(line, x, y);
-        line = words[n] + " ";
-        y += lineHeight;
-      } else {
-        line = testLine;
+    // Helper function for wrapping text
+    const wrapText = (textStr: string, startX: number, startY: number, maxW: number, lineH: number) => {
+      const words = textStr.split(" ");
+      let currentLine = "";
+      let currentY = startY;
+      for (let n = 0; n < words.length; n++) {
+        let testLine = currentLine + words[n] + " ";
+        let metrics = ctx.measureText(testLine);
+        let testWidth = metrics.width;
+        if (testWidth > maxW && n > 0) {
+          ctx.fillText(currentLine, startX, currentY);
+          currentLine = words[n] + " ";
+          currentY += lineH;
+        } else {
+          currentLine = testLine;
+        }
       }
-    }
-    ctx.fillText(line, x, y);
+      ctx.fillText(currentLine, startX, currentY);
+      return currentY + lineH; // Return next Y position
+    };
+
+    // Draw Question block
+    ctx.fillStyle = "#64748b"; // label color
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("QUESTION:", 45, 155);
+
+    ctx.fillStyle = "#0f172a"; // text color
+    ctx.font = "semibold 18px sans-serif";
+    let nextY = wrapText(currentCard.q, 45, 185, 710, 26);
+
+    // Draw Answer block
+    ctx.fillStyle = "#10b981"; // emerald green label
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("ANSWER:", 45, nextY + 15);
+
+    ctx.fillStyle = "#334155"; // slightly softer dark text
+    ctx.font = "normal 18px sans-serif";
+    wrapText(currentCard.a, 45, nextY + 45, 710, 26);
 
     // Branding signature footer
     ctx.fillStyle = "#64748b"; // slate-500
     ctx.font = "11px sans-serif";
     ctx.fillText(
       "Classroom Verified Material  •  Card " +
-        (currentCardIdx + 1) +
-        " of " +
-        selectedDeck.cards.length,
+      (currentCardIdx + 1) +
+      " of " +
+      selectedDeck.cards.length,
       45,
       445,
     );
@@ -188,13 +309,12 @@ function FlashcardsPage() {
             Decks
           </h2>
           <div className="space-y-2">
-            {defaultDecks.map((deck) => (
+            {allDecks.map((deck) => (
               <Card
                 key={deck.id}
                 onClick={() => selectDeck(deck)}
-                className={`cursor-pointer p-4 transition text-left border ${
-                  selectedDeck.id === deck.id ? "border-foreground ring-1 ring-foreground" : ""
-                }`}
+                className={`cursor-pointer p-4 transition text-left border ${selectedDeck.id === deck.id ? "border-foreground ring-1 ring-foreground bg-elevated/40" : "border-border hover:bg-elevated/20"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -214,7 +334,7 @@ function FlashcardsPage() {
             {/* Stats Header */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                Card {currentCardIdx + 1} of {selectedDeck.cards.length}
+                Card {selectedDeck.cards.length > 0 ? currentCardIdx + 1 : 0} of {selectedDeck.cards.length}
               </span>
               <div className="flex gap-4">
                 <span className="text-green-600 font-medium">✓ {score.correct}</span>
@@ -232,7 +352,11 @@ function FlashcardsPage() {
 
             {/* Flashcard Box */}
             <div
-              onClick={() => setShowAnswer(!showAnswer)}
+              onClick={() => {
+                if (selectedDeck.cards.length > 0) {
+                  setShowAnswer(!showAnswer);
+                }
+              }}
               className="group relative h-80 w-full cursor-pointer rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md flex flex-col justify-between p-8 text-center"
             >
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-center gap-1">
@@ -240,8 +364,12 @@ function FlashcardsPage() {
                 {showAnswer ? "Answer" : "Question"}
               </div>
 
-              <div className="my-auto text-xl md:text-2xl font-semibold tracking-tight text-foreground select-none px-4">
-                {showAnswer ? currentCard.a : currentCard.q}
+              <div className="my-auto text-base md:text-lg font-semibold tracking-tight text-foreground select-none px-4 flex justify-center items-center w-full">
+                {selectedDeck.cards.length > 0 ? (
+                  <MarkdownRenderer content={showAnswer ? currentCard.a : currentCard.q} />
+                ) : (
+                  "This note does not have enough content to generate cards. Try adding headings or lists."
+                )}
               </div>
 
               <div className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
@@ -269,14 +397,15 @@ function FlashcardsPage() {
                 </button>
                 <button
                   onClick={exportCardToImage}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-border bg-background rounded-md text-xs font-semibold hover:bg-muted text-foreground transition"
+                  disabled={selectedDeck.cards.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-border bg-background rounded-md text-xs font-semibold hover:bg-muted text-foreground transition disabled:opacity-50"
                   title="Export Card to Image"
                 >
                   <Download className="h-3.5 w-3.5" /> Export Image
                 </button>
               </div>
 
-              {showAnswer && (
+              {showAnswer && selectedDeck.cards.length > 0 && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => {

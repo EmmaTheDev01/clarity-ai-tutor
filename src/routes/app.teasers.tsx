@@ -62,6 +62,9 @@ function BrainTeasersPage() {
   const [xp, setXp] = useState(() => {
     return Number(localStorage.getItem("student_xp") || "850");
   });
+  const [streak, setStreak] = useState(() => {
+    return Number(localStorage.getItem("riddle_streak") || "3");
+  });
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [userInput, setUserInput] = useState("");
@@ -83,22 +86,30 @@ function BrainTeasersPage() {
         const updatedSolved = [...solvedIds, currentRiddle.id];
         setSolvedIds(updatedSolved);
 
-        // Award +15 XP
-        const newXp = xp + 15;
+        // Award +15 XP baseline, or +30 XP (+2x XP multiplier) if streak is active (> 0)
+        const isMultiplier = streak > 0;
+        const reward = isMultiplier ? 30 : 15;
+        const newXp = xp + reward;
         setXp(newXp);
         localStorage.setItem("student_xp", String(newXp));
+
+        const nextStreak = streak + 1;
+        setStreak(nextStreak);
+        localStorage.setItem("riddle_streak", String(nextStreak));
 
         // Log action in user_logs in background
         const currentLogs = JSON.parse(localStorage.getItem("user_logs") || "[]");
         currentLogs.push({
           action: "brain_teaser_solved",
-          details: `Solved riddle #${currentRiddle.id} (${currentRiddle.subject})`,
+          details: `Solved riddle #${currentRiddle.id} (${currentRiddle.subject}) awarding ${reward} XP (streak active: ${isMultiplier})`,
           time: new Date().toISOString(),
         });
         localStorage.setItem("user_logs", JSON.stringify(currentLogs));
       }
     } else {
       setFeedback("incorrect");
+      setStreak(0);
+      localStorage.setItem("riddle_streak", "0");
       setTimeout(() => setFeedback("idle"), 2000);
     }
   };
@@ -140,9 +151,14 @@ function BrainTeasersPage() {
             {/* Verification Form */}
             <div className="space-y-4">
               {feedback === "correct" && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-xs font-semibold animate-bounce">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Brilliant! That is correct. +15 XP added to your scholar score!</span>
+                <div className="flex flex-col gap-1 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-xs font-semibold animate-bounce">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>Brilliant! That is correct.</span>
+                  </div>
+                  <p className="text-[10px] text-emerald-400/90 font-medium">
+                    {streak > 1 ? `🔥 Double Multiplier Active (+30 XP awarded!)` : `+15 XP added to your scholar score!`}
+                  </p>
                 </div>
               )}
 
@@ -160,7 +176,7 @@ function BrainTeasersPage() {
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
-                    disabled={feedback === "correct"}
+                    disabled={false}
                   />
                   <button
                     type="submit"
@@ -206,7 +222,10 @@ function BrainTeasersPage() {
               Scholar Achievements
             </h3>
             <p className="text-2xl font-bold text-foreground mt-2">{xp} XP</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <Pill className="bg-primary/10 border-primary/20 text-primary uppercase font-bold text-[9px] tracking-wider mt-2">
+              {xp >= 900 ? "Grandmaster" : xp >= 600 ? "Elite Scholar" : xp >= 300 ? "Junior Scholar" : "Novice Thinker"}
+            </Pill>
+            <p className="text-[10px] text-muted-foreground mt-1.5">
               Rank: Level {Math.floor(xp / 300) + 1} Scholar
             </p>
 
@@ -219,7 +238,7 @@ function BrainTeasersPage() {
               </div>
               <div className="flex justify-between">
                 <span>Current Streak:</span>
-                <span className="font-bold text-foreground">9 Days</span>
+                <span className="font-bold text-foreground">{streak} Days</span>
               </div>
             </div>
           </Card>

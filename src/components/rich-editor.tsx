@@ -15,8 +15,70 @@ import {
   Undo,
   Redo,
 } from "lucide-react";
+import { cleanLatexMathSyntax } from "./markdown";
 
 /* ─── Markdown → HTML ───────────────────────────────────────────────── */
+
+function preProcessMarkdown(text: string): string {
+  if (!text) return text;
+  const lines = text.split("\n");
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    const isListMarker = /^\d+\.$/.test(trimmed) || /^[*+\-]$/.test(trimmed);
+
+    if (isListMarker && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      result.push(`${trimmed} ${nextLine}`);
+      i++;
+    } else {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
+}
+
+function isStandaloneMath(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+
+  const hasMathIndicator = /^[=\-+/*]|\\|[_{}^]/.test(trimmed);
+  if (!hasMathIndicator) return false;
+
+  const words = trimmed.split(/[^a-zA-Z]/).filter((w) => w.length > 3);
+  const mathKeywords = [
+    "frac",
+    "mathbf",
+    "Sigma",
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "theta",
+    "lambda",
+    "omega",
+    "left",
+    "right",
+    "sqrt",
+    "approx",
+    "const",
+    "log",
+    "det",
+    "lim",
+    "sin",
+    "cos",
+    "tan",
+    "mu",
+    "Sigma",
+  ];
+  const nonMathWords = words.filter((w) => !mathKeywords.includes(w));
+
+  return nonMathWords.length === 0;
+}
 
 function formatInlineHtml(text: string): string {
   // 1. Block Math (double dollar signs)
@@ -31,38 +93,54 @@ function formatInlineHtml(text: string): string {
     '<span style="font-family:serif;color:var(--color-primary);font-style:italic;background:var(--color-elevated);padding:2px 4px;border-radius:4px;">$1</span>'
   );
 
-  // 3. Heuristic: identify unwrapped LaTeX expressions and format them as math style
-  const latexPattern = /(\\[a-zA-Z]+(?:_{[a-zA-Z0-9\-]+})?(?:\^{?[a-zA-Z0-9\-]+}?)?(?:\^T)?)/g;
-  text = text.replace(latexPattern, (match) => {
-    // Avoid double-wrapping styled markup or HTML tags
-    if (match.startsWith("<") || match.includes("style=")) return match;
-    return `<span style="font-family:serif;color:var(--color-primary);font-style:italic;background:var(--color-elevated);padding:2px 4px;border-radius:4px;">${match}</span>`;
-  });
+  // 3. Math tokens with subscripts/superscripts or explicit LaTeX commands
+  const regex = /(`[^`]+`|\*\*[^*]+\*\*|\$[^\$]+\$|\*[^*]+\*|f\([a-zA-Z0-9_^{}\-+=/*\\]+\)\s*=\s*[a-zA-Z0-9_^{}\-+=/*\\]+|[a-zA-Z0-9\-+/*=()]+(?:_\{[^{}]+\}|_[a-zA-Z0-9]+|\^\{[^{}]+\}|\^[a-zA-Z0-9]+)+|\\(?:mu|Sigma|frac|mathbf|alpha|beta|theta|lambda|pi|phi|sigma|delta|gamma|omega|Sigma|Pi|Delta|Gamma|Omega|ln|log|left|right|[a-zA-Z]+)(?:\{[^{}]+\})*(?:\^[^{}]+|\^T|\^\{[^{}]+\})?(?:_[^{}]+|_[a-zA-Z0-9]+|_(?:\{[^{}]+\}))?)/g;
 
-  // 4. Regular formatting rules
-  text = text
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>")
-    .replace(/~~(.+?)~~/g, "<del>$1</del>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--color-primary);text-decoration:underline;">$1</a>');
+  const parts = text.split(regex);
+  return parts.map((token) => {
+    if (!token) return "";
 
-  return text;
+    if (token.startsWith("<") && token.endsWith(">")) {
+      return token;
+    }
+
+    if (token.startsWith("**") && token.endsWith("**")) {
+      return `<strong>${token.slice(2, -2)}</strong>`;
+    }
+    if (token.startsWith("*") && token.endsWith("*")) {
+      return `<em>${token.slice(1, -1)}</em>`;
+    }
+    if (token.startsWith("`") && token.endsWith("`")) {
+      return `<code>${token.slice(1, -1)}</code>`;
+    }
+    if (token.startsWith("$") && token.endsWith("$")) {
+      return `<span style="font-family:serif;font-style:italic;user-select:all;">${token.slice(1, -1)}</span>`;
+    }
+
+    const isLaTeXToken = token.startsWith("\\") || /^[\\{}_^T()\-+/*=]+|\\Sigma|\\mu|\\frac|\\mathbf|\\{N-1\}/i.test(token);
+    if (isLaTeXToken) {
+      return `<span style="font-family:serif;font-style:italic;user-select:all;">${token}</span>`;
+    }
+
+    return token
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>")
+      .replace(/~~(.+?)~~/g, "<del>$1</del>")
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--color-primary);text-decoration:underline;">$1</a>');
+  }).join("");
 }
 
 function markdownToHtml(md: string): string {
-  // First split by $$ to separate block math equations from general text content
-  const parts = md.split("$$");
+  const preProcessed = preProcessMarkdown(md);
+  const parts = preProcessed.split("$$");
   let html = "";
 
   parts.forEach((part, partIdx) => {
     const isMathBlock = partIdx % 2 === 1;
     if (isMathBlock) {
-      // Format as display block math
-      html += `<div style="margin:18px auto;text-align:center;font-family:serif;font-size:1.15em;color:var(--color-primary);background:var(--color-primary-5);padding:16px 24px;border-radius:16px;border:1px solid var(--color-border);overflow-x:auto;max-width:100%;white-space:pre-wrap;line-height:1.6;box-shadow:0 1px 3px rgba(0,0,0,0.02);">${part.trim()}</div>`;
+      html += `<div style="margin:12px auto;text-align:center;font-family:serif;font-size:1.05em;overflow-x:auto;max-width:100%;white-space:pre-wrap;line-height:1.6;user-select:all;font-style:italic;">${part.trim()}</div>`;
     } else {
-      // Parse regular markdown elements (headers, lists, paragraphs)
       const lines = part.split("\n");
       let inUl = false;
       let inOl = false;
@@ -81,10 +159,14 @@ function markdownToHtml(md: string): string {
       for (const line of lines) {
         const trimmed = line.trim();
 
-        // Code blocks (skip for inline editor)
         if (trimmed.startsWith("```")) continue;
 
-        // Headers
+        if (isStandaloneMath(line)) {
+          closeList();
+          html += `<div style="margin:8px auto;text-align:left;font-family:serif;font-size:1em;overflow-x:auto;max-width:100%;white-space:pre-wrap;line-height:1.6;user-select:all;font-style:italic;">${trimmed}</div>`;
+          continue;
+        }
+
         const hMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
         if (hMatch) {
           closeList();
@@ -94,21 +176,18 @@ function markdownToHtml(md: string): string {
           continue;
         }
 
-        // Horizontal rule
         if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
           closeList();
           html += '<hr style="border:none;border-top:1px solid var(--color-border);margin:1em 0;">';
           continue;
         }
 
-        // Blockquote
         if (trimmed.startsWith("> ")) {
           closeList();
           html += `<blockquote style="border-left:3px solid var(--color-primary);padding:4px 12px;margin:0.5em 0;background:var(--color-elevated);border-radius:4px;font-style:italic;color:var(--color-muted-foreground);">${formatInlineHtml(trimmed.slice(2))}</blockquote>`;
           continue;
         }
 
-        // Bullet list
         const bulletMatch = trimmed.match(/^[\-\*]\s+(.*)/);
         if (bulletMatch) {
           if (inOl) {
@@ -123,7 +202,6 @@ function markdownToHtml(md: string): string {
           continue;
         }
 
-        // Numbered list
         const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
         if (numMatch) {
           if (inUl) {
@@ -138,14 +216,12 @@ function markdownToHtml(md: string): string {
           continue;
         }
 
-        // Empty line
         if (trimmed === "") {
           closeList();
           html += "<br>";
           continue;
         }
 
-        // Regular paragraph
         closeList();
         html += `<p style="margin:0.3em 0;">${formatInlineHtml(trimmed)}</p>`;
       }
@@ -254,6 +330,19 @@ interface RichEditorProps {
   className?: string;
 }
 
+function sanitizeHtml(html: string): string {
+  // Remove script tags and their content
+  let clean = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, "");
+  
+  // Remove event handlers like onload, onerror, onclick, etc.
+  clean = clean.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, "");
+  
+  // Remove javascript: URLs
+  clean = clean.replace(/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]*)/gi, 'href="#"');
+  
+  return clean;
+}
+
 export const RichEditor: React.FC<RichEditorProps> = ({
   value,
   onChange,
@@ -265,12 +354,51 @@ export const RichEditor: React.FC<RichEditorProps> = ({
   const isInternalChange = useRef(false);
   const [isEmpty, setIsEmpty] = useState(!value);
   const debounceTimer = useRef<any>(null);
+  const [showSpecialChars, setShowSpecialChars] = useState(false);
+
+  const specialCharsGroups: { label: string; chars: string[] }[] = [
+    {
+      label: "Greek",
+      chars: ["α","β","γ","δ","ε","ζ","η","θ","ι","κ","λ","μ","ν","ξ","π","ρ","σ","τ","υ","φ","χ","ψ","ω","Α","Β","Γ","Δ","Ε","Ζ","Η","Θ","Λ","Μ","Ξ","Π","Σ","Φ","Ψ","Ω"],
+    },
+    {
+      label: "Math",
+      chars: ["±","×","÷","≠","≈","≡","≤","≥","∞","∑","∏","√","∂","∫","∇","∆","∈","∉","⊂","⊃","∩","∪","∅","∀","∃","¬","∧","∨","⊕","⊗","ℝ","ℤ","ℕ","ℚ","ℂ","ℍ","°","‰","′","″"],
+    },
+    {
+      label: "Arrows",
+      chars: ["→","←","↑","↓","↔","↕","⇒","⇐","⇔","⟹","⟺","↦","↪","↩","⤴","⤵","↗","↘","↖","↙"],
+    },
+    {
+      label: "Symbols",
+      chars: ["©","®","™","§","¶","†","‡","•","·","…","–","—","′","〈","〉","⟨","⟩","‖","∥","⊥","∠","⌈","⌉","⌊","⌋","⟦","⟧"],
+    },
+  ];
+
+  const insertChar = useCallback((char: string) => {
+    if (readOnly || !editorRef.current) return;
+    editorRef.current.focus();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(char);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      document.execCommand("insertText", false, char);
+    }
+    handleInput();
+  }, [readOnly]);
 
   // Initialize content
   useEffect(() => {
     if (editorRef.current && !isInternalChange.current) {
-      const html = markdownToHtml(value);
-      editorRef.current.innerHTML = html;
+      const html = markdownToHtml(cleanLatexMathSyntax(value));
+      editorRef.current.innerHTML = sanitizeHtml(html);
       setIsEmpty(!value);
     }
     isInternalChange.current = false;
@@ -430,13 +558,13 @@ export const RichEditor: React.FC<RichEditorProps> = ({
     <div className={`flex flex-col flex-1 ${className}`}>
       {/* Formatting Toolbar */}
       {!readOnly && (
-        <div className="flex items-center gap-0.5 flex-wrap rounded-t-xl border border-border bg-elevated/80 px-2 py-1.5 sticky top-0 z-10 backdrop-blur-sm">
+        <div className="flex items-center gap-0.5 flex-wrap rounded-t-xl border border-border bg-elevated/80 px-2 py-1.5 sticky top-0 z-10 backdrop-blur-sm relative">
           {toolbarButtons.map((btn, i) => (
             <React.Fragment key={btn.label}>
               <button
                 type="button"
                 onMouseDown={(e) => {
-                  e.preventDefault(); // Prevent losing selection
+                  e.preventDefault();
                   btn.action();
                 }}
                 className="rounded-md p-1.5 text-muted-foreground transition hover:bg-background hover:text-foreground hover:shadow-sm"
@@ -449,6 +577,53 @@ export const RichEditor: React.FC<RichEditorProps> = ({
               )}
             </React.Fragment>
           ))}
+
+          {/* Special Characters Button */}
+          <div className="mx-0.5 h-4 w-px bg-border/60 shrink-0" />
+          <div className="relative">
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setShowSpecialChars((v) => !v);
+              }}
+              className={`rounded-md px-1.5 py-1 text-xs font-bold transition hover:bg-background hover:text-foreground hover:shadow-sm ${
+                showSpecialChars ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+              title="Special Characters & Math Symbols"
+            >
+              Ω
+            </button>
+
+            {showSpecialChars && (
+              <div
+                className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl border border-border bg-background shadow-lg p-3 flex flex-col gap-2"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {specialCharsGroups.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{group.label}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {group.chars.map((char) => (
+                        <button
+                          key={char}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertChar(char);
+                          }}
+                          className="h-7 w-7 rounded-md border border-border text-sm font-mono hover:bg-primary/10 hover:border-primary/30 transition flex items-center justify-center text-foreground"
+                          title={char}
+                        >
+                          {char}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -460,7 +635,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({
           suppressContentEditableWarning
           onInput={handleInput}
           onKeyDown={handleKeyDown}
-          className={`w-full min-h-[300px] flex-1 text-foreground leading-relaxed text-xs focus:outline-none ${
+          className={`w-full min-h-[300px] flex-1 text-foreground leading-relaxed text-sm focus:outline-none ${
             readOnly
               ? "cursor-default"
               : "border border-border rounded-b-xl p-4 focus:ring-1 focus:ring-primary/30 bg-background"
@@ -472,7 +647,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({
           data-placeholder={placeholder}
         />
         {isEmpty && !readOnly && (
-          <div className="absolute top-4 left-4 text-muted-foreground/50 text-xs pointer-events-none select-none">
+          <div className="absolute top-4 left-4 text-muted-foreground/50 text-sm pointer-events-none select-none">
             {placeholder}
           </div>
         )}

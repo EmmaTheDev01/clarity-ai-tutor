@@ -17,8 +17,8 @@ export function AuthShell({
       {/* Left: form */}
       <div className="flex flex-col">
         <header className="flex items-center justify-between border-b border-border px-8 py-5">
-          <Link to="/" className="text-sm font-bold tracking-wider">
-            tutor.vigilance.rw
+          <Link to="/" className="text-2xl font-bold tracking-wider">
+            Purelearn.ai
           </Link>
           <Link
             to="/"
@@ -41,7 +41,7 @@ export function AuthShell({
       <div className="hidden border-l border-border bg-elevated lg:block">
         <div className="flex h-full flex-col justify-between p-12">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            An AI tutor made exactly for you
+            Learn & Create learning materials easily.
           </div>
           <div>
             <p className="text-2xl font-semibold leading-snug tracking-tight text-foreground">
@@ -49,12 +49,12 @@ export function AuthShell({
               changes how I process long video lectures.&rdquo;
             </p>
             <div className="mt-6 border-t border-border pt-4">
-              <div className="text-sm font-medium text-foreground">Mihir Wadekar</div>
+              <div className="text-sm font-medium text-foreground">Jackson Dushime</div>
               <div className="text-sm text-muted-foreground">Product Engineer</div>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>© {new Date().getFullYear()} tutor.vigilance.rw</span>
+            <span>© {new Date().getFullYear()} purelearn.ai</span>
             <span>Kigali · Rwanda</span>
           </div>
         </div>

@@ -117,13 +117,13 @@ export const Card = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEleme
 );
 Card.displayName = "Card";
 
-export function Divider() {
-  return <div className="h-px w-full bg-border" />;
+export function Divider({ className = "" }: { className?: string }) {
+  return <div className={`h-px w-full bg-border ${className}`} />;
 }
 
-export function Kbd({ children }: { children: ReactNode }) {
+export function Kbd({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <span className="inline-flex h-5 items-center justify-center rounded border border-border bg-elevated px-1.5 font-mono text-[10px] text-muted-foreground">
+    <span className={`inline-flex h-5 items-center justify-center rounded border border-border bg-elevated px-1.5 font-mono text-[10px] text-muted-foreground ${className}`}>
       {children}
     </span>
   );

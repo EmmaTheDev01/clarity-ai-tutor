@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface ScrollRevealProps {
   children: ReactNode;
-  animation?: "fade-up" | "fade-left" | "fade-right" | "scale-in" | "zoom-out";
+  animation?: "fade-up" | "fade-left" | "fade-right" | "scale-in" | "zoom-out" | "crazy-reveal";
   duration?: number;
   delay?: number;
   threshold?: number;

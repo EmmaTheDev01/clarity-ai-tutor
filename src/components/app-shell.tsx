@@ -47,6 +47,35 @@ export function AppShell({
   const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [shortcutModalOpen, setShortcutModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMeta = e.metaKey || e.ctrlKey;
+      if (isMeta && e.key === "/") {
+        e.preventDefault();
+        setShortcutModalOpen((prev) => !prev);
+      } else if (isMeta && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        const btn = document.getElementById("new-chat-button");
+        if (btn) {
+          btn.click();
+        } else {
+          toast.info("Start a new chat inside the study workspace");
+        }
+      } else if (isMeta && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        const input = document.getElementById("chat-input");
+        if (input) {
+          input.focus();
+        }
+      } else if (e.key === "Escape") {
+        setShortcutModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   interface NotificationItem {
     id: string;
@@ -137,11 +166,11 @@ export function AppShell({
               .select("streak")
               .eq("student_id", userId)
               .maybeSingle();
-            
+
             if (stdProf && Number(stdProf.streak) > 0) {
               loadedNotifications.push({
                 id: "streak_alert",
-                icon: "🔥",
+                icon: "",
                 title: `${stdProf.streak} Day Study Streak!`,
                 message: "You are on fire! Keep learning today to maintain your streak score.",
                 time: "Today",
@@ -155,7 +184,7 @@ export function AppShell({
           if (loadedNotifications.length === 0) {
             loadedNotifications.push({
               id: "welcome_alert",
-              icon: "✨",
+              icon: "",
               title: "Welcome to Clarity!",
               message: "Start learning by uploading a document in the study workspace.",
               time: "Just now",
@@ -220,8 +249,8 @@ export function AppShell({
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link to="/app" className="text-sm font-bold tracking-wider truncate">
-            <span className="lg:hidden">tutor.vigilance.rw</span>
-            <span className="hidden lg:inline">{isCollapsed ? "Clarity" : "tutor.vigilance.rw"}</span>
+            <span className="lg:hidden">purelearn.ai</span>
+            <span className="hidden lg:inline">{isCollapsed ? " " : "purelearn.ai"}</span>
           </Link>
           <div className="flex items-center gap-1">
             <button
@@ -487,6 +516,38 @@ export function AppShell({
 
         <main className="flex-1 min-h-0 overflow-hidden px-6 py-6">{children}</main>
       </div>
+
+      {shortcutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-elevated/95 p-6 shadow-2xl animate-fade-in text-center">
+            <h3 className="text-sm font-bold text-foreground mb-4">Accessibility Keyboard Shortcuts</h3>
+            <div className="space-y-3.5 text-xs text-muted-foreground text-left mb-6">
+              <div className="flex justify-between items-center">
+                <span>Show Shortcuts Help</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">Cmd + /</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Start New Chat Session</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">Cmd + N</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Focus Chat Input</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">Cmd + S</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Close Modals / Help Overlay</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">ESC</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShortcutModalOpen(false)}
+              className="w-full py-2 bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold rounded-lg transition"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,13 +10,16 @@ import {
   MoreHorizontal,
   BookOpen,
   Check,
+  Loader2,
+  ChevronRight,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Card, Textarea } from "@/components/ui-kit";
+import { Card, Textarea, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
 import { generateGeminiText } from "@/lib/gemini";
 import { toast } from "sonner";
+import { MarkdownRenderer } from "@/components/markdown";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
@@ -145,7 +148,7 @@ function DocumentWorkspace() {
         <div className="lg:col-span-2">
           {tab === "Summary" && <SummaryPanel material={material} />}
           {tab === "Chat" && <ChatPanel material={material} />}
-          {tab === "Quiz" && <QuizPanel />}
+          {tab === "Quiz" && material && <QuizPanel material={material} />}
           {tab === "Flashcards" && <FlashcardsPanel />}
         </div>
         <aside>
@@ -591,7 +594,11 @@ function Message({
       <div
         className={`max-w-[80%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4`}
       >
-        <p className="text-sm leading-relaxed text-foreground">{text}</p>
+        {isAi ? (
+          <MarkdownRenderer content={text} />
+        ) : (
+          <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">{text}</p>
+        )}
         {citation && (
           <div className="mt-2 inline-flex items-center gap-1 rounded border border-border bg-elevated px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {citation}
@@ -602,36 +609,297 @@ function Message({
   );
 }
 
-function QuizPanel() {
-  return (
-    <Card className="p-6">
-      <div className="text-xs text-muted-foreground">Question 3 of 10</div>
-      <h3 className="mt-2 text-lg font-medium">
-        Which condition guarantees that a matrix A is diagonalizable?
-      </h3>
-      <div className="mt-6 space-y-2">
-        {[
-          "A is symmetric.",
-          "A has n distinct eigenvalues.",
-          "A has n linearly independent eigenvectors.",
-          "A is invertible.",
-        ].map((opt, i) => (
-          <button
-            key={opt}
-            className="flex w-full items-center gap-3 rounded-md border border-border bg-background px-4 py-3 text-left text-sm text-foreground transition hover:bg-elevated"
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded border border-border text-xs">
-              {String.fromCharCode(65 + i)}
-            </span>
-            {opt}
-          </button>
-        ))}
-      </div>
-      <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
-        <button className="text-sm text-muted-foreground hover:text-foreground">Skip</button>
-        <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-          Submit answer
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+function QuizPanel({ material }: { material: any }) {
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [quiz, setQuiz] = useState<any | null>(null);
+  const [activeQuestionIdx, setActiveQuestionIdx] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [confidence, setConfidence] = useState<number>(3); // scale 1-5
+
+  const loadQuiz = async () => {
+    setLoading(true);
+    try {
+      const { data: matData } = await supabase
+        .from("materials")
+        .select("quiz_id")
+        .eq("id", material.id)
+        .maybeSingle();
+
+      if (matData?.quiz_id) {
+        const { data: quizData } = await supabase
+          .from("quizzes")
+          .select("*")
+          .eq("id", matData.quiz_id)
+          .maybeSingle();
+
+        if (quizData) {
+          setQuiz(quizData);
+          setLoading(false);
+          return;
+        }
+      }
+      setQuiz(null);
+    } catch (err) {
+      console.warn("Failed to load quiz:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadQuiz();
+  }, [material.id]);
+
+  const handleGenerateQuiz = async () => {
+    setGenerating(true);
+    try {
+      const contentExcerpt = material.content || "General learning contents.";
+      const prompt = `Based on the following educational text, generate exactly 3 multiple-choice study questions in valid JSON format.
+Do NOT include markdown formatting wrappers, only a clean JSON array of questions.
+Each question object MUST contain:
+- "question": string
+- "options": array of exactly 4 strings
+- "correctIndex": number (0 to 3)
+
+Educational Text:
+${contentExcerpt.slice(0, 3000)}
+
+Response JSON:`;
+
+      const response = await generateGeminiText(prompt);
+      const cleanJson = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsedQuestions = JSON.parse(cleanJson);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const creatorId = userData?.user?.id;
+      if (!creatorId) throw new Error("User not authenticated.");
+
+      const { data: newQuiz, error: insertErr } = await supabase
+        .from("quizzes")
+        .insert({
+          title: `Quiz for ${material.title}`,
+          teacher_id: creatorId,
+          questions: parsedQuestions,
+        })
+        .select("*")
+        .single();
+
+      if (insertErr || !newQuiz) throw insertErr || new Error("Failed to insert quiz");
+
+      await supabase
+        .from("materials")
+        .update({ quiz_id: newQuiz.id })
+        .eq("id", material.id);
+
+      setQuiz(newQuiz);
+      toast.success("AI Quiz generated successfully!");
+    } catch (err) {
+      console.warn("Quiz generation failed:", err);
+      toast.error("Failed to generate quiz automatically. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleAnswerSubmit = () => {
+    if (selectedOption === null || !quiz) return;
+    const questions = quiz.questions as QuizQuestion[];
+    const currentQ = questions[activeQuestionIdx];
+    
+    const correct = selectedOption === currentQ.correctIndex;
+    if (correct) setScore((prev) => prev + 1);
+
+    setHasSubmitted(true);
+  };
+
+  const handleNext = async () => {
+    if (!quiz) return;
+    const questions = quiz.questions as QuizQuestion[];
+    
+    if (activeQuestionIdx + 1 < questions.length) {
+      setActiveQuestionIdx((prev) => prev + 1);
+      setSelectedOption(null);
+      setHasSubmitted(false);
+    } else {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const finalScore = score + (selectedOption === (quiz.questions as QuizQuestion[])[activeQuestionIdx].correctIndex ? 1 : 0);
+          await supabase.from("quiz_attempts").insert({
+            student_id: userData.user.id,
+            quiz_id: quiz.id,
+            score: finalScore,
+            total_questions: questions.length,
+            confidence_level: confidence,
+          });
+          toast.success("Quiz completed and performance logged!");
+        }
+      } catch (err) {
+        console.warn("Failed to log quiz attempt:", err);
+      }
+      setActiveQuestionIdx((prev) => prev + 1);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+        <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
+        <span className="text-xs text-muted-foreground">Loading quiz details...</span>
+      </Card>
+    );
+  }
+
+  if (!quiz) {
+    return (
+      <Card className="p-8 text-center bg-elevated/10 border border-border/50 rounded-2xl">
+        <h3 className="text-sm font-bold text-foreground mb-2">No Quiz Associated</h3>
+        <p className="text-xs text-muted-foreground mb-6 max-w-sm mx-auto leading-relaxed">
+          This study material does not have a quiz generated yet. Build an AI-driven multiple-choice quiz based on the document contents.
+        </p>
+        <button
+          onClick={handleGenerateQuiz}
+          disabled={generating}
+          className="px-4 py-2 rounded-lg bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 mx-auto"
+        >
+          {generating ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating Quiz...
+            </>
+          ) : (
+            "Generate AI Quiz"
+          )}
         </button>
+      </Card>
+    );
+  }
+
+  const questions = quiz.questions as QuizQuestion[];
+  const isComplete = activeQuestionIdx >= questions.length;
+
+  if (isComplete) {
+    return (
+      <Card className="p-8 text-center bg-elevated/20 border border-border/50 rounded-2xl shadow-xl">
+        <h3 className="text-base font-bold text-foreground mb-2">Quiz Completed!</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          You scored <span className="text-primary font-bold">{score}</span> out of {questions.length} questions.
+        </p>
+        
+        <div className="max-w-xs mx-auto mb-6 p-4 bg-muted/40 rounded-xl border border-border">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Rate your confidence: {confidence}/5
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="5"
+            value={confidence}
+            onChange={(e) => setConfidence(Number(e.target.value))}
+            className="w-full accent-primary h-1 bg-border rounded-lg appearance-none"
+          />
+        </div>
+
+        <button
+          onClick={() => {
+            setActiveQuestionIdx(0);
+            setSelectedOption(null);
+            setHasSubmitted(false);
+            setScore(0);
+          }}
+          className="px-4 py-2 rounded-lg bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold transition"
+        >
+          Retake Quiz
+        </button>
+      </Card>
+    );
+  }
+
+  const currentQ = questions[activeQuestionIdx];
+
+  return (
+    <Card className="p-6 md:p-8 bg-elevated/15 border border-border/50 rounded-2xl">
+      <div className="text-[10px] uppercase font-bold text-muted-foreground mb-2">
+        Question {activeQuestionIdx + 1} of {questions.length}
+      </div>
+      <h3 className="text-base font-bold text-foreground mb-6 leading-snug">
+        {currentQ.question}
+      </h3>
+
+      <div className="space-y-2.5 mb-6">
+        {currentQ.options.map((opt, idx) => {
+          const isSelected = selectedOption === idx;
+          const isCorrect = idx === currentQ.correctIndex;
+          
+          let btnClass = "border-border bg-background hover:bg-muted/40";
+          if (hasSubmitted) {
+            if (isCorrect) {
+              btnClass = "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-medium";
+            } else if (isSelected) {
+              btnClass = "border-rose-500/30 bg-rose-500/10 text-rose-400 font-medium";
+            } else {
+              btnClass = "border-border bg-background opacity-60";
+            }
+          } else if (isSelected) {
+            btnClass = "border-primary bg-primary/5 text-primary font-medium";
+          }
+
+          return (
+            <button
+              key={idx}
+              disabled={hasSubmitted}
+              onClick={() => setSelectedOption(idx)}
+              className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-xs transition duration-200 ${btnClass}`}
+            >
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${
+                isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+              }`}>
+                {String.fromCharCode(65 + idx)}
+              </span>
+              <span>{opt}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-between items-center border-t border-border/40 pt-4">
+        <button
+          onClick={() => {
+            setSelectedOption(null);
+            setHasSubmitted(false);
+            setActiveQuestionIdx((prev) => prev + 1);
+          }}
+          disabled={hasSubmitted}
+          className="text-xs text-muted-foreground hover:text-foreground transition"
+        >
+          Skip Question
+        </button>
+        
+        {!hasSubmitted ? (
+          <button
+            onClick={handleAnswerSubmit}
+            disabled={selectedOption === null}
+            className="px-4 py-2 rounded-lg bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-xs font-bold transition"
+          >
+            Submit Answer
+          </button>
+        ) : (
+          <button
+            onClick={handleNext}
+            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1"
+          >
+            {activeQuestionIdx + 1 < questions.length ? "Next Question" : "Finish Quiz"}
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </Card>
   );

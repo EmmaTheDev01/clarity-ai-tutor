@@ -14,6 +14,7 @@ import {
   Briefcase,
   GraduationCap,
   FolderHeart,
+  Brain,
 } from "lucide-react";
 import appMockup from "@/assets/app-mockup.jpg";
 
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-const APP = "tutor.vigilance.rw";
+const APP = "Purelearn.ai";
 
 function Landing() {
   const navigate = useNavigate();
@@ -53,10 +54,22 @@ function Landing() {
 }
 
 function Nav() {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Check initial scroll state
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur">
+    <header className={`sticky top-0 z-50 bg-background/80 backdrop-blur transition-all duration-200 ${isScrolled ? "border-b border-border shadow-sm" : "border-b border-transparent"}`}>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6">
-        <a href="#" className="text-sm font-bold tracking-wider text-foreground">
+        <a href="#" className="text-2xl font-bold font-serif text-foreground">
           {APP}
         </a>
         <div className="flex items-center gap-2">
@@ -105,7 +118,7 @@ function Hero() {
               alt="User face 4"
             />
           </div>
-          <span className="flex items-center gap-1">Loved by 2,000,000+ learners</span>
+          <span className="flex items-center gap-1">Loved by 2,000+ learners</span>
         </span>
         <ScrollReveal animation="fade-up" duration={800}>
           <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-7xl">
@@ -115,7 +128,7 @@ function Hero() {
         <ScrollReveal animation="fade-up" duration={800} delay={100}>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             Turn your notes, documents, and reference materials into interactive chats, summaries,
-            and personalized practice exams — instantly.
+            and personalized practice exams instantly.
           </p>
         </ScrollReveal>
         <ScrollReveal animation="fade-up" duration={800} delay={200}>
@@ -199,7 +212,7 @@ function Features() {
           {features.map((f, i) => (
             <ScrollReveal
               key={f.title}
-              animation="fade-up"
+              animation="crazy-reveal"
               delay={i * 150}
               className="bg-background h-full"
             >
@@ -231,7 +244,7 @@ function UseCases() {
         <div className="mt-16 grid grid-cols-1 gap-8 items-stretch lg:grid-cols-12">
           {/* Left Column: 1 Card (Manage projects) taking 5/12 width */}
           <div className="lg:col-span-5 flex flex-col">
-            <ScrollReveal animation="fade-up" duration={800} className="h-full flex flex-col">
+            <ScrollReveal animation="crazy-reveal" duration={800} className="h-full flex flex-col">
               <div className="flex h-full flex-col justify-between rounded-2xl border border-border bg-elevated p-8 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
                 <div>
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background">
@@ -281,7 +294,7 @@ function UseCases() {
           {/* Right Column: 2 Cards stacked vertically taking 7/12 width */}
           <div className="lg:col-span-7 flex flex-col gap-8 justify-between">
             {/* Card 2: Study scientific material */}
-            <ScrollReveal animation="fade-up" duration={800} delay={100}>
+            <ScrollReveal animation="crazy-reveal" duration={800} delay={100}>
               <div className="flex flex-col md:flex-row gap-6 rounded-2xl border border-border bg-elevated p-8 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
                 <div className="flex-1">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background">
@@ -321,7 +334,7 @@ function UseCases() {
             </ScrollReveal>
 
             {/* Card 3: Organize life content */}
-            <ScrollReveal animation="fade-up" duration={800} delay={200}>
+            <ScrollReveal animation="crazy-reveal" duration={800} delay={200}>
               <div className="flex flex-col md:flex-row gap-6 rounded-2xl border border-border bg-elevated p-8 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
                 <div className="flex-1">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background">
@@ -364,16 +377,28 @@ function UseCases() {
   );
 }
 
+const AppleIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4.5 w-4.5 shrink-0">
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.21.67-2.93 1.49-.62.69-1.16 1.84-1.01 2.96 1.12.09 2.27-.57 2.95-1.39z" />
+  </svg>
+);
+
+const PlayStoreIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4.5 w-4.5 shrink-0">
+    <path d="M5 3.012c-.173 0-.345.04-.5.122-.497.256-.8.745-.8 1.298v15.136c0 .553.303 1.042.8 1.298.155.08.327.122.5.122.21 0 .42-.063.6-.188l13.14-8.866c.4-.27.6-.708.6-1.17 0-.46-.2-.9-.6-1.17L5.6 3.2c-.18-.125-.39-.188-.6-.188z" />
+  </svg>
+);
+
 function AppDownloadCTA() {
   return (
     <section className="bg-white text-neutral-900 py-24 text-center border-none shadow-none relative">
       <div className="mx-auto max-w-4xl px-6">
-        <ScrollReveal animation="fade-up" duration={800}>
+        <ScrollReveal animation="crazy-reveal" duration={800}>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-600 border border-neutral-200/50">
             Clarity Anywhere
           </span>
           <h2 className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-neutral-900 leading-tight">
-            Learn on the go. <br className="hidden sm:inline" /> Download the Clarity app.
+            Learn on the go. <br className="hidden sm:inline" /> Download the PureLearn app.
           </h2>
           <p className="mt-4 text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto">
             Available on iOS, Android, macOS, and Windows. Sync your documents, highlight citations,
@@ -382,14 +407,16 @@ function AppDownloadCTA() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
               href="#"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800"
+              className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
+              <AppleIcon />
               Download for iOS
             </a>
             <a
               href="#"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800"
+              className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
+              <PlayStoreIcon />
               Download for Android
             </a>
           </div>
@@ -403,14 +430,14 @@ const testimonials = [
   {
     quote:
       "This has become an integral part of my daily learning workflow. It completely changes how I process long video lectures.",
-    name: "Mihir Wadekar",
+    name: "Jackson Dushime",
     title: "Product Engineer",
   },
   {
     quote:
       "I use this tool to offer my students an alternative channel of engagement for highly complex scientific topics.",
-    name: "G. Shaw Jr.",
-    title: "Assistant Professor, UNC",
+    name: "Leon Ntabomvura",
+    title: "Professor, UR",
   },
   {
     quote:
@@ -421,12 +448,12 @@ const testimonials = [
   {
     quote:
       "I dropped in a semester of readings and had a study guide by dinner. It's the study partner I never had.",
-    name: "Julien Marchand",
+    name: "Joy Ingabire",
     title: "Law Student",
   },
   {
     quote: "Turned a 3-hour keynote into a 10-minute briefing I could actually share with my team.",
-    name: "Priya Ramanathan",
+    name: "JB Mukeshimana",
     title: "Strategy Lead",
   },
   {
@@ -447,7 +474,7 @@ function Testimonials() {
         </div>
         <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {testimonials.map((t, i) => (
-            <ScrollReveal key={t.name} animation="fade-up" delay={(i % 3) * 150} className="flex">
+            <ScrollReveal key={t.name} animation="crazy-reveal" delay={(i % 3) * 150} className="flex">
               <figure className="flex flex-col justify-between rounded-lg border border-border bg-background p-6 w-full">
                 <blockquote className="text-base leading-relaxed text-foreground">
                   &ldquo;{t.quote}&rdquo;
@@ -498,7 +525,7 @@ function FAQ() {
             Frequently asked questions.
           </h2>
         </div>
-        <ScrollReveal animation="fade-up">
+        <ScrollReveal animation="crazy-reveal">
           <div className="mt-12 border-t border-border">
             {faqs.map((f, i) => {
               const isOpen = open === i;
@@ -517,9 +544,8 @@ function FAQ() {
                     )}
                   </button>
                   <div
-                    className={`grid overflow-hidden transition-all duration-300 ${
-                      isOpen ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"
-                    }`}
+                    className={`grid overflow-hidden transition-all duration-300 ${isOpen ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"
+                      }`}
                   >
                     <p className="min-h-0 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
                   </div>
@@ -537,13 +563,13 @@ function FinalCTA() {
   return (
     <section className="">
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <ScrollReveal animation="scale-in">
+        <ScrollReveal animation="crazy-reveal">
           <div className="rounded-lg border border-border bg-elevated px-8 py-16 text-center">
             <h2 className="mx-auto max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
               Your smarter study session starts now.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-              Join 2,000,000+ learners turning static material into interactive understanding.
+              Join 2,000+ learners turning static material into interactive understanding.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
@@ -569,24 +595,38 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer>
+    <footer className="border-t border-border bg-gradient-to-b from-white via-neutral-50 to-neutral-100/50 relative overflow-hidden">
       <div className="mx-auto max-w-7xl px-6 py-16">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
-          <div className="col-span-2">
-            <div className="text-sm font-bold tracking-wider text-foreground">{APP}</div>
-            <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-              An AI tutor made exactly for you.
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5 items-start">
+          <div className="col-span-2 space-y-4">
+            <div className="text-xl font-bold tracking-wider text-foreground font-serif">
+              <span>{APP}</span>
+            </div>
+            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
+              An adaptive Socratic learning engine designed for cognitive diversity, visual preference mapping, and conceptual STEM mastery.
             </p>
           </div>
           <FooterCol title="Product" links={["Features", "Pricing", "Changelog"]} />
           <FooterCol title="Company" links={["Community", "Blog", "Contact us"]} />
-          <FooterCol title="Legal" links={["Terms & conditions", "Privacy policy"]} />
+          <FooterCol title="Legal" links={["Terms & conditions", "Privacy policy", "GDPR"]} />
         </div>
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {APP}. All rights reserved.
-          </p>
-          <p className="text-xs text-muted-foreground">Made for learners.</p>
+        
+        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border/80 pt-8 sm:flex-row">
+          <div className="flex flex-col gap-1 text-center sm:text-left">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} {APP}. All rights reserved.
+            </p>
+            <p className="text-sm text-muted-foreground/60">
+              Adapting education loops, note syntheses, and quizzes dynamically.
+            </p>
+          </div>
+          <div className="flex items-center gap-4 text-sm font-semibold text-muted-foreground">
+            <span className="hover:text-primary transition cursor-pointer">Twitter</span>
+            <span className="text-border">•</span>
+            <span className="hover:text-primary transition cursor-pointer">GitHub</span>
+            <span className="text-border">•</span>
+            <span className="hover:text-primary transition cursor-pointer">Discord</span>
+          </div>
         </div>
       </div>
     </footer>
@@ -594,17 +634,38 @@ function Footer() {
 }
 
 function FooterCol({ title, links }: { title: string; links: string[] }) {
+  const routeMap: Record<string, string> = {
+    "features": "/features",
+    "pricing": "/pricing",
+    "changelog": "/changelog",
+    "community": "/community",
+    "blog": "/blog",
+    "contact us": "/contact",
+    "terms & conditions": "/terms",
+    "privacy policy": "/privacy",
+    "gdpr": "/gdpr",
+  };
+
   return (
     <div>
-      <div className="text-sm font-medium text-foreground">{title}</div>
+      <div className="text-sm font-semibold text-foreground">{title}</div>
       <ul className="mt-3 space-y-2">
-        {links.map((l) => (
-          <li key={l}>
-            <a href="#" className="text-sm text-muted-foreground transition hover:text-foreground">
-              {l}
-            </a>
-          </li>
-        ))}
+        {links.map((l) => {
+          const path = routeMap[l.toLowerCase()];
+          return (
+            <li key={l}>
+              {path ? (
+                <Link to={path as any} className="text-sm text-muted-foreground transition hover:text-foreground">
+                  {l}
+                </Link>
+              ) : (
+                <a href="#" className="text-sm text-muted-foreground transition hover:text-foreground">
+                  {l}
+                </a>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

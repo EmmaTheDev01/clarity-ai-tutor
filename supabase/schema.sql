@@ -14,6 +14,7 @@ CREATE TABLE public.profiles (
     email TEXT NOT NULL UNIQUE,
     avatar_url TEXT,
     role user_role NOT NULL DEFAULT 'student',
+    approval_status TEXT NOT NULL DEFAULT 'approved', -- 'pending', 'approved', 'rejected'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

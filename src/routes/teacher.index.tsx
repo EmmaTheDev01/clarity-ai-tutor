@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui-kit";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import {
   Users,
   BookOpen,
@@ -20,7 +22,7 @@ import {
 import { uploadLearningMaterial } from "@/lib/learning-materials";
 
 export const Route = createFileRoute("/teacher/")({
-  head: () => ({ meta: [{ title: "Educator Portal — tutor.vigilance.rw" }] }),
+  head: () => ({ meta: [{ title: "Educator Portal — purelearn.ai" }] }),
   component: TeacherPortal,
 });
 
@@ -72,6 +74,58 @@ const getErrorMessage = (err: unknown, fallback: string) =>
 
 function TeacherPortal() {
   const navigate = useNavigate();
+
+  const [profileStatus, setProfileStatus] = useState<"loading" | "approved" | "pending" | "rejected">("loading");
+  const [userEmail, setUserEmail] = useState("");
+  const [educatorName, setEducatorName] = useState("Dr. Sarah Adeyemi");
+  const [institutionName, setInstitutionName] = useState("University of Rwanda");
+
+  useEffect(() => {
+    const checkApproval = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) {
+          const localProfile = localStorage.getItem("user_profile");
+          if (localProfile) {
+            const parsed = JSON.parse(localProfile);
+            setUserEmail(parsed.email || "");
+            setEducatorName(parsed.name || "Dr. Sarah Adeyemi");
+            setInstitutionName(parsed.institution || "University of Rwanda");
+
+            const { data: dbProf } = await supabase
+              .from("profiles")
+              .select("approval_status")
+              .eq("email", parsed.email)
+              .maybeSingle();
+            if (dbProf) {
+              setProfileStatus(dbProf.approval_status as any);
+            } else {
+              setProfileStatus("approved");
+            }
+          } else {
+            setProfileStatus("approved");
+          }
+          return;
+        }
+        setUserEmail(userData.user.email || "");
+        const { data: dbProf } = await supabase
+          .from("profiles")
+          .select("name, approval_status, role")
+          .eq("id", userData.user.id)
+          .maybeSingle();
+
+        if (dbProf) {
+          if (dbProf.name) setEducatorName(dbProf.name);
+          setProfileStatus((dbProf.approval_status || "approved") as any);
+        } else {
+          setProfileStatus("approved");
+        }
+      } catch (err) {
+        setProfileStatus("approved");
+      }
+    };
+    checkApproval();
+  }, []);
 
   // States for Class, Materials & Quiz loop
   const [materialTitle, setMaterialTitle] = useState("");
@@ -172,6 +226,79 @@ function TeacherPortal() {
     }
   };
 
+  if (profileStatus === "loading") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Brain className="h-8 w-8 text-primary animate-pulse" />
+          <p className="text-xs text-muted-foreground animate-pulse font-medium">Verifying educator credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileStatus === "pending") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden text-center animate-fade-in">
+          <div className="mx-auto h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mb-6">
+            <Lock className="h-6 w-6 animate-pulse" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground mb-2">Account Verification Pending</h2>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            Your educator account is currently under review by purelearn.ai administrators.
+            You will have full access to class creation, custom Socratic sandbox rules, and document uploads once verified.
+          </p>
+          {userEmail && (
+            <div className="p-3 bg-muted/40 rounded-lg text-xs text-muted-foreground mb-6 font-mono">
+              Registered as: {userEmail}
+            </div>
+          )}
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              localStorage.removeItem("user_profile");
+              navigate({ to: "/auth/sign-in" as any });
+            }}
+            className="w-full py-2.5 rounded-lg bg-border hover:bg-muted text-foreground text-sm font-semibold transition"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileStatus === "rejected") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden text-center animate-fade-in">
+          <div className="mx-auto h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6">
+            <Lock className="h-6 w-6 animate-pulse" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground mb-2">Verification Rejected</h2>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            Unfortunately, your educator account request could not be verified by the admin team at this time.
+            Access to teacher classrooms and student rosters is restricted.
+          </p>
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs mb-6">
+            If you believe this is a mistake, please contact verification@purelearn.ai.
+          </div>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              localStorage.removeItem("user_profile");
+              navigate({ to: "/auth/sign-in" as any });
+            }}
+            className="w-full py-2.5 rounded-lg bg-border hover:bg-muted text-foreground text-sm font-semibold transition"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Header */}
@@ -179,8 +306,8 @@ function TeacherPortal() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold tracking-wider text-foreground flex items-center gap-1.5">
-              <Brain className="h-4 w-4 text-primary" />
-              tutor.vigilance.rw
+
+              purelearn.ai
               <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-semibold">
                 Educator
               </span>
@@ -189,11 +316,15 @@ function TeacherPortal() {
 
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-foreground">Dr. Sarah Adeyemi</p>
-              <p className="text-[10px] text-muted-foreground">University of Rwanda</p>
+              <p className="text-xs font-semibold text-foreground">{educatorName}</p>
+              <p className="text-[10px] text-muted-foreground">{institutionName}</p>
             </div>
             <button
-              onClick={() => navigate({ to: "/auth/sign-in" })}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                localStorage.removeItem("user_profile");
+                navigate({ to: "/auth/sign-in" as any });
+              }}
               className="rounded-md border border-border p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition"
               title="Sign out"
             >
@@ -409,11 +540,10 @@ function TeacherPortal() {
               <button
                 onClick={handlePublish}
                 disabled={isPublishLocked}
-                className={`w-full py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                  isPublishLocked
-                    ? "bg-muted text-muted-foreground/60 cursor-not-allowed border border-border"
-                    : "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-sm"
-                }`}
+                className={`w-full py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition ${isPublishLocked
+                  ? "bg-muted text-muted-foreground/60 cursor-not-allowed border border-border"
+                  : "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-sm"
+                  }`}
               >
                 Publish Lesson Material
               </button>

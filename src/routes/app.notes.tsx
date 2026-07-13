@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card, Pill } from "@/components/ui-kit";
 import {
@@ -93,6 +93,7 @@ An era of geopolitical tension between the US-led Western Bloc and the Soviet-le
 ];
 
 function NotesPage() {
+  const navigate = useNavigate();
   const [notes, setNotes] = useState<Note[]>(appGuideNotes);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,6 +120,8 @@ function NotesPage() {
       setSelectedNote(notes[0]);
     }
   }, [notes, selectedNote]);
+
+
 
   const fetchSupabaseNotes = async () => {
     try {
@@ -184,7 +187,7 @@ function NotesPage() {
           });
 
           // Pinned items sort helper
-          const merged = [...appGuideNotes, ...mapped];
+          const merged = [...mapped, ...appGuideNotes];
           setNotes(merged);
 
           // Keep selection synced
@@ -335,7 +338,7 @@ function NotesPage() {
     if (!target) return;
 
     const nextPinned = !target.pinned;
-    
+
     // Optimistic state update
     setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, pinned: nextPinned } : n)));
     if (selectedNote && selectedNote.id === noteId) {
@@ -502,6 +505,17 @@ function NotesPage() {
     }
   };
 
+  const handleEscalateToTutor = (note: Note) => {
+    localStorage.setItem("escalated_note_context", JSON.stringify({
+      title: note.title,
+      subject: note.subject,
+      content: note.content,
+      images: note.images || [],
+    }));
+    toast.success("Note context prepared. Loading Socratic AI Tutor...");
+    navigate({ to: "/app" as any });
+  };
+
   // Close context menu on window click
   useEffect(() => {
     const handleWindowClick = () => setNoteMenu(null);
@@ -528,9 +542,8 @@ function NotesPage() {
           e.preventDefault();
           setNoteMenu({ x: e.clientX, y: e.clientY, note });
         }}
-        className={`cursor-pointer p-4 transition text-left border relative group ${
-          isSelected ? "border-foreground ring-1 ring-foreground bg-elevated/40" : "border-border hover:bg-elevated/20"
-        }`}
+        className={`cursor-pointer p-4 transition text-left border relative group ${isSelected ? "border-foreground ring-1 ring-foreground bg-elevated/40" : "border-border hover:bg-elevated/20"
+          }`}
       >
         <div className="flex items-start justify-between gap-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -546,7 +559,7 @@ function NotesPage() {
             {note.isStarred && <span className="text-yellow-500 text-xs">★</span>}
             {note.isAi && (
               <Pill className="text-[9px] bg-primary/5 border border-primary/20 text-primary flex items-center gap-1">
-                <Sparkles className="h-2.5 w-2.5" /> AI Summary
+                Note
               </Pill>
             )}
           </div>
@@ -899,6 +912,14 @@ function NotesPage() {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <button
+                    onClick={() => handleEscalateToTutor(selectedNote)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 text-xs font-bold transition mr-2"
+                    title="Escalate note context to Socratic AI Tutor thread"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                    <span>Ask Tutor</span>
+                  </button>
+                  <button
                     onClick={() => handleTogglePin(selectedNote.id)}
                     className="text-lg hover:opacity-80"
                     title={selectedNote.pinned ? "Unpin Note" : "Pin Note"}
@@ -948,15 +969,21 @@ function NotesPage() {
                 </div>
               )}
 
-              {/* Note Content — WYSIWYG Rich Editor */}
+              {/* Note Content — WYSIWYG Rich Editor with toolbar */}
               <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto pr-1">
-                <RichEditor
-                  key={selectedNote.id}
-                  value={selectedNote.content}
-                  onChange={handleEditNoteContent}
-                  readOnly={selectedNote.readOnly}
-                  placeholder="Start writing your notes..."
-                />
+                {selectedNote.readOnly ? (
+                  <div className="prose prose-sm max-w-none text-foreground min-h-[300px] flex-1">
+                    <MarkdownRenderer content={selectedNote.content} />
+                  </div>
+                ) : (
+                  <RichEditor
+                    key={selectedNote.id}
+                    value={selectedNote.content}
+                    onChange={handleEditNoteContent}
+                    readOnly={selectedNote.readOnly}
+                    placeholder="Start writing your notes..."
+                  />
+                )}
                 {selectedNote.readOnly && (
                   <div className="mt-4 rounded-md border border-border bg-elevated px-3 py-2 text-xs text-muted-foreground">
                     This note is read-only.

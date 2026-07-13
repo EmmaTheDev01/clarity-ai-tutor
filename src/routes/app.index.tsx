@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, Sparkles, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, Sparkles, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
@@ -206,6 +206,8 @@ function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState<LearningMaterial | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [teacherBlockStatus, setTeacherBlockStatus] = useState<"pending" | "rejected" | null>(null);
+  const [showMaterialsSidebar, setShowMaterialsSidebar] = useState(false);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -249,6 +251,38 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const storedContext = localStorage.getItem("escalated_note_context");
+    if (storedContext) {
+      try {
+        const context = JSON.parse(storedContext);
+        if (context) {
+          setInputText(`I want to ask a question about my note titled "${context.title}" (${context.subject}).\nHere is the note content:\n${context.content}`);
+          
+          if (context.images && context.images.length > 0) {
+            const mappedImages = context.images.map((imgUrl: string, idx: number) => {
+              const match = imgUrl.match(/^data:([^;]+);base64,/);
+              const mimeType = match ? match[1] : "image/png";
+              return {
+                base64: imgUrl,
+                mimeType,
+                name: `NoteAttachment_${idx + 1}.png`,
+                size: "Linked Context",
+              };
+            });
+            setAttachedImages(mappedImages);
+          }
+          
+          toast.success(`Escalated context loaded for "${context.title}"!`);
+        }
+      } catch (err) {
+        console.warn("Failed to load escalated note context:", err);
+      } finally {
+        localStorage.removeItem("escalated_note_context");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (!contextMenu) return;
     const handlePointerDown = () => setContextMenu(null);
     window.addEventListener("pointerdown", handlePointerDown);
@@ -268,13 +302,35 @@ function Dashboard() {
       try {
         const { data: profData } = await supabase
           .from("profiles")
-          .select("name, avatar_url")
+          .select("name, avatar_url, role")
           .eq("id", data.session.user.id)
           .maybeSingle();
 
         if (profData) {
           setUserDisplayName(profData.name || "You");
           setUserAvatarUrl(profData.avatar_url || null);
+          
+          let approvalStatus = "approved";
+          try {
+            const { data: statusData } = await supabase
+              .from("profiles")
+              .select("approval_status")
+              .eq("id", data.session.user.id)
+              .maybeSingle();
+            if (statusData && statusData.approval_status) {
+              approvalStatus = statusData.approval_status;
+            }
+          } catch (statusErr) {
+            console.warn("Profiles approval_status column query failed:", statusErr);
+          }
+
+          if (profData.role === "teacher") {
+            if (approvalStatus === "pending") {
+              setTeacherBlockStatus("pending");
+            } else if (approvalStatus === "rejected") {
+              setTeacherBlockStatus("rejected");
+            }
+          }
         }
 
         let stdProf = null;
@@ -537,11 +593,41 @@ function Dashboard() {
     const trimmed = textToSend.trim();
     if (!trimmed) return;
 
-    const resolvedDoc = activeDoc ?? (await createGeneralChatMaterial());
-    if (!activeDoc && resolvedDoc) {
-      setMaterials((prev) => (prev.some((item) => item.id === resolvedDoc.id) ? prev : [resolvedDoc, ...prev]));
-      setActiveDoc(resolvedDoc);
+    // Detect if the message contains a URL
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlMatches = trimmed.match(urlRegex);
+    let resolvedDoc: LearningMaterial | null = activeDoc;
+    let linkPromptOverride = "";
+
+    if (urlMatches && urlMatches.length > 0) {
+      const url = urlMatches[0];
+      const toastId = toast.loading(`Analyzing link content: ${url}...`);
+      try {
+        const linkMaterial = await uploadLearningMaterial({
+          link: url,
+          title: url.replace(/https?:\/\/(www\.)?/, "").substring(0, 45) || "Web Link",
+        });
+        setMaterials((prev) => (prev.some((item) => item.id === linkMaterial.id) ? prev : [linkMaterial, ...prev]));
+        setActiveDoc(linkMaterial);
+        resolvedDoc = linkMaterial;
+        linkPromptOverride = `\n\nADDITIONAL INSTRUCTION: The student provided a web URL link: "${url}". You MUST begin your response by summarizing the content, concepts, and key findings of this link in a clean, comprehensive markdown format. Focus on structural takeaways, and ensure you append a notebook summary at the end.`;
+        toast.success("Web link analyzed and imported successfully!", { id: toastId });
+      } catch (err) {
+        console.error("Link import failed:", err);
+        toast.error("Could not fetch or analyze the link. Using direct chat instead.", { id: toastId });
+      }
     }
+
+    if (!resolvedDoc) {
+      const generalDoc = await createGeneralChatMaterial();
+      resolvedDoc = generalDoc;
+      if (!activeDoc) {
+        setMaterials((prev) => (prev.some((item) => item.id === generalDoc.id) ? prev : [generalDoc, ...prev]));
+        setActiveDoc(generalDoc);
+      }
+    }
+
+    if (!resolvedDoc) return;
 
     // Encrypt the chat message block before database write log simulation
     const encryptedPayload = encryptText(trimmed);
@@ -558,7 +644,13 @@ function Dashboard() {
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
       images: imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`),
     };
-    const updatedHistory = [...currentMessages, userMessage];
+    const targetHistory = chatHistories[resolvedDoc.id] || [
+      {
+        from: "ai" as const,
+        text: `This workspace is ready for ${resolvedDoc.title}. Ask your first question to begin.`,
+      }
+    ];
+    const updatedHistory = [...targetHistory, userMessage];
     const activeDocForResponse = resolvedDoc;
     const activeDocIdForResponse = activeDocForResponse ? activeDocForResponse.id : "general";
 
@@ -586,6 +678,60 @@ function Dashboard() {
     });
     setStoredItem("user_logs", JSON.stringify(currentLogs));
 
+    // Create session and insert student message immediately in background/sync
+    let sId: string | null = null;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        const materialId = activeDocForResponse ? activeDocForResponse.id : null;
+        let query = supabase
+          .from("chat_sessions")
+          .select("id")
+          .eq("student_id", userData.user.id);
+
+        if (materialId) {
+          query = query.eq("active_material_id", materialId);
+        } else {
+          query = query.is("active_material_id", null);
+        }
+
+        const { data: session } = await query.limit(1).maybeSingle();
+        let currentSId = session?.id;
+        if (!currentSId) {
+          const { data: newSession, error: insertErr } = await supabase
+            .from("chat_sessions")
+            .insert({
+              student_id: userData.user.id,
+              active_material_id: materialId,
+            })
+            .select("id")
+            .maybeSingle();
+
+          if (insertErr || !newSession) {
+            const { data: retrySession } = await query.limit(1).maybeSingle();
+            currentSId = retrySession?.id;
+          } else {
+            currentSId = newSession.id;
+          }
+        }
+        sId = currentSId || null;
+
+        if (sId) {
+          await supabase.from("messages").insert([
+            {
+              session_id: sId,
+              sender_role: "student",
+              encrypted_content: encryptedPayload.cipher,
+              encryption_iv: encryptedPayload.iv,
+              images: imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`),
+            }
+          ]);
+        }
+      }
+    } catch (dbErr) {
+      console.warn("Failed to save student message in background:", dbErr);
+    }
+
     // 1. Live Gemini API Socratic coaching adapter
     const systemInstruction = `You are a strict, world-class Socratic STEM, humanities, and history tutor.
 The student you are teaching is at the ${studentProfile.educationLevel || "Undergraduate"} level (Grade/GPA: ${studentProfile.gradeLevel || "2nd Year"}).
@@ -611,7 +757,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
    [NOTE_SUMMARY] Title: [Short note title] | Subject: [Subject field] | Content: [One sentence high-level summary of the concept discussed for their notebook]`;
 
     try {
-      const chatHistoryContext = currentMessages
+      const chatHistoryContext = updatedHistory
         .slice(-20)
         .map((msg) => `${msg.from === "user" ? "Student" : "Mentor"}: ${msg.text}`)
         .join("\n\n");
@@ -622,7 +768,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
       if (imagesToSend.length > 0) {
         const { generateGeminiMultimodal } = await import("@/lib/gemini");
         const res = await generateGeminiMultimodal(
-          `${systemInstruction}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
+          `${systemInstruction}${linkPromptOverride}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
           imagesToSend.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
           undefined,
           2048,
@@ -631,7 +777,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
         respondingModel = res.model;
       } else {
         const res = await generateGeminiText(
-          `${systemInstruction}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
+          `${systemInstruction}${linkPromptOverride}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
           2048,
         );
         generatedText = res.text;
@@ -652,70 +798,53 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
 
       // Process Note Auto-save in the background
       if (noteSummary) {
-        const titleMatch = noteSummary.match(/Title:\s*([^|]+)/);
-        const subjectMatch = noteSummary.match(/Subject:\s*([^|]+)/);
+        const titleMatch = noteSummary.match(/Title:\s*([^|]+)/i);
+        const subjectMatch = noteSummary.match(/Subject:\s*([^|]+)/i);
+        const contentMatch = noteSummary.match(/Content:\s*(.+)/i);
 
-        if (titleMatch && subjectMatch) {
-          const autoImages = imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`);
+        const rawTitle = titleMatch ? titleMatch[1].trim() : "AI Concept Note";
+        const cleanTitle = rawTitle.replace(/^\[|\]$/g, "");
+        const rawSubject = subjectMatch ? subjectMatch[1].trim() : "General";
+        const cleanSubject = rawSubject.replace(/^\[|\]$/g, "");
+        const rawContent = contentMatch ? contentMatch[1].trim() : "Study takeaways.";
+        const cleanContent = rawContent.replace(/^\[|\]$/g, "");
+
+        if (cleanContent) {
           const newNote = {
-            id: "auto_" + Date.now(),
-            title: titleMatch[1].trim(),
-            subject: subjectMatch[1].trim(),
-            content: coachText, // Save full AI response, not just one-line summary
-            updated: "Just now",
+            id: "note_" + Math.random().toString(36).substring(2, 9),
+            title: cleanTitle,
+            subject: cleanSubject,
+            content: `### ${cleanTitle}\n\n${cleanContent}\n\n*Generated from active study tutoring session.*`,
             isAi: true,
-            images: autoImages.length > 0 ? autoImages : undefined,
+            pinned: false,
+            updated: new Date().toLocaleDateString(),
+            images: imagesToSend.length > 0 ? imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`) : undefined,
           };
 
-          // Sync note to Supabase "notes" table, appending to existing note if same subject
           try {
             const { data: userData } = await supabase.auth.getUser();
             if (userData?.user) {
-              // Search for an existing note matching this subject
-              const { data: existingNotes } = await supabase
+              const { data: dbNote } = await supabase
                 .from("notes")
-                .select("*")
-                .eq("student_id", userData.user.id)
-                .eq("subject", newNote.subject)
-                .limit(1);
-
-              if (existingNotes && existingNotes.length > 0) {
-                const existing = existingNotes[0];
-                const updatedContent = existing.content + "\n\n---\n\n### Continuation Summary\n" + newNote.content;
-                const updatedImages = (existing.images || []).concat(newNote.images || []);
-                await supabase
-                  .from("notes")
-                  .update({
-                    content: updatedContent,
-                    images: updatedImages,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq("id", existing.id);
-
-                // Also update local storage "digital_notebook" cache
-                const stored = getStoredItem("digital_notebook", "[]");
-                const currentNotes = stored ? JSON.parse(stored) : [];
-                const updatedNotes = currentNotes.map((n: any) =>
-                  n.title === existing.title || n.subject === existing.subject
-                    ? { ...n, content: updatedContent, images: updatedImages, updated: "Just now" }
-                    : n
-                );
-                setStoredItem("digital_notebook", JSON.stringify(updatedNotes));
-              } else {
-                // Otherwise create a new note
-                await supabase.from("notes").insert({
+                .insert({
                   student_id: userData.user.id,
                   title: newNote.title,
                   subject: newNote.subject,
                   content: newNote.content,
                   is_ai_generated: true,
                   images: newNote.images,
-                });
+                })
+                .select("id")
+                .maybeSingle();
 
-                const stored = getStoredItem("digital_notebook", "[]");
-                const currentNotes = stored ? JSON.parse(stored) : [];
-                setStoredItem("digital_notebook", JSON.stringify([newNote, ...currentNotes]));
+              if (dbNote) {
+                newNote.id = dbNote.id;
               }
+
+              // Prepend local cache so it updates list immediately
+              const stored = getStoredItem("digital_notebook", "[]");
+              const currentNotes = stored ? JSON.parse(stored) : [];
+              setStoredItem("digital_notebook", JSON.stringify([newNote, ...currentNotes]));
             }
           } catch (err) {
             console.warn("Supabase notes save or update fail:", err);
@@ -726,64 +855,21 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
         }
       }
 
-      // Encrypt messages for Supabase write logs
-      const cipherObj = encryptText(coachText);
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
-          const materialId = activeDocForResponse ? activeDocForResponse.id : null;
-          let query = supabase
-            .from("chat_sessions")
-            .select("id")
-            .eq("student_id", userData.user.id);
-
-          if (materialId) {
-            query = query.eq("active_material_id", materialId);
-          } else {
-            query = query.is("active_material_id", null);
-          }
-
-          const { data: session } = await query.limit(1).maybeSingle();
-
-          let sId = session?.id;
-          if (!sId) {
-            const { data: newSession, error: insertErr } = await supabase
-              .from("chat_sessions")
-              .insert({
-                student_id: userData.user.id,
-                active_material_id: materialId,
-              })
-              .select("id")
-              .maybeSingle();
-
-            if (insertErr || !newSession) {
-              const { data: retrySession } = await query.limit(1).maybeSingle();
-              sId = retrySession?.id;
-            } else {
-              sId = newSession.id;
-            }
-          }
-
-          if (sId) {
-            await supabase.from("messages").insert([
-              {
-                session_id: sId,
-                sender_role: "student",
-                encrypted_content: encryptedPayload.cipher,
-                encryption_iv: encryptedPayload.iv,
-                images: imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`),
-              },
-              {
-                session_id: sId,
-                sender_role: "assistant",
-                encrypted_content: cipherObj.cipher,
-                encryption_iv: cipherObj.iv,
-              },
-            ]);
-          }
+      // Save assistant message to Supabase
+      if (sId) {
+        try {
+          const cipherObj = encryptText(coachText);
+          await supabase.from("messages").insert([
+            {
+              session_id: sId,
+              sender_role: "assistant",
+              encrypted_content: cipherObj.cipher,
+              encryption_iv: cipherObj.iv,
+            },
+          ]);
+        } catch (syncErr) {
+          console.warn("Failed to sync assistant message:", syncErr);
         }
-      } catch (err) {
-        console.warn("Supabase messages sync failure:", err);
       }
 
       setIsTyping(false);
@@ -802,10 +888,28 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
       console.error("Gemini API error:", err);
       const fallbackMessage: Message = {
         from: "ai",
-        text: `Gemini connection issue: ${getErrorMessage(err, "The AI request failed.")}\n\nI can still help once the Gemini API key and model are valid. Check that your key is a Google AI Studio API key, restart the dev server, then try again.`,
+        text: `I'm having trouble connecting right now. Please try again in a moment — if the issue persists, refresh the page.`,
         citation: "Gemini setup",
         timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
       };
+
+      // Save fallback message to Supabase
+      if (sId) {
+        try {
+          const cipherObj = encryptText(fallbackMessage.text);
+          await supabase.from("messages").insert([
+            {
+              session_id: sId,
+              sender_role: "assistant",
+              encrypted_content: cipherObj.cipher,
+              encryption_iv: cipherObj.iv,
+            },
+          ]);
+        } catch (syncErr) {
+          console.warn("Failed to sync fallback message:", syncErr);
+        }
+      }
+
       setIsTyping(false);
       setChatHistories((prev) => ({
         ...prev,
@@ -980,6 +1084,63 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
       if (attachInputRef.current) attachInputRef.current.value = "";
     }
   };
+
+  if (teacherBlockStatus === "pending") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden text-center">
+          <div className="mx-auto h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mb-6">
+            <Lock className="h-6 w-6 animate-pulse" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground mb-2">Account Verification Pending</h2>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            Your educator account is currently under review by purelearn.ai administrators. 
+            You will have full access once verified.
+          </p>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              localStorage.removeItem("user_profile");
+              window.location.reload();
+            }}
+            className="w-full py-2.5 rounded-lg bg-border hover:bg-muted text-foreground text-sm font-semibold transition"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (teacherBlockStatus === "rejected") {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden text-center">
+          <div className="mx-auto h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6">
+            <Lock className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground mb-2">Verification Rejected</h2>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            Unfortunately, your educator account request could not be verified by the admin team at this time. 
+            Access to teacher classrooms and student rosters is restricted.
+          </p>
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs mb-6">
+            If you believe this is a mistake, please contact verification@purelearn.ai.
+          </div>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              localStorage.removeItem("user_profile");
+              window.location.reload();
+            }}
+            className="w-full py-2.5 rounded-lg bg-border hover:bg-muted text-foreground text-sm font-semibold transition"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1163,9 +1324,13 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
         title="Chat & Study Workspace"
         actions={
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline text-xs text-muted-foreground font-medium">
-
-            </span>
+            <button
+              onClick={() => setShowMaterialsSidebar(true)}
+              className="xl:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background text-xs font-semibold text-foreground hover:bg-muted transition"
+            >
+              <Menu className="h-3.5 w-3.5" />
+              <span>Materials</span>
+            </button>
             <select
               value={cognitiveProfile}
               onChange={(e) => {
@@ -1183,17 +1348,28 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
         }
       >
         <div
-          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${cognitiveProfile === "sensory" ? "grayscale animate-none" : ""
-            }`}
+          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${
+            cognitiveProfile === "sensory" ? "bg-[#FAF5EC]/30 text-[#433422]" : ""
+          }`}
         >
           {/* Left Side: Library Drawer/Column - Chat Sidebar */}
           <div
-            className={`shrink-0 flex flex-col transition-all duration-300 max-h-[300px] xl:max-h-none xl:h-full ${cognitiveProfile === "adhd" ? "w-full xl:w-64" : "w-full xl:w-72 2xl:w-80"
-              }`}
+            className={`shrink-0 flex flex-col transition-all duration-300 xl:max-h-none xl:h-full ${
+              cognitiveProfile === "adhd" ? "w-full xl:w-64" : "w-full xl:w-72 2xl:w-80"
+            } ${showMaterialsSidebar ? "fixed inset-0 z-50 bg-background/95 p-6 w-full h-full max-h-none block" : "hidden xl:flex"}`}
           >
             <Card className="flex h-full min-h-0 flex-col overflow-hidden">
               {/* Search + Add material toggle */}
               <div className="p-4 space-y-3 border-b border-border">
+                <div className="flex justify-between items-center xl:hidden">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Study Workspace</span>
+                  <button
+                    onClick={() => setShowMaterialsSidebar(false)}
+                    className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="relative flex-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1245,6 +1421,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
 
               {/* New Chat Button */}
               <button
+                id="new-chat-button"
                 type="button"
                 onClick={async () => {
                   try {
@@ -1285,7 +1462,10 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                               <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-elevated font-medium text-foreground" : "hover:bg-elevated/40"}`}>
                                 <div
                                   onClick={() => {
-                                    if (!isEditing) setActiveDoc(doc);
+                                    if (!isEditing) {
+                                      setActiveDoc(doc);
+                                      setShowMaterialsSidebar(false);
+                                    }
                                   }}
                                   onContextMenu={(event) => {
                                     event.preventDefault();
@@ -1370,7 +1550,10 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                               <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-elevated font-medium text-foreground" : "hover:bg-elevated/40"}`}>
                                 <div
                                   onClick={() => {
-                                    if (!isEditing) setActiveDoc(doc);
+                                    if (!isEditing) {
+                                      setActiveDoc(doc);
+                                      setShowMaterialsSidebar(false);
+                                    }
                                   }}
                                   onContextMenu={(event) => {
                                     event.preventDefault();
@@ -1378,14 +1561,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                                   }}
                                   className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
                                 >
-                                  <div
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${isSelected
-                                      ? "border-foreground/30 bg-background"
-                                      : "border-border bg-elevated"
-                                      }`}
-                                  >
-                                    <doc.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
-                                  </div>
+
                                   <div className="min-w-0 flex-1">
                                     {isEditing ? (
                                       <input
@@ -1556,33 +1732,32 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                               setFocusedMsgIndex(focusedMsgIndex === i ? null : i);
                             }
                           }}
-                          className={`w-fit max-w-[min(${isAi ? "92%" : "80%"},48rem)] rounded-xl border px-4 py-3 transition-all shadow-sm ${isAi
-                            ? cognitiveProfile === "dyslexia"
-                              ? "bg-[#FFFDF9] border-[#E6DCC8] text-[#2D281E]"
-                              : "bg-background border-border/80"
-                            : cognitiveProfile === "dyslexia"
-                              ? "bg-[#F3EFE6] border-[#E6DCC8] text-[#2D281E]"
-                              : "bg-foreground text-background border-foreground"
-                            } ${isFocused ? "ring-2 ring-primary ring-offset-2 scale-[1.01]" : ""} ${cognitiveProfile === "adhd"
-                              ? "cursor-pointer hover:border-primary/50"
-                              : ""
-                            }`}
+                          className={`w-fit max-w-[min(${isAi ? "92%" : "80%"},48rem)] transition-all ${isAi
+                            ? `py-1.5 ${cognitiveProfile === "dyslexia"
+                              ? "text-[#2D281E]"
+                              : cognitiveProfile === "sensory"
+                                ? "text-[#433422]"
+                                : cognitiveProfile === "adhd"
+                                  ? "text-white font-medium"
+                                  : "text-foreground"}`
+                            : `rounded-2xl px-4 py-2.5 ${cognitiveProfile === "dyslexia"
+                              ? "bg-[#F3EFE6] text-[#2D281E]"
+                              : cognitiveProfile === "sensory"
+                                ? "bg-[#EADFC9] text-[#433422]"
+                                : cognitiveProfile === "adhd"
+                                  ? "bg-foreground text-background font-semibold"
+                                  : "bg-muted text-foreground"}`
+                          } ${isFocused ? "scale-[1.01]" : ""}`}
                         >
                           {isAi ? (
-                            cognitiveProfile === "dyslexia" ? (
-                              <p className="tracking-wide leading-loose text-[14px] whitespace-pre-wrap break-words overflow-wrap-anywhere">
-                                {toBionic(msg.text)}
-                              </p>
-                            ) : (
-                              <MarkdownRenderer content={msg.text} />
-                            )
+                            <MarkdownRenderer content={msg.text} cognitiveProfile={cognitiveProfile} />
                           ) : (
                             <div className="flex flex-col gap-2">
                               {/* Multiple images grid */}
                               {msg.images && msg.images.length > 0 && (
                                 <div className={`grid gap-1 max-w-[280px] ${msg.images.length === 1 ? "grid-cols-1" :
-                                    msg.images.length === 2 ? "grid-cols-2" :
-                                      "grid-cols-2"
+                                  msg.images.length === 2 ? "grid-cols-2" :
+                                    "grid-cols-2"
                                   }`}>
                                   {msg.images.slice(0, 4).map((img, idx) => {
                                     const isFourth = idx === 3;
@@ -1623,10 +1798,13 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                                 </div>
                               )}
                               <p
-                                className={`text-xs leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere ${cognitiveProfile === "dyslexia"
-                                  ? "tracking-wide leading-loose text-[14px]"
-                                  : ""
-                                  }`}
+                                className={`text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere ${
+                                  cognitiveProfile === "dyslexia"
+                                    ? "tracking-wider leading-loose text-[14px] font-sans"
+                                    : cognitiveProfile === "adhd"
+                                      ? "text-xs font-semibold"
+                                      : ""
+                                }`}
                               >
                                 {msg.text}
                               </p>
@@ -1757,7 +1935,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                       <Sparkles className="h-3 w-3" />
                     </div>
                     <div
-                      className={`max-w-[85%] rounded-lg border p-3.5 flex items-center gap-1.5 ${cognitiveProfile === "dyslexia"
+                      className={`max-w-[85%] rounded-lg border p-3.5 ${cognitiveProfile === "dyslexia"
                         ? "bg-[#FFFDF9] border-[#E6DCC8]"
                         : "border-border bg-background"
                         }`}
@@ -1767,20 +1945,11 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                           Tutor is compiling response...
                         </span>
                       ) : (
-                        <>
-                          <span
-                            className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
-                            style={{ animationDelay: "0ms" }}
-                          />
-                          <span
-                            className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
-                            style={{ animationDelay: "150ms" }}
-                          />
-                          <span
-                            className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
-                            style={{ animationDelay: "300ms" }}
-                          />
-                        </>
+                        <div className="flex flex-col gap-2 w-48 py-1">
+                          <div className="h-2 w-full rounded bg-muted animate-pulse" />
+                          <div className="h-2 w-5/6 rounded bg-muted animate-pulse" style={{ animationDelay: "150ms" }} />
+                          <div className="h-2 w-3/4 rounded bg-muted animate-pulse" style={{ animationDelay: "300ms" }} />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1838,6 +2007,7 @@ YOUR CORE SECURITY & SOCRATIC GUARANTEES:
                     }`}
                 >
                   <Textarea
+                    id="chat-input"
                     placeholder="Ask anything across your entire library…"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
