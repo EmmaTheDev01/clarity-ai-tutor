@@ -557,14 +557,48 @@ function Message({
   citation?: string;
 }) {
   const isAi = from === "ai";
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveToNote = async () => {
+    setIsSaving(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        await supabase.from("notes").insert({
+          student_id: userData.user.id,
+          title: "Chat Excerpt",
+          subject: "General",
+          content: text,
+          is_ai_generated: true,
+        });
+        toast.success("Message saved to notebook!");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save message to notebook.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-elevated text-xs font-medium">
         {isAi ? <Sparkles className="h-3.5 w-3.5" /> : "AJ"}
       </div>
       <div
-        className={`max-w-[80%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4`}
+        className={`max-w-[80%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4 group relative`}
       >
+        {isAi && (
+          <button
+            onClick={handleSaveToNote}
+            disabled={isSaving}
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-muted text-muted-foreground flex items-center gap-1 text-[10px] font-medium"
+            title="Save to Notes"
+          >
+            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
+          </button>
+        )}
         {isAi ? (
           <MarkdownRenderer content={text} />
         ) : (

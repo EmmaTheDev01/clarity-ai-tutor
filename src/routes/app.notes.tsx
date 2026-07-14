@@ -99,6 +99,7 @@ function NotesPage() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   // Sharing states
   const [shareTargetNote, setShareTargetNote] = useState<Note | null>(null);
@@ -318,6 +319,7 @@ function NotesPage() {
 
     // Supabase background transaction
     (async () => {
+      setIsSavingNote(true);
       try {
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user) {
@@ -328,6 +330,8 @@ function NotesPage() {
         }
       } catch (err) {
         console.warn("Supabase background note content update failure:", err);
+      } finally {
+        setTimeout(() => setIsSavingNote(false), 500);
       }
     })();
   };
@@ -1055,7 +1059,7 @@ function NotesPage() {
               {/* Note Content — WYSIWYG Rich Editor with toolbar */}
               <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto pr-1">
                 {selectedNote.readOnly ? (
-                  <div className="prose prose-sm max-w-none text-foreground min-h-[300px] flex-1">
+                  <div className="text-foreground min-h-[300px] flex-1">
                     <MarkdownRenderer content={selectedNote.content} />
                   </div>
                 ) : (
@@ -1063,6 +1067,8 @@ function NotesPage() {
                     key={selectedNote.id}
                     value={selectedNote.content}
                     onChange={handleEditNoteContent}
+                    onSave={() => toast.success("Note saved")}
+                    isSaving={isSavingNote}
                     readOnly={selectedNote.readOnly}
                     placeholder="Start writing your notes..."
                   />
