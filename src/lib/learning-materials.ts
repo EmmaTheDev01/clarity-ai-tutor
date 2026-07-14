@@ -275,42 +275,164 @@ export async function uploadLearningMaterial({
   let extractedContent = content?.trim() || null;
 
   try {
-    if (file) {
-      if (
-        file.type.startsWith("text/") ||
-        file.name.endsWith(".txt") ||
-        file.name.endsWith(".md")
-      ) {
-        extractedContent = await file.text();
-      } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-        const base64 = await fileToBase64(file);
-        const prompt = `You are a brilliant AI study tutor. Please generate comprehensive study notes, a detailed summary, and key terms/concepts from this PDF document.
-Use clean, well-spaced markdown format with headings (## and ###) and bullet points. Make sure you cover all the major sections of the document to help the student learn effectively.`;
-        const result = await generateGeminiMultimodal(prompt, base64, "application/pdf");
-        extractedContent = result.text;
-      } else if (file.type.startsWith("image/")) {
-        const base64 = await fileToBase64(file);
-        const prompt = `Explain this image or diagram in detail. Generate structured study notes and lists of all key terms and visual concepts visible in the image. Use clean markdown format.`;
-        const result = await generateGeminiMultimodal(prompt, base64, file.type);
-        extractedContent = result.text;
-      } else if (file.type.startsWith("audio/")) {
-        const base64 = await fileToBase64(file);
-        const prompt = `Analyze this audio recording. Summarize the main topics, transcribe/explain the key talking points, and generate detailed study notes. Use clean markdown format.`;
-        const result = await generateGeminiMultimodal(prompt, base64, file.type);
-        extractedContent = result.text;
-      } else if (file.type.startsWith("video/")) {
-        const base64 = await fileToBase64(file);
-        const prompt = `Analyze this video clip. Explain the core concepts, outline the key visual and audio elements, and generate detailed study notes/summaries. Use clean markdown format.`;
-        const result = await generateGeminiMultimodal(prompt, base64, file.type);
+      if (file) {
+        if (
+          file.type.startsWith("text/") ||
+          file.name.endsWith(".txt") ||
+          file.name.endsWith(".md")
+        ) {
+          extractedContent = await file.text();
+        } else if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+          const base64 = await fileToBase64(file);
+          const prompt = `You are a world-class professor creating comprehensive lecture notes from a PDF document.
+
+## YOUR TASK:
+Produce **extensive, richly formatted study notes** from this PDF that a university student can use to deeply understand and master the material.
+
+## STRUCTURE YOUR OUTPUT AS FOLLOWS:
+
+### 1. Overview & Big Picture
+Begin with a high-level summary of what this document covers and why it matters. Use *italics* for key themes and **bold** for the most important ideas.
+
+### 2. Core Theory & Concepts
+For each major concept or topic in the document:
+- Explain the **theory and underlying principles** in depth — the *why* before the *how*.
+- Define all key terms in **bold** when first introduced.
+- Use headings (\`## Topic\`, \`### Subtopic\`) to organize sections logically.
+
+### 3. Formulas, Equations & Definitions
+Present all relevant formulas and formal definitions in clearly labeled blocks. Explain every symbol and variable.
+
+### 4. Key Examples & Applications
+Walk through illustrative examples from the document. Explain the reasoning step-by-step.
+
+### 5. Summary & Key Takeaways
+End with a bulleted list of the most important things to remember from this document.
+
+Use clean markdown formatting throughout. Be thorough — these notes should leave nothing important unexplained.`;
+          const result = await generateGeminiMultimodal(prompt, base64, "application/pdf", 4096);
+          extractedContent = result.text;
+        } else if (file.type.startsWith("image/")) {
+          const base64 = await fileToBase64(file);
+          const prompt = `You are a world-class professor analysing an image or diagram.
+
+## YOUR TASK:
+Generate **extensive, richly formatted study notes** that help a student deeply understand everything in this image.
+
+## STRUCTURE YOUR OUTPUT AS FOLLOWS:
+
+### 1. What This Shows — Big Picture
+Describe what the image or diagram represents and why it is significant. Use **bold** for key concepts and *italics* for emphasis.
+
+### 2. Theory Behind the Visual
+Explain the *underlying theory or concept* this image is illustrating. Go deep — do not just describe what is visible; explain what it *means*.
+
+### 3. Key Terms & Definitions
+List and define every important term, label, or symbol visible in the image. Use **bold** for each term.
+
+### 4. Step-by-Step Walkthrough
+Walk through the image in logical order, explaining each component or step in a narrative teaching voice.
+
+### 5. Real-World Connections & Applications
+Where and how is this concept or diagram used in practice?
+
+Use clean markdown formatting throughout.`;
+          const result = await generateGeminiMultimodal(prompt, base64, file.type, 3000);
+          extractedContent = result.text;
+        } else if (file.type.startsWith("audio/")) {
+          const base64 = await fileToBase64(file);
+          const prompt = `You are a world-class professor creating lecture notes from an audio recording.
+
+## YOUR TASK:
+Produce **extensive, richly formatted study notes** based on the content of this audio.
+
+## STRUCTURE YOUR OUTPUT AS FOLLOWS:
+
+### 1. Overview
+What is this audio about? What are the main themes? Use **bold** for core topics and *italics* for emphasis.
+
+### 2. Core Theory & Ideas
+For each major idea or topic discussed in the audio:
+- Explain the **theory** in depth — the *why* before the *how*.
+- Define key terms in **bold** when first introduced.
+- Use headings to separate distinct topics.
+
+### 3. Formulas, Equations & Definitions
+If any are mentioned or implied, present them clearly with explanations of every symbol.
+
+### 4. Examples & Illustrations
+Summarize any examples, stories, or case studies used in the audio.
+
+### 5. Key Takeaways
+A bulleted list of the most important things to remember.
+
+Use clean markdown formatting throughout. Be thorough.`;
+          const result = await generateGeminiMultimodal(prompt, base64, file.type, 3000);
+          extractedContent = result.text;
+        } else if (file.type.startsWith("video/")) {
+          const base64 = await fileToBase64(file);
+          const prompt = `You are a world-class professor creating lecture notes from a video clip.
+
+## YOUR TASK:
+Generate **extensive, richly formatted study notes** from this video's content.
+
+## STRUCTURE YOUR OUTPUT AS FOLLOWS:
+
+### 1. Overview & Context
+What does this video cover? What is the main educational purpose? Use **bold** for key topics and *italics* for critical ideas.
+
+### 2. Core Theory & Concepts
+For each concept covered:
+- Explain the **underlying theory** — the *why* before the *how*.
+- Define all key terms in **bold** on first use.
+- Organize with clear headings and subheadings.
+
+### 3. Formulas, Equations & Definitions
+List and explain any formulas, equations, or formal definitions clearly.
+
+### 4. Visual Elements & Demonstrations
+Describe and explain any visual demonstrations, diagrams, or worked examples shown in the video.
+
+### 5. Summary & Takeaways
+A concise bulleted summary of the most important learnings.
+
+Use clean markdown formatting throughout. Be as thorough as possible.`;
+          const result = await generateGeminiMultimodal(prompt, base64, file.type, 3000);
+          extractedContent = result.text;
+        }
+      } else if (link) {
+        const prompt = `You are a world-class professor creating comprehensive study notes from a web resource.
+
+**Resource URL:** ${link}
+**Resource Title:** ${normalizedTitle}
+
+## YOUR TASK:
+Produce **extensive, richly formatted study notes** that a university student can use to deeply understand the content at this link.
+
+## STRUCTURE YOUR OUTPUT AS FOLLOWS:
+
+### 1. Overview & Big Picture
+What is this resource about? Why does it matter? Use **bold** for core topics and *italics* for emphasis.
+
+### 2. Core Theory & Concepts
+For each major idea from the resource:
+- Explain the **theory and underlying principles** — *why* before *how*.
+- Define key terms in **bold** when first introduced.
+- Use markdown headings to organize sections clearly.
+
+### 3. Formulas, Equations & Definitions
+Present any relevant formulas or definitions clearly with full symbol explanations.
+
+### 4. Examples & Applications
+Walk through key examples or use cases from the resource.
+
+### 5. Summary & Takeaways
+A bulleted list of the most important things to remember.
+
+Use clean, beautiful markdown formatting throughout. Be thorough.`;
+        const result = await generateGeminiText(prompt, 3000);
         extractedContent = result.text;
       }
-    } else if (link) {
-      const prompt = `You are an expert AI study assistant. The user added this link for learning: ${link} (${normalizedTitle}).
-Analyze this source. Explain what it contains and generate detailed study notes, a comprehensive summary, and lists of key concepts for studying.
-Use clear, beautiful markdown format with headings and bullet points.`;
-      const result = await generateGeminiText(prompt, 1200);
-      extractedContent = result.text;
-    }
   } catch (err) {
     console.warn("AI text extraction failed during upload, proceeding with default content:", err);
   }
