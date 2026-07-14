@@ -1,7 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Brain, Check, ArrowRight } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { Brain, Check, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui-kit";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({ meta: [{ title: "Pricing & Plans — purelearn.ai" }] }),
@@ -9,7 +11,58 @@ export const Route = createFileRoute("/pricing")({
 });
 
 function PricingPage() {
+  const navigate = useNavigate();
   const [studentCount, setStudentCount] = useState(100);
+  const [user, setUser] = useState<any>(null);
+  const [currentTier, setCurrentTier] = useState<string>("free");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setUser(data.session.user);
+        // Load active subscription tier
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("plan_tier")
+          .eq("user_id", data.session.user.id)
+          .maybeSingle();
+        if (sub) {
+          setCurrentTier(sub.plan_tier || "free");
+        }
+      }
+    };
+    checkUser();
+  }, []);
+
+  const handlePlanSelect = async (plan: string) => {
+    if (!user) {
+      navigate({ to: "/auth/sign-up" as any });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from("subscriptions").upsert({
+        user_id: user.id,
+        plan_tier: plan,
+        status: "active",
+      });
+
+      if (error) throw error;
+
+      toast.success(`Successfully activated your ${plan} subscription!`);
+      setCurrentTier(plan);
+      setTimeout(() => {
+        navigate({ to: "/app" as any });
+      }, 1200);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update subscription");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Seat pricing formula: baseline $9/mo + $0.10 per student seat, with discount bands
   const calculateCustomPrice = (seats: number) => {
@@ -27,12 +80,17 @@ function PricingPage() {
       <header className="border-b border-border bg-elevated/40 backdrop-blur sticky top-0 z-30">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-1.5 font-serif">
-
             purelearn.ai
           </Link>
-          <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
-            Sign In
-          </Link>
+          {user ? (
+            <Link to="/app" className="text-xs font-semibold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition flex items-center gap-1.5">
+              Go to Workspace
+            </Link>
+          ) : (
+            <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
+              Sign In
+            </Link>
+          )}
         </div>
       </header>
 
@@ -71,9 +129,19 @@ function PricingPage() {
                 Basic Quiz generator
               </li>
             </ul>
-            <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
-              Get Started
-            </Link>
+            {user ? (
+              <button
+                disabled={loading || currentTier === "free"}
+                onClick={() => handlePlanSelect("free")}
+                className="w-full py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+              >
+                {currentTier === "free" ? "Current Plan" : "Downgrade to Free"}
+              </button>
+            ) : (
+              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
+                Get Started
+              </Link>
+            )}
           </Card>
 
           {/* Pro Tier */}
@@ -105,10 +173,22 @@ function PricingPage() {
                 Double Streak multipliers
               </li>
             </ul>
-            <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5">
-              Upgrade Now
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            {user ? (
+              <button
+                disabled={loading || currentTier === "premium" || currentTier === "pro"}
+                onClick={() => handlePlanSelect("premium")}
+                className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {currentTier === "premium" || currentTier === "pro" ? "Active Subscription" : "Upgrade Now"}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5">
+                Upgrade Now
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
           </Card>
 
           {/* Custom Plan (Interactive Slider) */}
@@ -156,9 +236,19 @@ function PricingPage() {
                 Verify educator status
               </li>
             </ul>
-            <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
-              Build Classroom
-            </Link>
+            {user ? (
+              <button
+                disabled={loading || currentTier === "educator"}
+                onClick={() => handlePlanSelect("educator")}
+                className="w-full py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+              >
+                {currentTier === "educator" ? "Current Plan" : `Build Classroom ($${calculateCustomPrice(studentCount)}/mo)`}
+              </button>
+            ) : (
+              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
+                Build Classroom
+              </Link>
+            )}
           </Card>
         </div>
       </main>

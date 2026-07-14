@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { MaterialUploader } from "@/components/material-uploader";
 import { LearningMaterial, mapMaterialRow, uploadLearningMaterial, togglePinMaterial, renameMaterial } from "@/lib/learning-materials";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
+import { CacheManager } from "@/lib/cache";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/library")({
@@ -35,6 +36,7 @@ function LibraryPage() {
       setItems((prev) =>
         prev.map((item) => (item.id === renameTarget.id ? { ...item, title: renameValue.trim() } : item))
       );
+      CacheManager.invalidate("materials_");
       toast.success(`Material renamed to "${renameValue.trim()}"`);
       setRenameTarget(null);
     } catch (err: any) {
@@ -53,6 +55,7 @@ function LibraryPage() {
         const material = await uploadLearningMaterial({ file });
         setItems((prev) => [material, ...prev]);
       }
+      CacheManager.invalidate("materials_");
       toast.success(`${files.length} file(s) uploaded to library.`);
     } catch (err) {
       toast.error("Failed to upload dropped files.");
@@ -64,12 +67,25 @@ function LibraryPage() {
 
   useEffect(() => {
     const loadMaterials = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+
+      const cacheKey = `materials_${userData.user.id}`;
+      const cached = CacheManager.get(cacheKey);
+      if (cached) {
+        setItems(cached);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("materials")
         .select("*")
+        .eq("uploaded_by", userData.user.id)
         .order("created_at", { ascending: false });
       if (!error && data) {
-        setItems(data.map(mapMaterialRow));
+        const mapped = data.map(mapMaterialRow);
+        setItems(mapped);
+        CacheManager.set(cacheKey, mapped, 30000);
       } else {
         setItems([]);
       }
@@ -85,6 +101,7 @@ function LibraryPage() {
       const { error } = await supabase.from("materials").delete().eq("id", deleteTarget.id);
       if (error) throw error;
       setItems((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      CacheManager.invalidate("materials_");
       toast.success(`"${deleteTarget.title}" deleted from library.`);
       setDeleteTarget(null);
     } catch (err: any) {
@@ -100,6 +117,7 @@ function LibraryPage() {
       setItems((prev) =>
         prev.map((item) => (item.id === doc.id ? { ...item, pinned: nextPinned } : item))
       );
+      CacheManager.invalidate("materials_");
       toast.success(nextPinned ? `Pinned "${doc.title}"` : `Unpinned "${doc.title}"`);
     } catch (error) {
       toast.error("Could not update pin state.");
@@ -231,6 +249,7 @@ function LibraryPage() {
       <MaterialUploader
         onUploaded={(material) => {
           setItems((prev) => [material, ...prev]);
+          CacheManager.invalidate("materials_");
           toast.success(`"${material.title}" added to library.`);
         }}
       />

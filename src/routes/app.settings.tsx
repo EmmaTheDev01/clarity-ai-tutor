@@ -45,17 +45,17 @@ function SettingsPage() {
     <AppShell title="Settings">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr] w-full items-start">
         {/* Navigation Sidebar */}
-        <nav className="flex flex-row flex-wrap gap-2 lg:flex-col bg-elevated/20 p-2.5 rounded-2xl border border-border/40 backdrop-blur-md">
+        <nav className="flex flex-row flex-wrap gap-2 lg:flex-col p-1.5 bg-elevated/20 rounded-xl border border-border/60">
           {sections.map((s) => {
             const isActive = section === s;
             return (
               <button
                 key={s}
                 onClick={() => setSection(s)}
-                className={`flex items-center gap-3 w-full rounded-xl px-4 py-3 text-left text-xs uppercase tracking-wider font-extrabold transition-all duration-300 border ${
+                className={`flex items-center gap-3 w-full rounded-lg px-4 py-2.5 text-left text-xs uppercase tracking-wider font-extrabold transition-all duration-200 ${
                   isActive
-                    ? "bg-primary/10 border-primary/20 text-primary shadow-lg shadow-primary/5 scale-[1.02]"
-                    : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground hover:translate-x-0.5"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-[1.02]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 {s === "Profile" && <User className="h-4 w-4 shrink-0" />}
@@ -92,15 +92,15 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="p-6 md:p-8 bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden rounded-2xl before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-primary/20 before:to-transparent">
-      <div className="mb-6">
-        <h3 className="text-sm font-black uppercase tracking-wider text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+    <Card className="p-6 md:p-8 bg-background border border-border shadow-sm rounded-xl">
+      <div className="mb-5">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
           {title}
         </h3>
-        <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{description}</p>
+        <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
       </div>
-      <Divider className="border-border/30" />
-      <div className="mt-6 space-y-6">{children}</div>
+      <Divider className="my-5" />
+      <div className="space-y-6">{children}</div>
     </Card>
   );
 }
@@ -268,7 +268,7 @@ function ProfileSection() {
 
   if (isLoading) {
     return (
-      <Card className="p-8 flex items-center justify-center min-h-[300px] border-border/50 bg-elevated/20">
+      <Card className="p-8 flex items-center justify-center min-h-[300px] border-border bg-background">
         <Loader2 className="h-6 w-6 text-primary animate-spin" />
       </Card>
     );
@@ -279,7 +279,7 @@ function ProfileSection() {
       title="Profile Information"
       description="Review and customize your educational level and cognitive profiling modes."
     >
-      <div className="flex items-center gap-6 p-5 rounded-2xl bg-muted/20 border border-border/40 backdrop-blur-md">
+      <div className="flex items-center gap-5 p-4 rounded-xl bg-elevated/40 border border-border">
         <div className="relative group cursor-pointer overflow-hidden rounded-full h-16 w-16 border-2 border-primary/20 shadow-lg">
           {profile.avatarUrl ? (
             <img
@@ -454,7 +454,7 @@ function PreferencesSection() {
       </Section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="p-6 md:p-8 bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg rounded-2xl flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">ADHD Visual Scaling</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -467,7 +467,7 @@ function PreferencesSection() {
           </div>
         </div>
 
-        <div className="p-6 md:p-8 bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg rounded-2xl flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">API Keys Credentials</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -530,7 +530,7 @@ function PlanSection() {
 
   if (isLoading) {
     return (
-      <Card className="p-8 flex items-center justify-center min-h-[200px] border-border/50 bg-elevated/20">
+      <Card className="p-8 flex items-center justify-center min-h-[200px] border-border bg-background">
         <Loader2 className="h-6 w-6 text-primary animate-spin" />
       </Card>
     );
@@ -594,7 +594,7 @@ function PlanSection() {
           </div>
           <div className="mt-5 flex items-center justify-between">
             <div className="text-2xl font-black text-foreground">
-              $12<span className="text-xs font-normal text-muted-foreground">/mo</span>
+              $15<span className="text-xs font-normal text-muted-foreground">/mo</span>
             </div>
             {!isPremium && (
               <Button
@@ -736,7 +736,7 @@ function SecuritySection() {
       </Section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="p-6 md:p-8 bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg rounded-2xl flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">Multi-Factor Authentication (MFA)</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -749,7 +749,7 @@ function SecuritySection() {
           </div>
         </div>
 
-        <div className="p-6 md:p-8 bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg rounded-2xl flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">Active Browser Session</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -871,7 +871,7 @@ function DangerSection() {
         </div>
 
         <div className="space-y-5 mt-5">
-          <div className="p-6 md:p-8 bg-elevated/20 border border-border/50 backdrop-blur-lg rounded-2xl flex flex-col justify-between h-full">
+          <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
             <div>
               <div className="text-sm font-black uppercase tracking-wider text-foreground">
                 Sign out of all sessions
@@ -882,13 +882,13 @@ function DangerSection() {
             </div>
             <button
               onClick={() => setModal("signout")}
-              className="mt-5 rounded-xl border border-border bg-elevated hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-primary px-4 py-2.5 text-xs font-extrabold transition-all duration-300 hover:scale-[1.02] w-fit"
+              className="mt-5 rounded-xl border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-primary px-4 py-2.5 text-xs font-extrabold transition-all duration-300 hover:scale-[1.02] w-fit"
             >
               Sign Out
             </button>
           </div>
 
-          <div className="p-6 md:p-8 bg-elevated/20 border border-border/50 backdrop-blur-lg rounded-2xl flex flex-col justify-between h-full">
+          <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
             <div>
               <div className="text-sm font-black uppercase tracking-wider text-foreground">
                 Delete Account Profile
@@ -899,7 +899,7 @@ function DangerSection() {
             </div>
             <button
               onClick={() => setModal("delete")}
-              className="mt-5 rounded-xl border border-border bg-elevated hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground px-4 py-2.5 text-xs font-bold transition-all duration-300 hover:scale-[1.02] w-fit"
+              className="mt-5 rounded-xl border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground px-4 py-2.5 text-xs font-bold transition-all duration-300 hover:scale-[1.02] w-fit"
             >
               Delete Account
             </button>

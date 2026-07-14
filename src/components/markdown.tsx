@@ -1,46 +1,8 @@
 import React from "react";
+import katex from "katex";
 
 export function cleanLatexMathSyntax(text: string): string {
-  if (!text) return text;
-  let cleaned = text;
-
-  // 1. Fix nested \mathbf${$\Sigma$}_{ML}^{(N)}. -> $\mathbf{\Sigma}_{ML}^{(N)}$.
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^\{\(([a-zA-Z0-9\-]+)\)\}\$\.?/g, (match) => {
-    const hasDot = match.endsWith(".");
-    const m = match.match(/_\{([a-zA-Z0-9]+)\}\^\{\(([a-zA-Z0-9\-]+)\)\}/);
-    if (m) {
-      return `$\\mathbf{\\Sigma}_{${m[1]}}^{(${m[2]})}$${hasDot ? "." : ""}`;
-    }
-    return match;
-  });
-
-  // Simple version: \mathbf${$\Sigma$}_{ML}^{(N-1)}$
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^\{\(([a-zA-Z0-9\-]+)\)\}\$/g, '$\\mathbf{\\Sigma}_{$1}^{($2)}$');
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^([a-zA-Z0-9()\-]+)\$/g, '$\\mathbf{\\Sigma}_{$1}^{$2}$');
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\$/g, '$\\mathbf{\\Sigma}_{$1}$');
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\$/g, '$\\mathbf{\\Sigma}$');
-
-  // Let's replace raw un-bracketed occurrences of \mathbf${$\Sigma$}_{ML}^{(N-1)} (without trailing $)
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^\{\(([a-zA-Z0-9\-]+)\)\}/g, '$\\mathbf{\\Sigma}_{$1}^{($2)}$');
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^([a-zA-Z0-9()\-]+)/g, '$\\mathbf{\\Sigma}_{$1}^{$2}$');
-
-  // 2. \ln$ p(x_N | $\mu$, $\mathbf${$\Sigma$})$ -> $\ln p(x_N | \mu, \mathbf{\Sigma})$
-  cleaned = cleaned.replace(/\\ln\$\s*p\(x_N\s*\|\s*\$\\mu\$,\s*\\mathbf\$\{\s*\$\\Sigma\$\s*\}\)/g, '$\\ln p(x_N | \\mu, \\mathbf{\\Sigma})$');
-  cleaned = cleaned.replace(/\\ln\$\s*p\(x_N\s*\|\s*\$\\mu\$,\s*\$\\mathbf\$\{\s*\$\\Sigma\$\s*\}\)\$/g, '$\\ln p(x_N | \\mu, \\mathbf{\\Sigma})$');
-  cleaned = cleaned.replace(/\\ln\$\s*p\(x_N\s*\|\s*\\mu\s*,\s*\\mathbf\{\\Sigma\}\)\$/g, '$\\ln p(x_N | \\mu, \\mathbf{\\Sigma})$');
-
-  // 3. $[$\mathbf${$\Sigma$}_{ML}^{(N-1)}]^{-1}$ -> $[ \mathbf{\Sigma}_{ML}^{(N-1)} ]^{-1}$
-  cleaned = cleaned.replace(/\$\s*\[\s*\$\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^\{\(([a-zA-Z0-9\-]+)\)\}\s*\]\^\{\s*-1\s*\}\s*\$/g, '$[\\mathbf{\\Sigma}_{$1}^{($2)}]^{-1}$');
-
-  // 4. \mathbf${$\Sigma$}_{ML}^{2(N-1)}$ -> $\mathbf{\Sigma}_{ML}^{2(N-1)}$
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}\_\{([a-zA-Z0-9]+)\}\^\{2\(([a-zA-Z0-9\-]+)\)\}\$/g, '$\\mathbf{\\Sigma}_{$1}^{2($2)}$');
-
-  // 5. General cleanup:
-  cleaned = cleaned.replace(/\\mathbf\$\{\s*\$\\Sigma\$\s*\}/g, '\\mathbf{\\Sigma}');
-  cleaned = cleaned.replace(/\s*\$\\Sigma\$\s*/g, ' \\Sigma ');
-  cleaned = cleaned.replace(/\s*\$\\mu\$\s*/g, ' \\mu ');
-
-  return cleaned;
+  return text;
 }
 
 // Bionic Reading text transformer for saccadic eye tracking
@@ -91,43 +53,44 @@ function preProcessMarkdown(text: string): string {
   return result.join("\n");
 }
 
-// Helper to check if a line is a mathematical equation
-function isStandaloneMath(line: string): boolean {
-  const trimmed = line.trim();
-  if (!trimmed) return false;
+function preProcessRawLatex(text: string): string {
+  if (!text) return text;
+  const lines = text.split("\n");
+  const processedLines = lines.map(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return line;
 
-  const hasMathIndicator = /^[=\-+/*]|\\|[_{}^]/.test(trimmed);
-  if (!hasMathIndicator) return false;
+    // Check if line is already wrapped in $$ or $
+    const hasBlockWrap = trimmed.startsWith("$$") && trimmed.endsWith("$$");
+    const hasInlineWrap = trimmed.startsWith("$") && trimmed.endsWith("$");
+    if (hasBlockWrap || hasInlineWrap) {
+      return line;
+    }
 
-  const words = trimmed.split(/[^a-zA-Z]/).filter((w) => w.length > 3);
-  const mathKeywords = [
-    "frac",
-    "mathbf",
-    "Sigma",
-    "alpha",
-    "beta",
-    "gamma",
-    "delta",
-    "theta",
-    "lambda",
-    "omega",
-    "left",
-    "right",
-    "sqrt",
-    "approx",
-    "const",
-    "log",
-    "det",
-    "lim",
-    "sin",
-    "cos",
-    "tan",
-    "mu",
-    "Sigma",
-  ];
-  const nonMathWords = words.filter((w) => !mathKeywords.includes(w));
+    // Check if the line is a standalone math line:
+    // It contains a backslash and typical math symbols, and does not contain regular English words.
+    const hasMathCommands = /\\(frac|partial|theta|alpha|beta|gamma|delta|lambda|sigma|Sigma|sum|prod|left|right|times|div|approx|in|dots|mathbf|begin|end)/.test(trimmed);
+    if (hasMathCommands) {
+      const words = trimmed.split(/[^a-zA-Z]/).filter(w => w.length > 3);
+      const mathKeywords = ["frac", "partial", "theta", "alpha", "beta", "gamma", "delta", "lambda", "sigma", "Sigma", "sum", "prod", "left", "right", "times", "div", "approx", "in", "dots", "mathbf", "begin", "end"];
+      const nonMathWords = words.filter(w => !mathKeywords.includes(w));
+      
+      // If no or very few non-math words, wrap the entire line in $$
+      if (nonMathWords.length <= 1) {
+        return `$$${trimmed}$$`;
+      }
+    }
 
-  return nonMathWords.length === 0;
+    // Otherwise, replace loose macros (like \theta_1, \alpha, \dots) with $...$
+    let lineText = line;
+    lineText = lineText.replace(/(?<!\$)\\(?:theta|alpha|beta|gamma|delta|lambda|sigma|Sigma|mu|in|dots|cdot|partial|times|approx)\b(?:_[a-zA-Z0-9]|_{[^}]+})?(?:\^[a-zA-Z0-9]|^{[^}]+})?(?!\$)/g, (match) => {
+      return `$${match}$`;
+    });
+
+    return lineText;
+  });
+
+  return processedLines.join("\n");
 }
 
 interface MarkdownRendererProps {
@@ -142,7 +105,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   cognitiveProfile = "default",
 }) => {
   const preProcessed = preProcessMarkdown(content);
-  const cleanedContent = cleanLatexMathSyntax(preProcessed);
+  const latexWrapped = preProcessRawLatex(preProcessed);
+  const cleanedContent = cleanLatexMathSyntax(latexWrapped);
 
   const getTargetTextClass = () => {
     if (cognitiveProfile === "dyslexia") {
@@ -177,10 +141,21 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return <code key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">{token.slice(1, -1)}</code>;
         }
         if (token.startsWith("$") && token.endsWith("$")) {
-          return <span key={i} className="font-serif italic text-foreground select-all">{token.slice(1, -1)}</span>;
+          const formula = token.slice(1, -1);
+          try {
+            const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
+            return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+          } catch {
+            return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
+          }
         }
         if (isLaTeX(token)) {
-          return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
+          try {
+            const html = katex.renderToString(token, { displayMode: false, throwOnError: false });
+            return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+          } catch {
+            return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
+          }
         }
         return cognitiveProfile === "adhd" ? <React.Fragment key={i}>{toBionic(token)}</React.Fragment> : token;
       });
@@ -192,14 +167,25 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     blocks.forEach((block, bIdx) => {
       const isMathBlock = bIdx % 2 === 1;
       if (isMathBlock) {
-        elements.push(
-          <div
-            key={`mathblock-${bIdx}`}
-            className="my-3 py-2 text-center overflow-x-auto font-serif text-[15px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed min-h-[2rem] flex items-center justify-center"
-          >
-            {block.trim()}
-          </div>
-        );
+        try {
+          const html = katex.renderToString(block.trim(), { displayMode: true, throwOnError: false });
+          elements.push(
+            <div
+              key={`mathblock-${bIdx}`}
+              className="my-3 py-2 text-center overflow-x-auto select-all"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          );
+        } catch {
+          elements.push(
+            <div
+              key={`mathblock-${bIdx}`}
+              className="my-3 py-2 text-center overflow-x-auto font-serif text-[15px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed min-h-[2rem] flex items-center justify-center"
+            >
+              {block.trim()}
+            </div>
+          );
+        }
       } else {
         const lines = block.split("\n");
         let inList = false;
@@ -208,6 +194,64 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         let codeBlockLines: string[] = [];
         let inDiagram = false;
         let diagramLines: string[] = [];
+        let inTable = false;
+        let tableRows: string[][] = [];
+        let tableAlignments: ("left" | "center" | "right")[] = [];
+
+        const closeTable = (lineKey: string) => {
+          if (inTable && tableRows.length > 0) {
+            const headers = tableRows[0];
+            const dataRows = tableRows.slice(1);
+
+            elements.push(
+              <div key={`table-container-${lineKey}`} className="my-4 overflow-x-auto rounded-xl border border-border bg-elevated/20 shadow-sm">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border/80 bg-muted/40">
+                      {headers.map((header, colIdx) => {
+                        const align = tableAlignments[colIdx] || "left";
+                        return (
+                          <th
+                            key={`th-${lineKey}-${colIdx}`}
+                            className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-foreground select-none"
+                            style={{ textAlign: align }}
+                          >
+                            {formatInline(header)}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {dataRows.map((row, rowIdx) => (
+                      <tr
+                        key={`tr-${lineKey}-${rowIdx}`}
+                        className="transition-colors hover:bg-muted/20 odd:bg-transparent even:bg-muted/10"
+                      >
+                        {row.map((cell, colIdx) => {
+                          const align = tableAlignments[colIdx] || "left";
+                          return (
+                            <td
+                              key={`td-${lineKey}-${rowIdx}-${colIdx}`}
+                              className="px-4 py-2.5 leading-relaxed font-sans text-foreground/90 whitespace-normal break-words"
+                              style={{ textAlign: align }}
+                            >
+                              {formatInline(cell)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+
+            tableRows = [];
+            tableAlignments = [];
+            inTable = false;
+          }
+        };
 
         const closeDiagram = (lineKey: string) => {
           if (inDiagram && diagramLines.length > 0) {
@@ -246,6 +290,50 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             return;
           }
 
+          const isTableRow = trimmed.startsWith("|") && trimmed.endsWith("|");
+
+          if (inTable) {
+            if (isTableRow) {
+              const isSeparator = /^[|:\s\-]+$/.test(trimmed);
+              if (isSeparator) {
+                const alignCells = trimmed
+                  .split("|")
+                  .map((s) => s.trim())
+                  .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+                tableAlignments = alignCells.map((cell) => {
+                  if (cell.startsWith(":") && cell.endsWith(":")) return "center";
+                  if (cell.endsWith(":")) return "right";
+                  return "left";
+                });
+              } else {
+                const cells = line
+                  .split("|")
+                  .map((s) => s.trim())
+                  .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+                tableRows.push(cells);
+              }
+              return;
+            } else {
+              closeTable(key);
+            }
+          }
+
+          if (isTableRow && !inTable) {
+            closeDiagram(key);
+            if (inList) {
+              elements.push(<ul key={`list-${key}`} className="list-disc list-inside space-y-1 mb-3 pl-2">{[...listItems]}</ul>);
+              listItems = [];
+              inList = false;
+            }
+            inTable = true;
+            const cells = line
+              .split("|")
+              .map((s) => s.trim())
+              .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+            tableRows.push(cells);
+            return;
+          }
+
           // Code block toggle (```)
           if (trimmed.startsWith("```")) {
             closeDiagram(key);
@@ -258,28 +346,22 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             return;
           }
 
-          // Standalone mathematical equations styling
-          if (isStandaloneMath(line)) {
-            closeDiagram(key);
-            if (inList) {
-              elements.push(<ul key={`list-${key}`} className="list-disc list-inside space-y-1 mb-3 pl-2">{[...listItems]}</ul>);
-              listItems = [];
-              inList = false;
-            }
-            elements.push(
-              <div
-                key={`mathline-${key}`}
-                className="my-2 py-1 font-serif text-[14px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed flex items-center justify-start overflow-x-auto"
-              >
-                {trimmed}
-              </div>
-            );
-            return;
-          }
+
 
           // Diagram block auto-detection
           const isDiagramLine = (txt: string): boolean => {
-            const diagramChars = /[┌┐└┘┬┴┼├┤│─━┃┏┓┗┛┳┻╋┣┫▼▲◄►➔➔]|[-━─_]{4,}|[|:+#*\\/]{3,}/;
+            const trimmed = txt.trim();
+            if (
+              trimmed.startsWith("#") ||
+              trimmed.startsWith("*") ||
+              trimmed.startsWith("-") ||
+              trimmed.startsWith("+") ||
+              trimmed.startsWith(">") ||
+              /^\d+\.\s+/.test(trimmed)
+            ) {
+              return false;
+            }
+            const diagramChars = /[┌┐└┘┬┴┼├┤│─━┃┏┓┗┛┳┻╋┣┫▼▲◄►➔➔]|[-━─_]{4,}|[|/\\+]{4,}/;
             return diagramChars.test(txt);
           };
 
@@ -402,6 +484,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         }
 
         closeDiagram(`end-${bIdx}`);
+        closeTable(`end-${bIdx}`);
 
         if (inCodeBlock && codeBlockLines.length > 0) {
           elements.push(

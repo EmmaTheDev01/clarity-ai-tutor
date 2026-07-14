@@ -4,6 +4,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth/sign-in")({
   head: () => ({
@@ -20,6 +21,7 @@ function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -41,8 +43,8 @@ function SignIn() {
       });
       if (error) throw error;
     } catch (err) {
-      console.warn("Google login redirect failed, navigating directly:", err);
-      navigate({ to: "/app" as any });
+      toast.error("Google sign-in failed. Please try again.");
+      console.warn("Google login redirect failed:", err);
     }
   };
 
@@ -50,6 +52,7 @@ function SignIn() {
     e.preventDefault();
     if (!email) return;
 
+    setLoading(true);
     try {
       // 1. Supabase credentials check
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -58,7 +61,7 @@ function SignIn() {
       });
 
       if (error) {
-        alert(`Authentication failed: ${error.message}`);
+        toast.error(`Sign-in failed: ${error.message}`);
         return;
       }
 
@@ -93,7 +96,7 @@ function SignIn() {
           }),
         );
       } else {
-        alert("Authentication failed: User details not returned.");
+        toast.error("Sign-in failed: user details not returned.");
         return;
       }
 
@@ -106,6 +109,8 @@ function SignIn() {
       });
       localStorage.setItem("user_logs", JSON.stringify(currentLogs));
 
+      toast.success(`Welcome back!`);
+
       // 2. Gateway redirection
       if (role === "admin") {
         navigate({ to: "/admin" as any });
@@ -116,7 +121,9 @@ function SignIn() {
       }
     } catch (err) {
       console.warn("Auth routing error:", err);
-      alert("Authentication error encountered.");
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -179,8 +186,8 @@ function SignIn() {
             </button>
           </div>
         </div>
-        <Button type="submit" size="lg" className="w-full">
-          Sign in
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? "Signing in…" : "Sign in"}
         </Button>
       </form>
 

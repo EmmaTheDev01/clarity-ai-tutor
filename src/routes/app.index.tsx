@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, Sparkles, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, Sparkles, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
+import { CacheManager } from "@/lib/cache";
 import { MaterialUploader } from "@/components/material-uploader";
 import {
   LearningMaterial,
@@ -169,6 +170,7 @@ function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Cognitive adaptive profiles states
@@ -182,12 +184,14 @@ function Dashboard() {
   const [userDisplayName, setUserDisplayName] = useState("You");
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [focusedMsgIndex, setFocusedMsgIndex] = useState<number | null>(null);
-  const [showAutoSaveNotice, setShowAutoSaveNotice] = useState(false);
+
   const [attachmentMessage, setAttachmentMessage] = useState("");
   const [attachedFilePreview, setAttachedFilePreview] = useState<{ name: string; size: string; type: string } | null>(null);
   const [attachedImages, setAttachedImages] = useState<Array<{ base64: string; mimeType: string; name: string; size: string }>>([]);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Gamification metrics
   const [xp, setXp] = useState(0);
@@ -209,6 +213,59 @@ function Dashboard() {
   const [teacherBlockStatus, setTeacherBlockStatus] = useState<"pending" | "rejected" | null>(null);
   const [showMaterialsSidebar, setShowMaterialsSidebar] = useState(false);
 
+  // ─── Global Keyboard Shortcuts ──────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isTypingInInput = tag === "input" || tag === "textarea" || (e.target as HTMLElement)?.isContentEditable;
+
+      // Escape — close any open modal / panel / menu in priority order
+      if (e.key === "Escape") {
+        if (activeLightboxImage) { setActiveLightboxImage(null); return; }
+        if (deleteTarget) { setDeleteTarget(null); return; }
+        if (contextMenu) { setContextMenu(null); return; }
+        if (renameTarget) { setRenameTarget(null); return; }
+        if (showAddMaterialForm) { setShowAddMaterialForm(false); return; }
+        if (showMaterialsSidebar) { setShowMaterialsSidebar(false); return; }
+        if (searchQuery) { setSearchQuery(""); searchInputRef.current?.blur(); return; }
+        return;
+      }
+
+      // Enter — confirm delete modal (when modal is open and focus is inside it)
+      if (e.key === "Enter" && deleteTarget && !isTypingInInput) {
+        e.preventDefault();
+        handleDeleteConfirm();
+        return;
+      }
+
+      // Ctrl/Cmd + K — focus search input
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      // Ctrl/Cmd + Enter — send chat message from anywhere
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isTypingInInput) {
+        e.preventDefault();
+        if (inputText.trim()) handleSend();
+        return;
+      }
+
+      // / — quick-focus chat input (when not already typing)
+      if (e.key === "/" && !isTypingInInput) {
+        e.preventDefault();
+        chatInputRef.current?.focus();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deleteTarget, contextMenu, renameTarget, showAddMaterialForm, showMaterialsSidebar, searchQuery, activeLightboxImage, inputText]);
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -227,6 +284,8 @@ function Dashboard() {
         setInputText((prev) => prev || `Help me study ${material.title}`);
         setAttachedFilePreview({ name: file.name, size: formatFileSize(file.size), type: file.type });
       }
+      CacheManager.invalidate("index_dashboard_");
+      CacheManager.invalidate("materials_");
       toast.success(`${files.length} file(s) attached as chat context.`);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Could not attach dropped file(s)."));
@@ -257,7 +316,7 @@ function Dashboard() {
         const context = JSON.parse(storedContext);
         if (context) {
           setInputText(`I want to ask a question about my note titled "${context.title}" (${context.subject}).\nHere is the note content:\n${context.content}`);
-          
+
           if (context.images && context.images.length > 0) {
             const mappedImages = context.images.map((imgUrl: string, idx: number) => {
               const match = imgUrl.match(/^data:([^;]+);base64,/);
@@ -271,7 +330,7 @@ function Dashboard() {
             });
             setAttachedImages(mappedImages);
           }
-          
+
           toast.success(`Escalated context loaded for "${context.title}"!`);
         }
       } catch (err) {
@@ -298,24 +357,60 @@ function Dashboard() {
         return;
       }
 
+      const userId = data.session.user.id;
+      const cacheKey = `index_dashboard_${userId}`;
+      const cached = CacheManager.get(cacheKey);
+      if (cached) {
+        setUserDisplayName(cached.userDisplayName);
+        setUserAvatarUrl(cached.userAvatarUrl);
+        setTeacherBlockStatus(cached.teacherBlockStatus);
+        setStudentProfile(cached.studentProfile);
+        setCognitiveProfile(cached.cognitiveProfile);
+        setStreak(cached.streak);
+        setMaterials(cached.materials);
+        setPinnedIds(new Set(cached.pinnedIds));
+        if (cached.materials.length > 0) {
+          setActiveDoc(cached.materials[0]);
+          setShowOnboarding(false);
+        } else {
+          setActiveDoc(null);
+          const hasSeenOnboarding = getStoredItem("clarity_onboarding_complete") === "true";
+          if (!hasSeenOnboarding) {
+            setShowOnboarding(true);
+          }
+        }
+        return;
+      }
+
+      let loadedDisplayName = "You";
+      let loadedAvatarUrl: string | null = null;
+      let loadedBlockStatus: "pending" | "rejected" | null = null;
+      let loadedEdLevel = "Undergraduate";
+      let loadedGradeLevel = "2nd Year";
+      let loadedCognitiveProfile = "standard";
+      let finalStreak = 1;
+      let mappedMats: LearningMaterial[] = [];
+
       // Load Profile
       try {
         const { data: profData } = await supabase
           .from("profiles")
           .select("name, avatar_url, role")
-          .eq("id", data.session.user.id)
+          .eq("id", userId)
           .maybeSingle();
 
         if (profData) {
-          setUserDisplayName(profData.name || "You");
-          setUserAvatarUrl(profData.avatar_url || null);
-          
+          loadedDisplayName = profData.name || "You";
+          loadedAvatarUrl = profData.avatar_url || null;
+          setUserDisplayName(loadedDisplayName);
+          setUserAvatarUrl(loadedAvatarUrl);
+
           let approvalStatus = "approved";
           try {
             const { data: statusData } = await supabase
               .from("profiles")
               .select("approval_status")
-              .eq("id", data.session.user.id)
+              .eq("id", userId)
               .maybeSingle();
             if (statusData && statusData.approval_status) {
               approvalStatus = statusData.approval_status;
@@ -323,21 +418,15 @@ function Dashboard() {
           } catch (statusErr) {
             console.warn("Profiles approval_status column query failed:", statusErr);
           }
-
-          if (profData.role === "teacher") {
-            if (approvalStatus === "pending") {
-              setTeacherBlockStatus("pending");
-            } else if (approvalStatus === "rejected") {
-              setTeacherBlockStatus("rejected");
-            }
-          }
+          loadedBlockStatus = profData.role === "teacher" && (approvalStatus === "pending" || approvalStatus === "rejected") ? approvalStatus : null;
+          setTeacherBlockStatus(loadedBlockStatus);
         }
 
         let stdProf = null;
         const { data: existingStdProf, error: stdProfErr } = await supabase
           .from("student_profiles")
           .select("*")
-          .eq("student_id", data.session.user.id)
+          .eq("student_id", userId)
           .maybeSingle();
 
         if (stdProfErr || !existingStdProf) {
@@ -345,7 +434,7 @@ function Dashboard() {
           await supabase
             .from("profiles")
             .insert({
-              id: data.session.user.id,
+              id: userId,
               name: newName,
               email: data.session.user.email || "",
               role: "student",
@@ -356,7 +445,7 @@ function Dashboard() {
           const { data: createdStdProf } = await supabase
             .from("student_profiles")
             .insert({
-              student_id: data.session.user.id,
+              student_id: userId,
               education_level: "Undergraduate",
               grade_level: "2nd Year",
               cognitive_profile: "standard",
@@ -369,11 +458,14 @@ function Dashboard() {
         }
 
         if (stdProf) {
+          loadedEdLevel = stdProf.education_level || "Undergraduate";
+          loadedGradeLevel = stdProf.grade_level || "2nd Year";
+          loadedCognitiveProfile = stdProf.cognitive_profile || "standard";
           setStudentProfile({
-            educationLevel: stdProf.education_level || "Undergraduate",
-            gradeLevel: stdProf.grade_level || "2nd Year",
+            educationLevel: loadedEdLevel,
+            gradeLevel: loadedGradeLevel,
           });
-          setCognitiveProfile((stdProf.cognitive_profile || "standard") as CognitiveProfile);
+          setCognitiveProfile(loadedCognitiveProfile as CognitiveProfile);
 
           // Daily Streak Update & Database Sync
           let currentStreak = Number(stdProf.streak || 0);
@@ -398,10 +490,11 @@ function Dashboard() {
             void supabase
               .from("student_profiles")
               .update({ streak: currentStreak })
-              .eq("student_id", data.session.user.id);
+              .eq("student_id", userId);
           } else {
             setStreak(currentStreak || 1);
           }
+          finalStreak = currentStreak || 1;
         }
 
         const hasSeenOnboarding = getStoredItem("clarity_onboarding_complete") === "true";
@@ -417,12 +510,13 @@ function Dashboard() {
         const { data: dbMats } = await supabase
           .from("materials")
           .select("*")
+          .eq("uploaded_by", userId)
           .order("created_at", { ascending: false });
         if (dbMats && dbMats.length > 0) {
-          const mapped = dbMats.map(mapMaterialRow);
-          setMaterials(mapped);
-          setPinnedIds(new Set(mapped.filter((item) => item.pinned).map((item) => item.id)));
-          setActiveDoc(mapped[0]);
+          mappedMats = dbMats.map(mapMaterialRow);
+          setMaterials(mappedMats);
+          setPinnedIds(new Set(mappedMats.filter((item) => item.pinned).map((item) => item.id)));
+          setActiveDoc(mappedMats[0]);
           setShowOnboarding(false);
         } else {
           setMaterials([]);
@@ -435,6 +529,21 @@ function Dashboard() {
       } catch (err) {
         console.warn("Error loading materials from DB, using fallback list:", err);
       }
+
+      // Set Cache
+      CacheManager.set(cacheKey, {
+        userDisplayName: loadedDisplayName,
+        userAvatarUrl: loadedAvatarUrl,
+        teacherBlockStatus: loadedBlockStatus,
+        studentProfile: {
+          educationLevel: loadedEdLevel,
+          gradeLevel: loadedGradeLevel,
+        },
+        cognitiveProfile: loadedCognitiveProfile,
+        streak: finalStreak,
+        materials: mappedMats,
+        pinnedIds: Array.from(mappedMats.filter((item) => item.pinned).map((item) => item.id))
+      }, 30000);
     };
     checkAuthAndLoad();
   }, []);
@@ -570,8 +679,7 @@ function Dashboard() {
           const currentNotes = stored ? JSON.parse(stored) : [];
           setStoredItem("digital_notebook", JSON.stringify([newNote, ...currentNotes]));
 
-          setShowAutoSaveNotice(true);
-          setTimeout(() => setShowAutoSaveNotice(false), 3000);
+          toast.success(`"${newNote.title}" saved to notebook.`, { duration: 2500 });
         }
       }
 
@@ -601,17 +709,57 @@ function Dashboard() {
 
     if (urlMatches && urlMatches.length > 0) {
       const url = urlMatches[0];
-      const toastId = toast.loading(`Analyzing link content: ${url}...`);
+      const toastId = toast.loading(`Analyzing link: ${url}...`);
       try {
+        // Attempt to resolve real page title via a proxy-safe fetch
+        let resolvedTitle = url.replace(/https?:\/\/(www\.)?/, "").split("/")[0] || "Web Link";
+        try {
+          const resp = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+          if (resp.ok) {
+            const json = await resp.json() as { contents?: string };
+            const titleMatch = json.contents?.match(/<title[^>]*>([^<]+)<\/title>/i);
+            if (titleMatch?.[1]) {
+              resolvedTitle = titleMatch[1].trim().substring(0, 80);
+            }
+          }
+        } catch {
+          // Title fetch is best-effort — fall back to URL slug
+        }
+
         const linkMaterial = await uploadLearningMaterial({
           link: url,
-          title: url.replace(/https?:\/\/(www\.)?/, "").substring(0, 45) || "Web Link",
+          title: resolvedTitle,
         });
+
+        // Add material to library panel without switching the active chat context
         setMaterials((prev) => (prev.some((item) => item.id === linkMaterial.id) ? prev : [linkMaterial, ...prev]));
-        setActiveDoc(linkMaterial);
-        resolvedDoc = linkMaterial;
-        linkPromptOverride = `\n\nADDITIONAL INSTRUCTION: The student provided a web URL link: "${url}". You MUST begin your response by summarizing the content, concepts, and key findings of this link in a clean, comprehensive markdown format. Focus on structural takeaways, and ensure you append a notebook summary at the end.`;
-        toast.success("Web link analyzed and imported successfully!", { id: toastId });
+        CacheManager.invalidate("index_dashboard_");
+        CacheManager.invalidate("materials_");
+
+        // If there is no active doc yet, adopt this link as the context
+        if (!resolvedDoc) {
+          setActiveDoc(linkMaterial);
+          resolvedDoc = linkMaterial;
+        }
+
+        // Rename the current chat session to the link title if we're in a general chat
+        if (resolvedDoc && (resolvedDoc.title === "General Chat" || resolvedDoc.title?.startsWith("General Chat ("))) {
+          try {
+            await supabase.from("materials").update({ title: resolvedTitle }).eq("id", resolvedDoc.id);
+            setActiveDoc((prev) => prev ? { ...prev, title: resolvedTitle } : prev);
+            setMaterials((prev) => prev.map((m) => m.id === resolvedDoc!.id ? { ...m, title: resolvedTitle } : m));
+          } catch {
+            // Title rename is best-effort
+          }
+        }
+
+        // Inject link content into the current chat prompt override
+        const extractedSummary = linkMaterial.content
+          ? `\n\nExtracted content from the link:\n${linkMaterial.content.substring(0, 3000)}`
+          : "";
+        linkPromptOverride = `\n\nADDITIONAL CONTEXT — LINK ADDED IN THIS CHAT: The student has added the URL "${url}" (page title: "${resolvedTitle}") to this conversation. Treat its content as the primary study material for the remainder of this session.${extractedSummary}\n\nBegin your response by summarising the core theory, key concepts, and takeaways from this link using rich markdown formatting. Then guide the student Socratically from there. Ensure you append a notebook summary at the end.`;
+
+        toast.success(`"${resolvedTitle}" added to this chat.`, { id: toastId });
       } catch (err) {
         console.error("Link import failed:", err);
         toast.error("Could not fetch or analyze the link. Using direct chat instead.", { id: toastId });
@@ -768,9 +916,14 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 ### 4. ACTIVE SOURCE CONTEXT
    - Use the active source when present: ${activeDocForResponse ? `Title: ${activeDocForResponse.title}; Type: ${activeDocForResponse.type}; URL: ${activeDocForResponse.url || "not available"}; Extracted content: ${activeDocForResponse.content || "No extracted text yet."}` : "No active source selected."}
 
-### 5. NOTE FORMATTING
-   - ALWAYS append a hidden note summary metadata block at the very end of your response in the EXACT format:
-   [NOTE_SUMMARY] Title: [Short note title] | Subject: [Subject field] | Content: [One sentence high-level summary of the concept discussed for their notebook]`;
+### 5. NOTE FORMATTING & FLASHCARDS
+   - ALWAYS append a hidden note summary and flashcard metadata block at the very end of your response in the EXACT format:
+   [NOTE_SUMMARY] Title: [Short note title] | Subject: [Subject field] | Content: [One sentence high-level summary of the concept discussed for their notebook]
+   [FLASHCARDS]
+   Q: [Plain text question 1 without markdown bold/headings] | A: [Plain text answer 1 without markdown bold/headings]
+   Q: [Plain text question 2 without markdown bold/headings] | A: [Plain text answer 2 without markdown bold/headings]
+   Q: [Plain text question 3 without markdown bold/headings] | A: [Plain text answer 3 without markdown bold/headings]
+   - The AI must generate 2 to 4 smart, dynamic, highly educational flashcards based on the concepts discussed. Keep questions and answers strictly in plain text (no bold stars **, no italics, no headers, no lists).`;
 
     try {
       const chatHistoryContext = updatedHistory
@@ -802,11 +955,19 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
       let coachText = generatedText;
       let noteSummary = "";
+      let flashcardBlock = "";
 
       const summaryIdx = generatedText.indexOf("[NOTE_SUMMARY]");
+      const flashcardsIdx = generatedText.indexOf("[FLASHCARDS]");
+
       if (summaryIdx !== -1) {
         coachText = generatedText.substring(0, summaryIdx).trim();
-        noteSummary = generatedText.substring(summaryIdx).trim();
+        if (flashcardsIdx !== -1 && flashcardsIdx > summaryIdx) {
+          noteSummary = generatedText.substring(summaryIdx, flashcardsIdx).trim();
+          flashcardBlock = generatedText.substring(flashcardsIdx).trim();
+        } else {
+          noteSummary = generatedText.substring(summaryIdx).trim();
+        }
         if (!coachText) {
           coachText = generatedText;
         }
@@ -826,11 +987,16 @@ You write responses that read like **high-quality lecture notes** — rich, thor
         const cleanContent = rawContent.replace(/^\[|\]$/g, "");
 
         if (cleanContent) {
+          let noteContent = `### ${cleanTitle}\n\n${cleanContent}\n\n*Generated from active study tutoring session.*`;
+          if (flashcardBlock) {
+            noteContent += `\n\n### Study Cards\n${flashcardBlock}`;
+          }
+
           const newNote = {
             id: "note_" + Math.random().toString(36).substring(2, 9),
             title: cleanTitle,
             subject: cleanSubject,
-            content: `### ${cleanTitle}\n\n${cleanContent}\n\n*Generated from active study tutoring session.*`,
+            content: noteContent,
             isAi: true,
             pinned: false,
             updated: new Date().toLocaleDateString(),
@@ -866,8 +1032,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
             console.warn("Supabase notes save or update fail:", err);
           }
 
-          setShowAutoSaveNotice(true);
-          setTimeout(() => setShowAutoSaveNotice(false), 3000);
+          toast.success(`"${cleanTitle}" saved to notebook.`, { duration: 2500 });
         }
       }
 
@@ -968,6 +1133,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
   const handlePinToggle = async (doc: LearningMaterial, nextPinned: boolean) => {
     try {
       await togglePinMaterial(doc.id, nextPinned);
+      CacheManager.invalidate("index_dashboard_");
+      CacheManager.invalidate("materials_");
       setMaterials((prev) => prev.map((item) => (item.id === doc.id ? { ...item, pinned: nextPinned } : item)));
       setPinnedIds((prev) => {
         const next = new Set(prev);
@@ -990,6 +1157,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
     setIsRenaming(true);
     try {
       await renameMaterial(doc.id, normalized);
+      CacheManager.invalidate("index_dashboard_");
+      CacheManager.invalidate("materials_");
       setMaterials((prev) => prev.map((item) => (item.id === doc.id ? { ...item, title: normalized } : item)));
       if (activeDoc?.id === doc.id) {
         setActiveDoc((prev) => (prev && prev.id === doc.id ? { ...prev, title: normalized } : prev));
@@ -1008,6 +1177,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
     setIsDeleting(true);
     try {
       await deleteMaterial(deleteTarget.id);
+      CacheManager.invalidate("index_dashboard_");
+      CacheManager.invalidate("materials_");
       setMaterials((prev) => prev.filter((item) => item.id !== deleteTarget.id));
       setPinnedIds((prev) => {
         const next = new Set(prev);
@@ -1038,6 +1209,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
       setAttachmentMessage("Uploading attachment...");
       try {
         const material = await uploadLearningMaterial({ file });
+        CacheManager.invalidate("index_dashboard_");
+        CacheManager.invalidate("materials_");
         setMaterials((prev) => [material, ...prev]);
         setActiveDoc(material);
         setInputText((prev) => prev || `Help me study ${material.title}`);
@@ -1110,7 +1283,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
           </div>
           <h2 className="text-lg font-bold text-foreground mb-2">Account Verification Pending</h2>
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Your educator account is currently under review by purelearn.ai administrators. 
+            Your educator account is currently under review by purelearn.ai administrators.
             You will have full access once verified.
           </p>
           <button
@@ -1137,7 +1310,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
           </div>
           <h2 className="text-lg font-bold text-foreground mb-2">Verification Rejected</h2>
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Unfortunately, your educator account request could not be verified by the admin team at this time. 
+            Unfortunately, your educator account request could not be verified by the admin team at this time.
             Access to teacher classrooms and student rosters is restricted.
           </p>
           <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs mb-6">
@@ -1170,7 +1343,14 @@ You write responses that read like **high-quality lecture notes** — rich, thor
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); handleDeleteConfirm(); }
+            if (e.key === "Escape") { e.preventDefault(); setDeleteTarget(null); }
+          }}
+          tabIndex={-1}
+        >
           <div className="w-full max-w-sm rounded-2xl border border-border bg-elevated/95 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10">
@@ -1187,6 +1367,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
               Are you sure you want to permanently delete “{deleteTarget.title}”? This action cannot be undone.
             </p>
+            <p className="mt-1 text-[10px] text-muted-foreground/60 italic">Press Enter to confirm · Esc to cancel</p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
@@ -1197,6 +1378,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
               <button
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
+                autoFocus
                 className="flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-red-600"
               >
                 {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -1210,7 +1392,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
       {contextMenu && (
         <div
           className="fixed z-[60] min-w-30 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
           onClick={(event) => event.stopPropagation()}
         >
           <button
@@ -1364,15 +1546,13 @@ You write responses that read like **high-quality lecture notes** — rich, thor
         }
       >
         <div
-          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${
-            cognitiveProfile === "sensory" ? "bg-[#FAF5EC]/30 text-[#433422]" : ""
-          }`}
+          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${cognitiveProfile === "sensory" ? "bg-[#FAF5EC]/30 text-[#433422]" : ""
+            }`}
         >
           {/* Left Side: Library Drawer/Column - Chat Sidebar */}
           <div
-            className={`shrink-0 flex flex-col transition-all duration-300 xl:max-h-none xl:h-full ${
-              cognitiveProfile === "adhd" ? "w-full xl:w-64" : "w-full xl:w-72 2xl:w-80"
-            } ${showMaterialsSidebar ? "fixed inset-0 z-50 bg-background/95 p-6 w-full h-full max-h-none block" : "hidden xl:flex"}`}
+            className={`shrink-0 flex flex-col transition-all duration-300 xl:max-h-none xl:h-full ${cognitiveProfile === "adhd" ? "w-full xl:w-64" : "w-full xl:w-72 2xl:w-80"
+              } ${showMaterialsSidebar ? "fixed inset-0 z-50 bg-background/95 p-6 w-full h-full max-h-none block" : "hidden xl:flex"}`}
           >
             <Card className="flex h-full min-h-0 flex-col overflow-hidden">
               {/* Search + Add material toggle */}
@@ -1386,29 +1566,53 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
                   <div className="relative flex-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <input
+                      ref={searchInputRef}
                       type="text"
-                      placeholder="Search materials…"
+                      placeholder="Search materials… (Ctrl+K)"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") { setSearchQuery(""); (e.target as HTMLInputElement).blur(); }
+                      }}
                       className="w-full rounded-md border border-border bg-background py-1.5 pl-9 pr-3 text-xs focus:border-ring focus:outline-none"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMaterialForm((visible) => !visible)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition shrink-0"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {showAddMaterialForm ? "Hide" : "Add material"}
-                  </button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters((visible) => !visible)}
+                      className={`inline-flex items-center justify-center rounded-md border p-2 transition ${
+                        showFilters
+                          ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                      }`}
+                      title="Toggle filters by file type"
+                      aria-label="Toggle filters"
+                    >
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMaterialForm((visible) => !visible)}
+                      className={`inline-flex items-center justify-center rounded-md border p-2 transition ${
+                        showAddMaterialForm
+                          ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                      }`}
+                      title="Add learning material"
+                      aria-label="Add learning material"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {showAddMaterialForm && (
-                  <div className="mt-2">
+                  <div className="mt-2 animate-fade-in">
                     <MaterialUploader
                       compact
                       onUploaded={(material) => {
@@ -1419,20 +1623,23 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-1.5">
-                  {filters.map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setActiveFilter(f)}
-                      className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${activeFilter === f
-                        ? "border-foreground bg-primary text-primary-foreground"
-                        : "border-border bg-background text-foreground hover:bg-muted"
+                {showFilters && (
+                  <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-border/40 animate-fade-in">
+                    {filters.map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setActiveFilter(f)}
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                          activeFilter === f
+                            ? "border-foreground bg-primary text-primary-foreground"
+                            : "border-border bg-background text-foreground hover:bg-muted"
                         }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* New Chat Button */}
@@ -1675,7 +1882,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                       className={`truncate text-xs font-semibold ${cognitiveProfile === "dyslexia" ? "text-[#2D281E]" : "text-foreground"
                         }`}
                     >
-                      {activeDoc ? `Chatting with: ${activeDoc.title}` : "General Library Chat"}
+                      {activeDoc ? `Working on: ${activeDoc.title}` : "General Library Chat"}
                     </h3>
                     <p
                       className={`text-xs truncate ${cognitiveProfile === "dyslexia" ? "text-[#605544]" : "text-muted-foreground"
@@ -1702,12 +1909,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
               {/* Chat Message Feed */}
               <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-5 space-y-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {showAutoSaveNotice && (
-                  <div className="sticky top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-white border border-emerald-400/20 rounded-full px-4 py-1.5 text-xs font-bold shadow-lg flex items-center gap-1.5 animate-bounce z-20">
-                    <Sparkles className="h-3 w-3 text-white" />
-                    Concept auto-saved to Digital Notebook in background!
-                  </div>
-                )}
+
                 {cognitiveProfile === "adhd" && (
                   <p className="mb-2 text-center text-xs text-muted-foreground italic">
                     ADHD Mode: Click any chat bubble to focus attention on that block.
@@ -1763,7 +1965,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                 : cognitiveProfile === "adhd"
                                   ? "bg-foreground text-background font-semibold"
                                   : "bg-muted text-foreground"}`
-                          } ${isFocused ? "scale-[1.01]" : ""}`}
+                            } ${isFocused ? "scale-[1.01]" : ""}`}
                         >
                           {isAi ? (
                             <MarkdownRenderer content={msg.text} cognitiveProfile={cognitiveProfile} />
@@ -1814,13 +2016,12 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                 </div>
                               )}
                               <p
-                                className={`text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere ${
-                                  cognitiveProfile === "dyslexia"
-                                    ? "tracking-wider leading-loose text-[14px] font-sans"
-                                    : cognitiveProfile === "adhd"
-                                      ? "text-xs font-semibold"
-                                      : ""
-                                }`}
+                                className={`text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere ${cognitiveProfile === "dyslexia"
+                                  ? "tracking-wider leading-loose text-[14px] font-sans"
+                                  : cognitiveProfile === "adhd"
+                                    ? "text-xs font-semibold"
+                                    : ""
+                                  }`}
                               >
                                 {msg.text}
                               </p>
@@ -2024,7 +2225,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                 >
                   <Textarea
                     id="chat-input"
-                    placeholder="Ask anything across your entire library…"
+                    ref={chatInputRef}
+                    placeholder="Ask anything across your entire library… (Enter to send · / to focus)"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {

@@ -192,50 +192,7 @@ function DocumentWorkspace() {
   );
 }
 
-function renderContent(text?: string | null) {
-  if (!text) return null;
-  return (
-    <div className="space-y-3 text-sm leading-relaxed text-foreground select-text">
-      {text.split("\n").map((line, idx) => {
-        const trimmed = line.trim();
-        if (trimmed.startsWith("###")) {
-          return (
-            <h4 key={idx} className="text-sm font-semibold mt-4 mb-2 text-foreground">
-              {trimmed.replace(/^###\s*/, "")}
-            </h4>
-          );
-        }
-        if (trimmed.startsWith("##")) {
-          return (
-            <h3 key={idx} className="text-base font-bold mt-4 mb-2 text-foreground">
-              {trimmed.replace(/^##\s*/, "")}
-            </h3>
-          );
-        }
-        if (trimmed.startsWith("#")) {
-          return (
-            <h2 key={idx} className="text-lg font-extrabold mt-4 mb-2 text-foreground">
-              {trimmed.replace(/^#\s*/, "")}
-            </h2>
-          );
-        }
-        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
-          return (
-            <li key={idx} className="ml-4 list-disc text-sm text-foreground my-1">
-              {trimmed.replace(/^[-*]\s*/, "")}
-            </li>
-          );
-        }
-        if (trimmed === "") return <div key={idx} className="h-2" />;
-        return (
-          <p key={idx} className="text-sm text-foreground my-1 leading-relaxed">
-            {line}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
+
 
 function SummaryPanel({ material }: { material: LearningMaterial | null }) {
   const [isSaving, setIsSaving] = useState(false);
@@ -289,7 +246,9 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
       <h3 className="text-lg font-semibold">{material?.title || "Material overview"}</h3>
 
       {material?.content ? (
-        <div className="mt-4 border-t border-border/40 pt-4">{renderContent(material.content)}</div>
+        <div className="mt-4 border-t border-border/40 pt-4">
+          <MarkdownRenderer content={material.content} />
+        </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
           No study notes extracted yet. Ask about a page, timestamp, image detail, or pasted excerpt

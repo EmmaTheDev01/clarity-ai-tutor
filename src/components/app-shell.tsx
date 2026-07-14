@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { CacheManager } from "@/lib/cache";
 import {
   LayoutGrid,
   Library,
@@ -24,11 +25,11 @@ import { toast } from "sonner";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, exact: true },
-  { to: "/app/analytics", label: "Analytics", icon: BarChart3, exact: false },
   { to: "/app/library", label: "Library", icon: Library, exact: false },
   { to: "/app/notes", label: "Notes", icon: FileText, exact: false },
   { to: "/app/flashcards", label: "Flashcards", icon: Layers, exact: false },
   { to: "/app/teasers", label: "Brain Teasers", icon: Gamepad2, exact: false },
+  { to: "/app/analytics", label: "Analytics", icon: BarChart3, exact: false },
   { to: "/app/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
 
@@ -86,6 +87,7 @@ export function AppShell({
   }
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [tier, setTier] = useState<string>("free");
 
   useEffect(() => {
     let userId = "";
@@ -95,11 +97,25 @@ export function AppShell({
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user) {
           userId = userData.user.id;
+
+          // Check Cache
+          const cacheKey = `user_shell_data_${userId}`;
+          const cached = CacheManager.get(cacheKey);
+          if (cached) {
+            setProfile(cached.profile);
+            setTier(cached.tier);
+            setNotifications(cached.notifications);
+            return;
+          }
+
           const { data: prof, error: profErr } = await supabase
             .from("profiles")
             .select("name, avatar_url")
             .eq("id", userId)
             .maybeSingle();
+
+          let finalName = "";
+          let finalAvatar: string | null = null;
 
           if (profErr || !prof) {
             const newName = userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "Student User";
@@ -115,17 +131,30 @@ export function AppShell({
               .maybeSingle();
 
             if (createdProf) {
-              setProfile({
-                name: createdProf.name || "Student User",
-                avatarUrl: createdProf.avatar_url || null,
-              });
+              finalName = createdProf.name || "Student User";
+              finalAvatar = createdProf.avatar_url || null;
             }
           } else {
-            setProfile({
-              name: prof.name || "Student User",
-              avatarUrl: prof.avatar_url || null,
-            });
+            finalName = prof.name || "Student User";
+            finalAvatar = prof.avatar_url || null;
           }
+          setProfile({ name: finalName, avatarUrl: finalAvatar });
+
+          // Fetch subscription tier
+          let finalTier = "free";
+          try {
+            const { data: sub } = await supabase
+              .from("subscriptions")
+              .select("plan_tier")
+              .eq("user_id", userId)
+              .maybeSingle();
+            if (sub) {
+              finalTier = sub.plan_tier || "free";
+            }
+          } catch (e) {
+            console.warn("Could not query subscription details in header:", e);
+          }
+          setTier(finalTier);
 
           // Fetch dynamic notifications from Supabase
           const loadedNotifications: NotificationItem[] = [];
@@ -192,6 +221,13 @@ export function AppShell({
           }
 
           setNotifications(loadedNotifications);
+
+          // Save to Cache
+          CacheManager.set(cacheKey, {
+            profile: { name: finalName, avatarUrl: finalAvatar },
+            tier: finalTier,
+            notifications: loadedNotifications
+          }, 45000);
         }
       } catch (err) {
         console.warn("Could not load user profile in header:", err);
@@ -314,11 +350,11 @@ export function AppShell({
           {/* Desktop Collapsed view */}
           <div className={`hidden lg:block ${isCollapsed ? "lg:block" : "lg:hidden"}`}>
             <Link
-              to="/app/settings"
+              to="/pricing"
               className="flex h-10 w-full items-center justify-center rounded-md border border-border bg-elevated hover:bg-muted text-primary"
               title="Upgrade plan"
             >
-              <Sparkles className="h-4 w-4 text-primary" />
+              <Sparkles className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`} />
             </Link>
           </div>
 
@@ -326,16 +362,22 @@ export function AppShell({
           <div className={`block ${isCollapsed ? "lg:hidden" : "lg:block"}`}>
             <div className="rounded-md border border-border bg-elevated p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <Sparkles className="h-3.5 w-3.5" />
-                Free plan
+                <Sparkles className={`h-3.5 w-3.5 ${tier !== "free" ? "text-amber-500 fill-current" : ""}`} />
+                <span className="capitalize">{tier} Plan</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">20 / 50 daily queries used.</p>
-              <Link
-                to="/app/settings"
-                className="mt-2 inline-block text-xs font-medium text-foreground underline underline-offset-2"
-              >
-                Upgrade
-              </Link>
+              {tier !== "free" ? (
+                <p className="mt-1 text-xs text-muted-foreground">Unlimited daily queries unlocked.</p>
+              ) : (
+                <>
+                  <p className="mt-1 text-xs text-muted-foreground">20 / 50 daily queries used.</p>
+                  <Link
+                    to="/pricing"
+                    className="mt-2 inline-block text-xs font-medium text-foreground underline underline-offset-2"
+                  >
+                    Upgrade
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

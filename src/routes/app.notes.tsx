@@ -19,8 +19,9 @@ import {
   UserPlus,
   Loader2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { CacheManager } from "@/lib/cache";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { RichEditor } from "@/components/rich-editor";
@@ -114,6 +115,36 @@ function NotesPage() {
   const [renameNoteValue, setRenameNoteValue] = useState("");
   const [isRenamingNote, setIsRenamingNote] = useState(false);
 
+  // Refs
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Global Keyboard Shortcuts ──────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape — close any open modal / menu in priority order
+      if (e.key === "Escape") {
+        if (activeLightboxImage) { setActiveLightboxImage(null); return; }
+        if (shareTargetNote) { setShareTargetNote(null); setShareEmail(""); return; }
+        if (renameTargetNote) { setRenameTargetNote(null); return; }
+        if (noteMenu) { setNoteMenu(null); return; }
+        if (searchQuery) { setSearchQuery(""); searchInputRef.current?.blur(); return; }
+        return;
+      }
+
+      // Ctrl/Cmd + K — focus search input
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeLightboxImage, shareTargetNote, renameTargetNote, noteMenu, searchQuery]);
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Sync selectedNote initially
   useEffect(() => {
     if (!selectedNote && notes.length > 0) {
@@ -128,6 +159,20 @@ function NotesPage() {
       const { data: userData } = await supabase.auth.getUser();
       if (userData?.user) {
         setCurrentUserId(userData.user.id);
+
+        const cacheKey = `notes_data_${userData.user.id}`;
+        const cached = CacheManager.get(cacheKey);
+        if (cached) {
+          setPendingShares(cached.pendingShares);
+          setNotes(cached.notes);
+          if (selectedNote) {
+            const current = cached.notes.find((item: any) => item.id === selectedNote.id);
+            if (current) setSelectedNote(current);
+          } else if (cached.notes.length > 0) {
+            setSelectedNote(cached.notes[0]);
+          }
+          return;
+        }
 
         // Fetch user's own notes AND shared notes (allowed by new RLS policies)
         const { data: dbNotes } = await supabase
@@ -197,6 +242,11 @@ function NotesPage() {
           } else if (merged.length > 0) {
             setSelectedNote(merged[0]);
           }
+
+          CacheManager.set(cacheKey, {
+            pendingShares: mappedPending,
+            notes: merged
+          }, 30000);
         }
       }
     } catch (err) {
@@ -232,6 +282,7 @@ function NotesPage() {
 
       if (error) throw error;
 
+      CacheManager.invalidate("notes_data_");
       toast.success("Note created successfully!");
       await fetchSupabaseNotes();
 
@@ -272,6 +323,7 @@ function NotesPage() {
         if (userData?.user) {
           if (!selectedNote.id.toString().includes("guide")) {
             await supabase.from("notes").update({ content }).eq("id", selectedNote.id);
+            CacheManager.invalidate("notes_data_");
           }
         }
       } catch (err) {
@@ -294,6 +346,7 @@ function NotesPage() {
         if (userData?.user) {
           if (!selectedNote.id.toString().includes("guide")) {
             await supabase.from("notes").update({ title }).eq("id", selectedNote.id);
+            CacheManager.invalidate("notes_data_");
           }
         }
       } catch (err) {
@@ -320,6 +373,7 @@ function NotesPage() {
         if (userData?.user) {
           if (!noteId.toString().includes("guide")) {
             await supabase.from("notes").update({ is_starred: nextStarred }).eq("id", noteId);
+            CacheManager.invalidate("notes_data_");
           }
           await supabase.from("user_logs").insert({
             user_id: userData.user.id,
@@ -353,6 +407,7 @@ function NotesPage() {
 
       const { error } = await supabase.from("notes").update({ pinned: nextPinned }).eq("id", noteId);
       if (error) throw error;
+      CacheManager.invalidate("notes_data_");
       toast.success(nextPinned ? "Note pinned!" : "Note unpinned!");
     } catch (err: any) {
       toast.error(err.message || "Failed to toggle pin.");
@@ -387,6 +442,7 @@ function NotesPage() {
 
       if (error) throw error;
 
+      CacheManager.invalidate("notes_data_");
       toast.success(`Note renamed to "${newTitle}"`);
       setNotes((prev) => prev.map((n) => (n.id === renameTargetNote.id ? { ...n, title: newTitle } : n)));
       if (selectedNote && selectedNote.id === renameTargetNote.id) {
@@ -411,6 +467,7 @@ function NotesPage() {
       const { error } = await supabase.from("notes").delete().eq("id", noteId);
       if (error) throw error;
 
+      CacheManager.invalidate("notes_data_");
       toast.success("Note deleted successfully.");
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
       if (selectedNote?.id === noteId) {
@@ -483,6 +540,8 @@ function NotesPage() {
         .eq("id", shareId);
 
       if (error) throw error;
+      CacheManager.invalidate("notes_data_");
+      CacheManager.invalidate("user_shell_data_");
       toast.success("Note invitation accepted!");
       await fetchSupabaseNotes();
     } catch (err: any) {
@@ -498,6 +557,8 @@ function NotesPage() {
         .eq("id", shareId);
 
       if (error) throw error;
+      CacheManager.invalidate("notes_data_");
+      CacheManager.invalidate("user_shell_data_");
       toast.success("Note invitation declined.");
       setPendingShares((prev) => prev.filter((s) => s.id !== shareId));
     } catch (err: any) {
@@ -718,6 +779,14 @@ function NotesPage() {
                 placeholder="student@example.com"
                 value={shareEmail}
                 onChange={(e) => setShareEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && shareEmail.trim() && !isSharing) {
+                    e.preventDefault();
+                    handleShareSubmit();
+                  }
+                  if (e.key === "Escape") { setShareTargetNote(null); setShareEmail(""); }
+                }}
+                autoFocus
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:border-primary focus:outline-none"
               />
             </div>
@@ -736,6 +805,7 @@ function NotesPage() {
                 Share Note
               </button>
             </div>
+            <p className="mt-2 text-[10px] text-muted-foreground/60 italic text-right">Enter to share · Esc to cancel</p>
           </div>
         </div>
       )}
@@ -763,12 +833,20 @@ function NotesPage() {
               <input
                 id="rename-note-input"
                 type="text"
+                autoFocus
                 value={renameNoteValue}
                 onChange={(e) => setRenameNoteValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && renameNoteValue.trim() && !isRenamingNote) {
+                    e.preventDefault();
+                    handleRenameNoteSubmit();
+                  }
+                  if (e.key === "Escape") setRenameTargetNote(null);
+                }}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs focus:border-primary focus:outline-none"
               />
             </div>
-            <div className="mt-6 flex items-center justify-end gap-3">
+          <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setRenameTargetNote(null)}
                 className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
@@ -789,6 +867,7 @@ function NotesPage() {
                 )}
               </button>
             </div>
+            <p className="mt-2 text-[10px] text-muted-foreground/60 italic text-right">Enter to rename · Esc to cancel</p>
           </div>
         </div>
       )}
@@ -800,10 +879,14 @@ function NotesPage() {
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Search notes..."
+                placeholder="Search notes… (Ctrl+K)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") { setSearchQuery(""); (e.target as HTMLInputElement).blur(); }
+                }}
                 className="w-full rounded-md border border-border bg-background py-2 pl-9 pr-3 text-sm focus:border-ring focus:outline-none"
               />
             </div>

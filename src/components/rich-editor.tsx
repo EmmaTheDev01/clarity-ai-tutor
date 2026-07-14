@@ -306,9 +306,15 @@ function nodeToMd(node: Node): string {
       return "---\n\n";
     case "span":
       // Math spans
+      if (el.classList.contains("katex-inline") || el.classList.contains("katex")) {
+        return `$${el.getAttribute("data-latex") || children}$`;
+      }
       if (el.style.fontFamily?.includes("serif")) return `$${children}$`;
       return children;
     case "div":
+      if (el.classList.contains("katex-block")) {
+        return `$$\n${el.getAttribute("data-latex") || children.trim()}\n$$\n\n`;
+      }
       if (el.style.fontFamily?.includes("serif")) return `$$\n${children.trim()}\n$$\n\n`;
       return `${children}\n`;
     default:
@@ -418,6 +424,30 @@ export const RichEditor: React.FC<RichEditorProps> = ({
       }
     }, 400);
   }, [onChange]);
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      if (readOnly) return;
+      e.preventDefault();
+      const text = e.clipboardData.getData("text/plain");
+
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const textNode = document.createTextNode(text);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        document.execCommand("insertText", false, text);
+      }
+      handleInput();
+    },
+    [readOnly, handleInput],
+  );
 
   const execCmd = useCallback(
     (command: string, val?: string) => {
