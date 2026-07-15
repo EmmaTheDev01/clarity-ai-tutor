@@ -20,6 +20,7 @@ import {
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { cleanLatexMathSyntax } from "./markdown";
+import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 
 /* ─── Markdown → HTML ───────────────────────────────────────────────── */
 
@@ -492,6 +493,7 @@ export const RichEditor: React.FC<RichEditorProps> = ({
   placeholder = "Start writing...",
   className = "",
 }) => {
+  const { mode: cognitiveProfile } = useCognitiveMode();
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalChange = useRef(false);
   const [isEmpty, setIsEmpty] = useState(!value);
@@ -872,10 +874,10 @@ export const RichEditor: React.FC<RichEditorProps> = ({
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
-          className={`w-full min-h-[300px] flex-1 text-foreground font-sans leading-relaxed text-sm focus:outline-none ${readOnly
-            ? "cursor-default"
-            : "border border-border rounded-b-xl p-4 focus:ring-1 focus:ring-primary/30 bg-background"
-            }`}
+          className={`w-full min-h-[300px] flex-1 font-sans leading-relaxed text-sm focus:outline-none ${readOnly
+            ? "cursor-default text-foreground"
+            : "border border-border rounded-b-xl p-4 focus:ring-1 focus:ring-primary/30 bg-background text-foreground"
+            } ${cognitiveProfile === "dyslexia" ? "font-[OpenDyslexic,sans-serif] tracking-wider leading-loose text-[1.1em] text-[#2D281E]" : ""} ${cognitiveProfile === "adhd" ? "leading-relaxed" : ""}`}
           style={{
             wordBreak: "break-word",
             overflowWrap: "break-word",

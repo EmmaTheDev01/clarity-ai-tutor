@@ -20,6 +20,7 @@ import { geminiModel, generateGeminiText } from "@/lib/gemini";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
+import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 
 const getStoredItem = (key: string, fallback = "") => {
   if (typeof window === "undefined" || !window.localStorage) return fallback;
@@ -174,7 +175,7 @@ function Dashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Cognitive adaptive profiles states
-  const [cognitiveProfile, setCognitiveProfile] = useState<CognitiveProfile>("standard");
+  const { mode: cognitiveProfile } = useCognitiveMode();
   const [checkpoints, setCheckpoints] = useState<
     Array<{ id: string; label: string; completed: boolean }>
   >([]);
@@ -238,13 +239,7 @@ function Dashboard() {
         return;
       }
 
-      // Ctrl/Cmd + K — focus search input
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-        return;
-      }
+
 
       // Ctrl/Cmd + Enter — send chat message from anywhere
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isTypingInInput) {
@@ -365,7 +360,7 @@ function Dashboard() {
         setUserAvatarUrl(cached.userAvatarUrl);
         setTeacherBlockStatus(cached.teacherBlockStatus);
         setStudentProfile(cached.studentProfile);
-        setCognitiveProfile(cached.cognitiveProfile);
+        // setCognitiveProfile(cached.cognitiveProfile); // handled by global hook now
         setStreak(cached.streak);
         setMaterials(cached.materials);
         setPinnedIds(new Set(cached.pinnedIds));
@@ -395,7 +390,7 @@ function Dashboard() {
       try {
         const { data: profData } = await supabase
           .from("profiles")
-          .select("name, avatar_url, role")
+          .select("*")
           .eq("id", userId)
           .maybeSingle();
 
@@ -406,18 +401,10 @@ function Dashboard() {
           setUserAvatarUrl(loadedAvatarUrl);
 
           let approvalStatus = "approved";
-          try {
-            const { data: statusData } = await supabase
-              .from("profiles")
-              .select("approval_status")
-              .eq("id", userId)
-              .maybeSingle();
-            if (statusData && statusData.approval_status) {
-              approvalStatus = statusData.approval_status;
-            }
-          } catch (statusErr) {
-            console.warn("Profiles approval_status column query failed:", statusErr);
+          if (profData && (profData as any).approval_status) {
+            approvalStatus = (profData as any).approval_status;
           }
+          
           loadedBlockStatus = profData.role === "teacher" && (approvalStatus === "pending" || approvalStatus === "rejected") ? approvalStatus : null;
           setTeacherBlockStatus(loadedBlockStatus);
         }
@@ -465,7 +452,7 @@ function Dashboard() {
             educationLevel: loadedEdLevel,
             gradeLevel: loadedGradeLevel,
           });
-          setCognitiveProfile(loadedCognitiveProfile as CognitiveProfile);
+          // setCognitiveProfile(loadedCognitiveProfile as CognitiveProfile); // handled by global hook now
 
           // Daily Streak Update & Database Sync
           let currentStreak = Number(stdProf.streak || 0);
@@ -1394,6 +1381,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
           className="fixed z-[60] min-w-30 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
           style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
           onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
         >
           <button
             onClick={() => {
@@ -1529,19 +1517,6 @@ You write responses that read like **high-quality lecture notes** — rich, thor
               <Menu className="h-3.5 w-3.5" />
               <span>Materials</span>
             </button>
-            <select
-              value={cognitiveProfile}
-              onChange={(e) => {
-                setCognitiveProfile(e.target.value as CognitiveProfile);
-                setFocusedMsgIndex(null);
-              }}
-              className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground focus:border-ring focus:outline-none"
-            >
-              <option value="standard">Standard Mode</option>
-              <option value="adhd">ADHD & Focus Mode</option>
-              <option value="dyslexia">Dyslexia Friendly</option>
-              <option value="sensory">Sensory Friendly</option>
-            </select>
           </div>
         }
       >
@@ -2233,6 +2208,21 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleSend();
+                      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+                        if (!inputText) {
+                          e.preventDefault();
+                          const activeDocId = activeDoc ? activeDoc.id : "general";
+                          const history = chatHistories[activeDocId] || [];
+                          const lastUserIndex = history.map(m => m.from).lastIndexOf("user");
+                          if (lastUserIndex !== -1) {
+                            const lastUserMsg = history[lastUserIndex];
+                            setInputText(lastUserMsg.text);
+                            setChatHistories(prev => ({
+                              ...prev,
+                              [activeDocId]: history.slice(0, lastUserIndex)
+                            }));
+                          }
+                        }
                       }
                     }}
                     className="w-full resize-none bg-transparent border-0 focus:ring-0 focus:outline-none text-xs min-h-12 max-h-36 py-2 px-3 text-foreground placeholder:text-muted-foreground"

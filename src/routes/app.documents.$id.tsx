@@ -20,6 +20,7 @@ import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/
 import { generateGeminiText } from "@/lib/gemini";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
+import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
@@ -79,6 +80,7 @@ export const Route = createFileRoute("/app/documents/$id")({
 const tabs = ["Summary", "Chat", "Quiz", "Flashcards"] as const;
 
 function DocumentWorkspace() {
+  const { mode: cognitiveProfile } = useCognitiveMode();
   const { id } = Route.useParams();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Summary");
   const [material, setMaterial] = useState<LearningMaterial | null>(null);
@@ -247,7 +249,7 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
 
       {material?.content ? (
         <div className="mt-4 border-t border-border/40 pt-4">
-          <MarkdownRenderer content={material.content} />
+          <MarkdownRenderer content={material.content} cognitiveProfile={cognitiveProfile} />
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
@@ -600,7 +602,7 @@ function Message({
           </button>
         )}
         {isAi ? (
-          <MarkdownRenderer content={text} />
+          <MarkdownRenderer content={text} cognitiveProfile={cognitiveProfile} />
         ) : (
           <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">{text}</p>
         )}

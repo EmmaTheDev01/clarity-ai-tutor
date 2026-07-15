@@ -25,6 +25,7 @@ import { CacheManager } from "@/lib/cache";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { RichEditor } from "@/components/rich-editor";
+import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 
 export const Route = createFileRoute("/app/notes")({
   head: () => ({ meta: [{ title: "Notes — tutor.vigilance.rw" }] }),
@@ -94,6 +95,7 @@ An era of geopolitical tension between the US-led Western Bloc and the Soviet-le
 ];
 
 function NotesPage() {
+  const { mode: cognitiveProfile } = useCognitiveMode();
   const navigate = useNavigate();
   const [notes, setNotes] = useState<Note[]>(appGuideNotes);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
@@ -633,7 +635,7 @@ function NotesPage() {
           {note.title}
         </h3>
         <div className="mt-1 text-xs text-muted-foreground line-clamp-2 pointer-events-none notes-sidebar-preview">
-          <MarkdownRenderer content={note.content} />
+          <MarkdownRenderer content={note.content} cognitiveProfile={cognitiveProfile} />
         </div>
         <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
@@ -1060,7 +1062,7 @@ function NotesPage() {
               <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto pr-1">
                 {selectedNote.readOnly ? (
                   <div className="text-foreground min-h-[300px] flex-1">
-                    <MarkdownRenderer content={selectedNote.content} />
+                    <MarkdownRenderer content={selectedNote.content} cognitiveProfile={cognitiveProfile} />
                   </div>
                 ) : (
                   <RichEditor

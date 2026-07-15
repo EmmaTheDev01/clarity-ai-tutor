@@ -94,11 +94,11 @@ function TeacherPortal() {
 
             const { data: dbProf } = await supabase
               .from("profiles")
-              .select("approval_status")
+              .select("*")
               .eq("email", parsed.email)
               .maybeSingle();
-            if (dbProf) {
-              setProfileStatus(dbProf.approval_status as any);
+            if (dbProf && (dbProf as any).approval_status) {
+              setProfileStatus((dbProf as any).approval_status);
             } else {
               setProfileStatus("approved");
             }
@@ -110,13 +110,13 @@ function TeacherPortal() {
         setUserEmail(userData.user.email || "");
         const { data: dbProf } = await supabase
           .from("profiles")
-          .select("name, approval_status, role")
+          .select("*")
           .eq("id", userData.user.id)
           .maybeSingle();
 
         if (dbProf) {
           if (dbProf.name) setEducatorName(dbProf.name);
-          setProfileStatus((dbProf.approval_status || "approved") as any);
+          setProfileStatus(((dbProf as any).approval_status || "approved") as any);
         } else {
           setProfileStatus("approved");
         }

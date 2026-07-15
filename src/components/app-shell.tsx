@@ -19,9 +19,12 @@ import {
   AlertTriangle,
   User,
   CreditCard,
+  Glasses,
+  Check,
 } from "lucide-react";
 import { Kbd } from "./ui-kit";
 import { toast } from "sonner";
+import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, exact: true },
@@ -48,7 +51,10 @@ export function AppShell({
   const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showCognitiveDropdown, setShowCognitiveDropdown] = useState(false);
   const [shortcutModalOpen, setShortcutModalOpen] = useState(false);
+  
+  const { mode, setMode } = useCognitiveMode();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -67,6 +73,12 @@ export function AppShell({
       } else if (isMeta && e.key.toLowerCase() === "s") {
         e.preventDefault();
         const input = document.getElementById("chat-input");
+        if (input) {
+          input.focus();
+        }
+      } else if (isMeta && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        const input = document.getElementById("global-search-input");
         if (input) {
           input.focus();
         }
@@ -271,10 +283,13 @@ export function AppShell({
       if (showUserDropdown && !target.closest(".profile-trigger-container")) {
         setShowUserDropdown(false);
       }
+      if (showCognitiveDropdown && !target.closest(".cognitive-trigger-container")) {
+        setShowCognitiveDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [showNotifications, showUserDropdown]);
+  }, [showNotifications, showUserDropdown, showCognitiveDropdown]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -411,6 +426,7 @@ export function AppShell({
               <div className="hidden items-center gap-2 rounded-xl border border-border bg-background/50 backdrop-blur-md px-3.5 py-2 text-sm text-muted-foreground md:flex md:w-80 lg:w-96 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all duration-300">
                 <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                 <input
+                  id="global-search-input"
                   type="text"
                   placeholder="Search notes, documents, quizzes..."
                   className="bg-transparent border-none outline-none text-xs text-foreground placeholder-muted-foreground/70 flex-1 min-w-0"
@@ -475,6 +491,69 @@ export function AppShell({
                             </div>
                           ))
                         )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Cognitive Accessibility Dropdown */}
+              <div className="relative cognitive-trigger-container hidden sm:block">
+                <button
+                  onClick={() => {
+                    setShowCognitiveDropdown(!showCognitiveDropdown);
+                    setShowNotifications(false);
+                    setShowUserDropdown(false);
+                  }}
+                  className={`relative rounded-xl border p-2 transition duration-200 ${mode !== "default" ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-elevated/20 hover:bg-muted"}`}
+                  aria-label="Cognitive Mode"
+                  title="Cognitive Accessibility Options"
+                >
+                  <Glasses className="h-4 w-4" />
+                </button>
+
+                {showCognitiveDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowCognitiveDropdown(false)} />
+                    <div className="absolute right-0 mt-2.5 w-64 rounded-2xl border border-border bg-white shadow-2xl p-2 z-40 animate-fade-in origin-top-right">
+                      <div className="px-3 py-2 border-b border-border/40 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Cognitive Profiles</span>
+                        <p className="text-[9px] text-muted-foreground mt-1">Adjust text rendering to match your processing style.</p>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => { setMode("default"); setShowCognitiveDropdown(false); }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "default" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}
+                        >
+                          <div>
+                            Standard
+                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">Default text rendering</span>
+                          </div>
+                          {mode === "default" && <Check className="h-3.5 w-3.5" />}
+                        </button>
+                        
+                        <button
+                          onClick={() => { setMode("adhd"); setShowCognitiveDropdown(false); }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "adhd" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}
+                        >
+                          <div>
+                            Bionic Reading
+                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">Optimized for ADHD (Saccadic focus)</span>
+                          </div>
+                          {mode === "adhd" && <Check className="h-3.5 w-3.5" />}
+                        </button>
+
+                        <button
+                          onClick={() => { setMode("dyslexia"); setShowCognitiveDropdown(false); }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "dyslexia" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}
+                        >
+                          <div>
+                            Dyslexia Support
+                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">Wider spacing and tailored fonts</span>
+                          </div>
+                          {mode === "dyslexia" && <Check className="h-3.5 w-3.5" />}
+                        </button>
                       </div>
                     </div>
                   </>
