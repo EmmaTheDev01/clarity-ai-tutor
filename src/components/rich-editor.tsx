@@ -102,11 +102,20 @@ function formatInlineHtml(text: string): string {
   const regex = /(`[^`]+`|\*\*[^*]+\*\*|\$[^\$]+\$|\*[^*]+\*|f\([a-zA-Z0-9_^{}\-+=/*\\]+\)\s*=\s*[a-zA-Z0-9_^{}\-+=/*\\]+|[a-zA-Z0-9\-+/*=()]+(?:_\{[^{}]+\}|_[a-zA-Z0-9]+|\^\{[^{}]+\}|\^[a-zA-Z0-9]+)+|\\(?:mu|Sigma|frac|mathbf|alpha|beta|theta|lambda|pi|phi|sigma|delta|gamma|omega|Sigma|Pi|Delta|Gamma|Omega|ln|log|left|right|[a-zA-Z]+)(?:\{[^{}]+\})*(?:\^[^{}]+|\^T|\^\{[^{}]+\})?(?:_[^{}]+|_[a-zA-Z0-9]+|_(?:\{[^{}]+\}))?)/g;
 
   const parts = text.split(regex);
-  return parts.map((token) => {
+  return parts.map((token, i) => {
     if (!token) return "";
 
     if (token.startsWith("<") && token.endsWith(">")) {
       return token;
+    }
+
+    if (i % 2 === 0) {
+      return token
+        .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>")
+        .replace(/~~(.+?)~~/g, "<del>$1</del>")
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--color-primary);text-decoration:underline;">$1</a>');
     }
 
     if (token.startsWith("**") && token.endsWith("**")) {
@@ -119,7 +128,7 @@ function formatInlineHtml(text: string): string {
       return `<code>${token.slice(1, -1)}</code>`;
     }
     if (token.startsWith("$") && token.endsWith("$")) {
-      const math = token.slice(1, -1);
+      const math = token.slice(1, -1).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
       try {
         const rendered = katex.renderToString(math, { throwOnError: false });
         return rendered.replace(/^<span class="katex">/, `<span class="katex" data-latex="${math.replace(/"/g, '&quot;')}">`);
@@ -128,34 +137,31 @@ function formatInlineHtml(text: string): string {
       }
     }
 
-    const isLaTeXToken = token.startsWith("\\") || /^[\\{}_^T()\-+/*=]+|\\Sigma|\\mu|\\frac|\\mathbf|\\{N-1\}/i.test(token);
-    if (isLaTeXToken) {
-      try {
-        const rendered = katex.renderToString(token, { throwOnError: false });
-        return rendered.replace(/^<span class="katex">/, `<span class="katex" data-latex="${token.replace(/"/g, '&quot;')}">`);
-      } catch (e) {
-        return `<span style="font-family:serif;font-style:italic;user-select:all;">${token}</span>`;
-      }
+    // Must be a math/LaTeX token
+    const safeToken = token.replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+    try {
+      const rendered = katex.renderToString(safeToken, { throwOnError: false });
+      return rendered.replace(/^<span class="katex">/, `<span class="katex" data-latex="${safeToken.replace(/"/g, '&quot;')}">`);
+    } catch (e) {
+      return `<span style="font-family:serif;font-style:italic;user-select:all;">${token}</span>`;
     }
-
-    return token
-      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>")
-      .replace(/~~(.+?)~~/g, "<del>$1</del>")
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--color-primary);text-decoration:underline;">$1</a>');
   }).join("");
 }
 
 function markdownToHtml(md: string): string {
   const preProcessed = preProcessMarkdown(md);
   const parts = preProcessed.split("$$");
+  if (parts.length % 2 === 0 && parts.length > 1) {
+    const last = parts.pop();
+    const prev = parts.pop();
+    parts.push((prev || "") + "$$" + (last || ""));
+  }
   let html = "";
 
   parts.forEach((part, partIdx) => {
     const isMathBlock = partIdx % 2 === 1;
     if (isMathBlock) {
-      const rawMath = part.trim();
+      const rawMath = part.trim().replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
       try {
         const rendered = katex.renderToString(rawMath, { displayMode: true, throwOnError: false });
         html += rendered.replace(/^<span class="katex-display">/, `<span class="katex-display katex-block" data-latex="${rawMath.replace(/"/g, '&quot;')}">`);

@@ -299,9 +299,9 @@ export function AppShell({
           } ${isCollapsed ? "lg:w-16" : "lg:w-64"}`}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link to="/app" className="text-sm font-bold tracking-wider truncate">
-            <span className="lg:hidden">purelearn.ai</span>
-            <span className="hidden lg:inline">{isCollapsed ? " " : "purelearn.ai"}</span>
+          <Link to="/app" className="flex items-center shrink-0">
+            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-6 w-auto lg:hidden" />
+            <img src="/logo.png" alt="Purelearn.ai Logo" className={`h-8 w-auto hidden ${isCollapsed ? '' : 'lg:block'}`} />
           </Link>
           <div className="flex items-center gap-1">
             <button

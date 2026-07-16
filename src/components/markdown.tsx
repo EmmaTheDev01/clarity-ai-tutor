@@ -131,6 +131,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       const subTokens = lineText.split(regex);
       
       return subTokens.map((token, i) => {
+        if (!token) return null;
+        if (i % 2 === 0) {
+          return cognitiveProfile === "adhd" ? <React.Fragment key={i}>{toBionic(token)}</React.Fragment> : token;
+        }
+
         if (token.startsWith("**") && token.endsWith("**")) {
           return <strong key={i} className="font-black text-foreground">{token.slice(2, -2)}</strong>;
         }
@@ -141,7 +146,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return <code key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">{token.slice(1, -1)}</code>;
         }
         if (token.startsWith("$") && token.endsWith("$")) {
-          const formula = token.slice(1, -1);
+          const formula = token.slice(1, -1).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
           try {
             const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
             return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
@@ -149,26 +154,32 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
           }
         }
-        if (isLaTeX(token)) {
-          try {
-            const html = katex.renderToString(token, { displayMode: false, throwOnError: false });
-            return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
-          } catch {
-            return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
-          }
+        
+        // If it reaches here and it's a matched token (i % 2 === 1), it must be one of the math/LaTeX branches of the regex
+        const safeToken = token.replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+        try {
+          const html = katex.renderToString(safeToken, { displayMode: false, throwOnError: false });
+          return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+        } catch {
+          return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
         }
-        return cognitiveProfile === "adhd" ? <React.Fragment key={i}>{toBionic(token)}</React.Fragment> : token;
       });
     };
 
     // Split text by $$ to separate block math equations from general text content
     const blocks = text.split("$$");
+    if (blocks.length % 2 === 0 && blocks.length > 1) {
+      const last = blocks.pop();
+      const prev = blocks.pop();
+      blocks.push((prev || "") + "$$" + (last || ""));
+    }
     
     blocks.forEach((block, bIdx) => {
       const isMathBlock = bIdx % 2 === 1;
       if (isMathBlock) {
+        const rawMath = block.trim().replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
         try {
-          const html = katex.renderToString(block.trim(), { displayMode: true, throwOnError: false });
+          const html = katex.renderToString(rawMath, { displayMode: true, throwOnError: false });
           elements.push(
             <div
               key={`mathblock-${bIdx}`}

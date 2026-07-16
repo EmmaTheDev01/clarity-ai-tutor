@@ -17,8 +17,8 @@ export function AuthShell({
       {/* Left: form */}
       <div className="flex flex-col">
         <header className="flex items-center justify-between border-b border-border px-8 py-5">
-          <Link to="/" className="text-2xl font-bold tracking-wider">
-            Purelearn.ai
+          <Link to="/" className="flex items-center">
+            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-9 w-auto" />
           </Link>
           <Link
             to="/"

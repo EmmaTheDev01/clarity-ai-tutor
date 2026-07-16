@@ -69,9 +69,9 @@ function Nav() {
   return (
     <header className={`sticky top-0 z-50 bg-background/80 backdrop-blur transition-all duration-200 ${isScrolled ? "border-b border-border shadow-sm" : "border-b border-transparent"}`}>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6">
-        <a href="#" className="text-2xl font-bold font-serif text-foreground">
-          {APP}
-        </a>
+        <Link to="/" className="flex items-center">
+          <img src="/logo.png" alt="Purelearn.ai Logo" className="h-8 w-auto sm:h-10" />
+        </Link>
         <div className="flex items-center gap-2">
           <Link
             to="/auth/sign-in"
@@ -599,8 +599,8 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5 items-start">
           <div className="col-span-2 space-y-4">
-            <div className="text-xl font-bold tracking-wider text-foreground font-serif">
-              <span>{APP}</span>
+            <div className="flex items-center">
+              <img src="/logo.png" alt="Purelearn.ai Logo" className="h-10 w-auto" />
             </div>
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
               An adaptive Socratic learning engine designed for cognitive diversity, visual preference mapping, and conceptual STEM mastery.

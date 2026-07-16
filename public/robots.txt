@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Sitemaps can be added here
+# Sitemap: https://purelearn.ai/sitemap.xml
+
+
