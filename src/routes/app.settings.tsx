@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
-import { Button, Card, Divider, Input, Label } from "@/components/ui-kit";
+import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
@@ -45,18 +45,14 @@ function SettingsPage() {
     <AppShell title="Settings">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr] w-full items-start">
         {/* Navigation Sidebar */}
-        <nav className="flex flex-row flex-wrap gap-2 lg:flex-col p-1.5 bg-elevated/20 rounded-xl border border-border/60">
+        <nav className="flex flex-row flex-wrap gap-1 lg:flex-col lg:pr-10 min-w-[200px]">
           {sections.map((s) => {
             const isActive = section === s;
             return (
               <button
                 key={s}
                 onClick={() => setSection(s)}
-                className={`flex items-center gap-3 w-full rounded-lg px-4 py-2.5 text-left text-xs uppercase tracking-wider font-extrabold transition-all duration-200 ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-[1.02]"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
+                className={`flex items-center gap-3 w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
               >
                 {s === "Profile" && <User className="h-4 w-4 shrink-0" />}
                 {s === "Preferences" && <SettingsIcon className="h-4 w-4 shrink-0" />}
@@ -92,16 +88,16 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="p-6 md:p-8 bg-background border border-border shadow-sm rounded-xl">
+    <div className="max-w-3xl py-2">
       <div className="mb-5">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
+        <h3 className="text-2xl font-bold tracking-tight text-foreground">
           {title}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       </div>
-      <Divider className="my-5" />
+      <div className="h-px bg-border my-6" />
       <div className="space-y-6">{children}</div>
-    </Card>
+    </div>
   );
 }
 
@@ -138,6 +134,7 @@ function ProfileSection() {
               id: userData.user.id,
               name: newName,
               email: userData.user.email || "",
+              avatar_url: userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture || null,
               role: "student",
             })
             .select("*")
@@ -268,9 +265,9 @@ function ProfileSection() {
 
   if (isLoading) {
     return (
-      <Card className="p-8 flex items-center justify-center min-h-[300px] border-border bg-background">
+      <div className="py-20 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin" />
-      </Card>
+      </div>
     );
   }
 
@@ -279,8 +276,8 @@ function ProfileSection() {
       title="Profile Information"
       description="Review and customize your educational level and cognitive profiling modes."
     >
-      <div className="flex items-center gap-5 p-4 rounded-xl bg-elevated/40 border border-border">
-        <div className="relative group cursor-pointer overflow-hidden rounded-full h-16 w-16 border-2 border-primary/20 shadow-lg">
+      <div className="flex items-center gap-5 p-4 rounded-md bg-elevated/40 border border-border">
+        <div className="relative group cursor-pointer overflow-hidden rounded-full h-16 w-16 border-2 border-primary/20 ">
           {profile.avatarUrl ? (
             <img
               src={profile.avatarUrl}
@@ -303,15 +300,15 @@ function ProfileSection() {
           </label>
         </div>
         <div>
-          <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
-            Scholar Identity <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-500" />
+          <h4 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+            Scholar Identity <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse  shadow-emerald-500" />
           </h4>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+          <Label htmlFor="name" className="text-sm font-medium text-muted-foreground">
             Full name
           </Label>
           <Input
@@ -319,11 +316,11 @@ function ProfileSection() {
             value={profile.name}
             onChange={(e) => setProfile({ ...profile, name: e.target.value })}
             onBlur={() => saveProfileData(profile)}
-            className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl"
+            className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-md"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+          <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
             Registered Email
           </Label>
           <Input
@@ -331,14 +328,14 @@ function ProfileSection() {
             type="email"
             value={profile.email}
             disabled
-            className="text-xs opacity-60 bg-muted/30 cursor-not-allowed border-border/40 rounded-xl"
+            className="text-xs opacity-60 bg-muted/30 cursor-not-allowed border-border/40 rounded-md"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+          <Label className="text-sm font-medium text-muted-foreground">
             Level of Education
           </Label>
           <select
@@ -348,7 +345,7 @@ function ProfileSection() {
               setProfile(updated);
               saveProfileData(updated);
             }}
-            className="w-full rounded-xl border border-border/80 bg-background/40 px-3 py-2.5 text-xs text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            className="w-full rounded-md border border-border/80 bg-background/40 px-3 py-2.5 text-xs text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
           >
             <option value="High School">High School</option>
             <option value="Undergraduate">Undergraduate</option>
@@ -357,7 +354,7 @@ function ProfileSection() {
           </select>
         </div>
         <div className="space-y-2">
-          <Label className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+          <Label className="text-sm font-medium text-muted-foreground">
             Grade / GPA Level
           </Label>
           <Input
@@ -365,13 +362,13 @@ function ProfileSection() {
             onChange={(e) => setProfile({ ...profile, gradeLevel: e.target.value })}
             onBlur={() => saveProfileData(profile)}
             placeholder="e.g. 2nd Year, 3.8 GPA"
-            className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl"
+            className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-md"
           />
         </div>
       </div>
 
       <div className="space-y-2.5">
-        <Label className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+        <Label className="text-sm font-medium text-muted-foreground">
           Cognitive Presentation Mode
         </Label>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -391,13 +388,13 @@ function ProfileSection() {
                   setProfile(updated);
                   saveProfileData(updated);
                 }}
-                className={`p-4 rounded-xl border text-left text-xs transition-all duration-300 hover:scale-[1.01] h-full flex flex-col justify-between ${
+                className={`p-4 rounded-md border text-left text-xs transition-all duration-300 hover:scale-[1.01] h-full flex flex-col justify-between ${
                   isSelected
-                    ? `${mode.accent} font-semibold shadow-lg shadow-primary/5`
+                    ? `${mode.accent} font-semibold  shadow-primary/5`
                     : "border-border/60 bg-background/30 text-muted-foreground hover:bg-muted/40 hover:border-border"
                 }`}
               >
-                <div className="font-bold tracking-wide uppercase text-xs text-foreground">{mode.title}</div>
+                <div className="font-semibold text-foreground">{mode.title}</div>
                 <div className="text-xs opacity-80 mt-1.5 leading-relaxed">{mode.desc}</div>
               </button>
             );
@@ -411,7 +408,7 @@ function ProfileSection() {
             <Check className="h-3.5 w-3.5" /> Profile saved successfully!
           </span>
         )}
-        <Button onClick={handleSave} disabled={isSaving} className="text-xs font-semibold py-2.5 px-5 rounded-xl transition-all duration-200">
+        <Button onClick={handleSave} disabled={isSaving} className="text-xs font-semibold py-2.5 px-5 rounded-md transition-all duration-200">
           {isSaving ? "Saving..." : "Save changes"}
         </Button>
       </div>
@@ -454,7 +451,7 @@ function PreferencesSection() {
       </Section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">ADHD Visual Scaling</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -467,7 +464,7 @@ function PreferencesSection() {
           </div>
         </div>
 
-        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">API Keys Credentials</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -530,9 +527,9 @@ function PlanSection() {
 
   if (isLoading) {
     return (
-      <Card className="p-8 flex items-center justify-center min-h-[200px] border-border bg-background">
+      <div className="py-20 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin" />
-      </Card>
+      </div>
     );
   }
 
@@ -547,9 +544,9 @@ function PlanSection() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
         {/* Basic Plan */}
         <div
-          className={`rounded-xl border p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 h-full ${
+          className={`rounded-md border p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 h-full ${
             !isPremium
-              ? "border-primary/30 bg-gradient-to-b from-primary/10 to-primary/5 shadow-lg shadow-primary/5"
+              ? "border-primary bg-primary/5"
               : "border-border/60 bg-background/40"
           }`}
         >
@@ -571,9 +568,9 @@ function PlanSection() {
 
         {/* Premium Plan */}
         <div
-          className={`rounded-xl border p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 h-full ${
+          className={`rounded-md border p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 h-full ${
             isPremium
-              ? "border-primary/30 bg-gradient-to-b from-primary/10 to-primary/5 shadow-lg shadow-primary/5"
+              ? "border-primary bg-primary/5"
               : "border-border/60 bg-background/40 hover:border-primary/40 hover:scale-[1.01]"
           }`}
         >
@@ -600,7 +597,7 @@ function PlanSection() {
               <Button
                 onClick={handleUpgrade}
                 size="sm"
-                className="text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 rounded-xl shadow-md transition-all px-4 py-2 hover:scale-[1.02]"
+                className="text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 rounded-md shadow-md transition-all px-4 py-2 hover:scale-[1.02]"
               >
                 Upgrade
               </Button>
@@ -691,7 +688,7 @@ function SecuritySection() {
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl"
+              className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-md"
             />
           </div>
 
@@ -705,7 +702,7 @@ function SecuritySection() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl"
+                className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-md"
               />
             </div>
             <div className="space-y-2">
@@ -717,7 +714,7 @@ function SecuritySection() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl"
+                className="text-xs bg-background/40 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-md"
               />
             </div>
           </div>
@@ -728,7 +725,7 @@ function SecuritySection() {
                 {isSuccess && <Check className="h-3.5 w-3.5" />} {message}
               </span>
             )}
-            <Button type="submit" disabled={isUpdating} className="text-xs font-semibold py-2.5 px-5 rounded-xl ml-auto">
+            <Button type="submit" disabled={isUpdating} className="text-xs font-semibold py-2.5 px-5 rounded-md ml-auto">
               {isUpdating ? "Updating..." : "Update Password"}
             </Button>
           </div>
@@ -736,7 +733,7 @@ function SecuritySection() {
       </Section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">Multi-Factor Authentication (MFA)</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
@@ -749,14 +746,14 @@ function SecuritySection() {
           </div>
         </div>
 
-        <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
+        <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">Active Browser Session</div>
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
               Logged in on Chrome (macOS). Last active: Just now.
             </p>
           </div>
-          <button className="mt-5 rounded-xl border border-border px-4 py-2.5 text-left text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all duration-300 w-fit">
+          <button className="mt-5 rounded-md border border-border px-4 py-2.5 text-left text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all duration-300 w-fit">
             Revoke other sessions
           </button>
         </div>
@@ -830,14 +827,14 @@ function DangerSection() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setModal(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+                className="rounded-md border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
               >
                 Cancel
               </button>
               <button
                 onClick={modal === "delete" ? handleDelete : handleSignOut}
                 disabled={isWorking}
-                className={`rounded-xl px-4 py-2 text-xs font-extrabold transition flex items-center gap-2 ${
+                className={`rounded-md px-4 py-2 text-xs font-extrabold transition flex items-center gap-2 ${
                   modal === "delete"
                     ? "bg-red-500 hover:bg-red-600 text-white"
                     : "bg-foreground hover:bg-foreground/90 text-background"
@@ -871,7 +868,7 @@ function DangerSection() {
         </div>
 
         <div className="space-y-5 mt-5">
-          <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
+          <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
             <div>
               <div className="text-sm font-black uppercase tracking-wider text-foreground">
                 Sign out of all sessions
@@ -882,13 +879,13 @@ function DangerSection() {
             </div>
             <button
               onClick={() => setModal("signout")}
-              className="mt-5 rounded-xl border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-primary px-4 py-2.5 text-xs font-extrabold transition-all duration-300 hover:scale-[1.02] w-fit"
+              className="mt-5 rounded-md border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-primary px-4 py-2.5 text-xs font-extrabold transition-all duration-300 hover:scale-[1.02] w-fit"
             >
               Sign Out
             </button>
           </div>
 
-          <div className="p-6 md:p-8 bg-background border border-border rounded-xl shadow-sm flex flex-col justify-between h-full">
+          <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
             <div>
               <div className="text-sm font-black uppercase tracking-wider text-foreground">
                 Delete Account Profile
@@ -899,7 +896,7 @@ function DangerSection() {
             </div>
             <button
               onClick={() => setModal("delete")}
-              className="mt-5 rounded-xl border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground px-4 py-2.5 text-xs font-bold transition-all duration-300 hover:scale-[1.02] w-fit"
+              className="mt-5 rounded-md border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground px-4 py-2.5 text-xs font-bold transition-all duration-300 hover:scale-[1.02] w-fit"
             >
               Delete Account
             </button>
@@ -917,7 +914,7 @@ function Toggle({ defaultOn = false }: { defaultOn?: boolean }) {
     <button
       onClick={() => setOn(!on)}
       className={`relative h-5 w-10 shrink-0 rounded-full border transition-all duration-300 ${
-        on ? "bg-primary border-primary shadow-sm shadow-primary/30" : "bg-muted/85 border-border/80"
+        on ? "bg-primary border-primary  shadow-primary/30" : "bg-muted/85 border-border/80"
       }`}
       aria-pressed={on}
     >

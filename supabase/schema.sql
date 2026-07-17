@@ -32,6 +32,7 @@ CREATE TABLE public.student_profiles (
     cognitive_profile cognitive_profile_tag NOT NULL DEFAULT 'standard',
     visual_spacing_preference TEXT DEFAULT 'normal' NOT NULL, -- 'normal', 'wide', 'loose'
     pastel_filter_color TEXT, -- Sepia, pastel yellow, cream hues
+    xp INTEGER DEFAULT 0 NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

@@ -254,22 +254,7 @@ function AnalyticsPage() {
         const total = weekRows.reduce((s, r) => s + r.hours, 0);
         setTotalHours(Math.round(total * 10) / 10);
 
-        // Fallback mock weekly study time if no data is logged yet
-        if (total === 0) {
-          const mockWeekly = [
-            { day: "Sun", date: "Jul 12", queries: 4, hours: 1.0 },
-            { day: "Mon", date: "Jul 13", queries: 12, hours: 3.0 },
-            { day: "Tue", date: "Jul 14", queries: 8, hours: 2.0 },
-            { day: "Wed", date: "Jul 15", queries: 16, hours: 4.0 },
-            { day: "Thu", date: "Jul 16", queries: 6, hours: 1.5 },
-            { day: "Fri", date: "Jul 17", queries: 10, hours: 2.5 },
-            { day: "Sat", date: "Jul 18", queries: 2, hours: 0.5 },
-          ];
-          setWeeklyData(mockWeekly);
-          setTotalHours(14.5);
-        } else {
-          setWeeklyData(weekRows);
-        }
+        setWeeklyData(weekRows);
 
         // ── Subject Focus from materials
         const { data: mats } = await supabase
@@ -287,24 +272,13 @@ function AnalyticsPage() {
           .sort((a, b) => b[1] - a[1])
           .slice(0, 7);
 
-        // Fallback mock subject focus if no materials are uploaded yet
-        if (sorted.length === 0) {
-          const mockSubjects = [
-            { name: "Mathematics", value: 6, color: "hsl(215,70%,60%)" },
-            { name: "History", value: 4, color: "hsl(280,60%,65%)" },
-            { name: "Physics", value: 3, color: "hsl(145,55%,55%)" },
-            { name: "Computer Science", value: 2, color: "hsl(35,80%,60%)" },
-          ];
-          setSubjectData(mockSubjects);
-        } else {
-          setSubjectData(
-            sorted.map(([name, value], i) => ({
-              name,
-              value,
-              color: SUBJECT_COLOURS[i % SUBJECT_COLOURS.length],
-            }))
-          );
-        }
+        setSubjectData(
+          sorted.map(([name, value], i) => ({
+            name,
+            value,
+            color: SUBJECT_COLOURS[i % SUBJECT_COLOURS.length],
+          }))
+        );
 
         // ── Recent Milestones from user_logs
         const { data: recentLogs } = await supabase

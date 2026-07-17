@@ -432,6 +432,7 @@ function Dashboard() {
               id: userId,
               name: newName,
               email: data.session.user.email || "",
+              avatar_url: data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture || null,
               role: "student",
             })
             .select("*")
