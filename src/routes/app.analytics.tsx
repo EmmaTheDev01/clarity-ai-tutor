@@ -328,36 +328,7 @@ function AnalyticsPage() {
           setMaterialsList(dbMatsList.map(mapMaterialRow));
         }
 
-        if (mapped.length === 0) {
-          setMilestones([
-            {
-              title: "Study session started",
-              subtitle: "Page: main chat workspace",
-              time: "Just now",
-              icon: Brain,
-            },
-            {
-              title: "Note created",
-              subtitle: "Eigenvectors & Characteristic Math",
-              time: "2 hours ago",
-              icon: BookOpen,
-            },
-            {
-              title: "Chat query sent",
-              subtitle: "Asked: \"Explain backpropagation and neural nets simply...\"",
-              time: "Yesterday",
-              icon: MessageSquare,
-            },
-            {
-              title: "Signed in",
-              subtitle: "Session authenticated successfully",
-              time: "2 days ago",
-              icon: TrendingUp,
-            },
-          ]);
-        } else {
-          setMilestones(mapped);
-        }
+        setMilestones(mapped);
       } catch (err) {
         console.warn("Analytics fetch error:", err);
       } finally {

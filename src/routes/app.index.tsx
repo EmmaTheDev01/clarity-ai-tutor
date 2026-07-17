@@ -810,17 +810,16 @@ function Dashboard() {
     setXp(newXp);
     setStoredItem("student_xp", String(newXp));
 
-    // Log the user action in user_logs in background
-    const currentLogs = getStoredJson<Array<{ action: string; details: string; time: string }>>(
-      "user_logs",
-      [],
-    );
-    currentLogs.push({
-      action: "chat_query_submitted",
-      details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
-      time: new Date().toISOString(),
+    // Log the user action in user_logs in DB
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        supabase.from("user_logs").insert({
+          user_id: data.user.id,
+          action_type: "chat_query_submitted",
+          details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
+        }).then();
+      }
     });
-    setStoredItem("user_logs", JSON.stringify(currentLogs));
 
     // Create session and insert student message immediately in background/sync
     let sId: string | null = null;

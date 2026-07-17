@@ -101,14 +101,7 @@ function SignIn() {
         return;
       }
 
-      // Sync local logs
-      const currentLogs = JSON.parse(localStorage.getItem("user_logs") || "[]");
-      currentLogs.push({
-        action: "user_login",
-        details: `Signed in successfully as ${role} (Email: ${email})`,
-        time: new Date().toISOString(),
-      });
-      localStorage.setItem("user_logs", JSON.stringify(currentLogs));
+
 
       toast.success(`Welcome back!`);
 
