@@ -5,6 +5,7 @@ import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { GoogleIcon } from "@/components/icons";
 
 export const Route = createFileRoute("/auth/sign-in")({
   head: () => ({
@@ -143,6 +144,22 @@ function SignIn() {
         </>
       }
     >
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full flex items-center justify-center gap-2 mb-6"
+        onClick={handleGoogleLogin}
+      >
+        <GoogleIcon className="h-5 w-5" />
+        Continue with Google
+      </Button>
+
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">or continue with email</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <Label htmlFor="email">Email</Label>
@@ -190,21 +207,6 @@ function SignIn() {
           {loading ? "Signing in…" : "Sign in"}
         </Button>
       </form>
-
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full flex items-center justify-center gap-2"
-        onClick={handleGoogleLogin}
-      >
-        Continue with Google
-      </Button>
     </AuthShell>
   );
 }

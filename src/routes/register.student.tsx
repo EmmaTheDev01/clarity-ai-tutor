@@ -4,6 +4,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff } from "lucide-react";
+import { GoogleIcon } from "@/components/icons";
 
 export const Route = createFileRoute("/register/student")({
   head: () => ({
@@ -109,6 +110,22 @@ function StudentRegister() {
         </>
       }
     >
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full flex items-center justify-center gap-2 mb-6"
+        onClick={handleGoogleLogin}
+      >
+        <GoogleIcon className="h-5 w-5" />
+        Sign up with Google
+      </Button>
+
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">or sign up with email</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <Label htmlFor="name">Full Name</Label>
@@ -159,21 +176,6 @@ function StudentRegister() {
           {isRegistering ? "Creating account..." : "Sign Up"}
         </Button>
       </form>
-
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full flex items-center justify-center gap-2"
-        onClick={handleGoogleLogin}
-      >
-        Sign up with Google
-      </Button>
     </AuthShell>
   );
 }

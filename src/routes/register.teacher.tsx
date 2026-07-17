@@ -34,21 +34,6 @@ function TeacherRegister() {
   const [credentialId, setCredentialId] = useState("");
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
 
-  const handleGoogleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin + "/app",
-        },
-      });
-      if (error) throw error;
-    } catch (err) {
-      console.warn("Google login redirect failed, navigating directly:", err);
-      navigate({ to: "/app" as any });
-    }
-  };
-
   const toggleSubject = (s: string) => {
     setSelectedSubjects((prev) =>
       prev.includes(s) ? prev.filter((item) => item !== s) : [...prev, s],
@@ -228,21 +213,6 @@ function TeacherRegister() {
           Complete Educator Profile
         </Button>
       </form>
-
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full flex items-center justify-center gap-2"
-        onClick={handleGoogleLogin}
-      >
-        Sign up with Google
-      </Button>
     </AuthShell>
   );
 }

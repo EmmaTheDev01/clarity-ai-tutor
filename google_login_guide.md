@@ -20,11 +20,12 @@ This guide provides step-by-step instructions to enable Google Sign-In for **Cla
    * Under **Application type**, choose **Web application**.
    * Under **Authorized JavaScript origins**, add:
      * `http://localhost:8080` (for local development)
-     * Your production domain (e.g., `https://tutor.vigilance.rw`)
+     * Your production domain (e.g., `https://purelearn.vigilance.rw`)
    * Under **Authorized redirect URIs**, copy your Supabase OAuth redirect URL.
      * To find it, go to your **Supabase Dashboard** > **Authentication** > **Providers** > **Google** and copy the **Redirect URI** shown there. It typically looks like:
        `https://<your-project-ref>.supabase.co/auth/v1/callback`
      * Paste this URL into the Google credentials screen under Authorized redirect URIs.
+     * ⚠️ **IMPORTANT**: Do NOT use your frontend URLs (like `http://localhost:8080/auth/v1/callback` or `https://purelearn.vigilance.rw/auth/v1/callback`) here unless you have a custom domain configured directly on Supabase. Supabase requires its own backend URL to intercept the Google Auth payload.
    * Click **Create**.
    * Copy the generated **Client ID** and **Client Secret**.
 

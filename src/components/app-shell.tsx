@@ -53,7 +53,7 @@ export function AppShell({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showCognitiveDropdown, setShowCognitiveDropdown] = useState(false);
   const [shortcutModalOpen, setShortcutModalOpen] = useState(false);
-  
+
   const { mode, setMode } = useCognitiveMode();
 
   useEffect(() => {
@@ -131,6 +131,7 @@ export function AppShell({
 
           if (profErr || !prof) {
             const newName = userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "Student User";
+            const newAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture || null;
             const { data: createdProf } = await supabase
               .from("profiles")
               .insert({
@@ -138,6 +139,7 @@ export function AppShell({
                 name: newName,
                 email: userData.user.email || "",
                 role: "student",
+                avatar_url: newAvatar,
               })
               .select("name, avatar_url")
               .maybeSingle();
@@ -149,6 +151,13 @@ export function AppShell({
           } else {
             finalName = prof.name || "Student User";
             finalAvatar = prof.avatar_url || null;
+            
+            // Backfill avatar if missing in DB but exists in auth metadata
+            const metaAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture;
+            if (!finalAvatar && metaAvatar) {
+              finalAvatar = metaAvatar;
+              await supabase.from("profiles").update({ avatar_url: finalAvatar }).eq("id", userId);
+            }
           }
           setProfile({ name: finalName, avatarUrl: finalAvatar });
 
@@ -226,7 +235,7 @@ export function AppShell({
             loadedNotifications.push({
               id: "welcome_alert",
               icon: "",
-              title: "Welcome to Clarity!",
+              title: "Welcome to Purelearn!",
               message: "Start learning by uploading a document in the study workspace.",
               time: "Just now",
             });
@@ -520,7 +529,7 @@ export function AppShell({
                         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Cognitive Profiles</span>
                         <p className="text-[9px] text-muted-foreground mt-1">Adjust text rendering to match your processing style.</p>
                       </div>
-                      
+
                       <div className="space-y-1">
                         <button
                           onClick={() => { setMode("default"); setShowCognitiveDropdown(false); }}
@@ -532,7 +541,7 @@ export function AppShell({
                           </div>
                           {mode === "default" && <Check className="h-3.5 w-3.5" />}
                         </button>
-                        
+
                         <button
                           onClick={() => { setMode("adhd"); setShowCognitiveDropdown(false); }}
                           className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "adhd" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}

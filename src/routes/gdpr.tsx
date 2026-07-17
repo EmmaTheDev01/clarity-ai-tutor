@@ -86,8 +86,8 @@ function GDPRPage() {
       {/* Header */}
       <header className="border-b border-border bg-elevated/40 backdrop-blur sticky top-0 z-30">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-1.5 font-serif">
-            purelearn.ai
+          <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-2 font-serif">
+            <img src="/logo.png" alt="purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
           </Link>
           <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
             Sign In

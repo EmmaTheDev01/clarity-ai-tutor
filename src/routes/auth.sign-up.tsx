@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
+import { GoogleIcon } from "@/components/icons";
 
 export const Route = createFileRoute("/auth/sign-up")({
   head: () => ({
@@ -26,20 +27,6 @@ function SignUp() {
     };
     checkSession();
   }, [navigate]);
-  const handleGoogleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin + "/app",
-        },
-      });
-      if (error) throw error;
-    } catch (err) {
-      console.warn("Google login redirect failed, navigating directly:", err);
-      navigate({ to: "/app" as any });
-    }
-  };
 
   return (
     <AuthShell
@@ -80,20 +67,6 @@ function SignUp() {
           </p>
         </Link>
       </div>
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full flex items-center justify-center gap-2"
-        onClick={handleGoogleLogin}
-      >
-        Continue with Google
-      </Button>
     </AuthShell>
   );
 }

@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Brain, Send } from "lucide-react";
-import { Card } from "@/components/ui-kit";
+import { Send } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/contact")({
@@ -29,62 +28,75 @@ function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-elevated/40 backdrop-blur sticky top-0 z-30">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-1.5 font-serif">
+    <div className="min-h-screen flex flex-col font-sans">
+      <div className="flex-1 flex flex-col md:flex-row">
+        
+        {/* Left Side (Black) */}
+        <div className="w-full md:w-1/2 bg-black text-white p-8 md:p-16 lg:p-24 flex flex-col justify-between">
+          <div>
+            <header className="mb-16 flex items-center justify-between">
+              <Link to="/" className="flex items-center">
+                <div className="bg-white rounded-xl py-2 px-3 flex items-center justify-center shadow-lg">
+                  <img 
+                    src="/logo.png" 
+                    alt="purelearn.ai Logo" 
+                    className="h-9 w-auto sm:h-10" 
+                  />
+                </div>
+              </Link>
+              <Link 
+                to="/auth/sign-in" 
+                className="text-sm font-semibold px-5 py-2.5 rounded-full border border-zinc-800 hover:bg-zinc-900 transition"
+              >
+                Sign In
+              </Link>
+            </header>
 
-            purelearn.ai
-          </Link>
-          <Link to="/auth/sign-in" className="text-sm font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
-            Sign In
-          </Link>
-        </div>
-      </header>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight mb-6">
+              Get in Touch
+            </h1>
+            <p className="text-zinc-400 text-lg mb-16 max-w-md leading-relaxed">
+              Have questions about educator verification, partnerships, or billing? Let us know and our team will assist you.
+            </p>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-16 flex flex-col justify-center">
-        <div className="text-center md:text-left mb-10">
-          <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-primary bg-clip-text text-transparent">
-            Get in Touch
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Have questions about educator verification or billing? Let us know.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8 items-start">
-          {/* Left Column: Contact info */}
-          <div className="space-y-6">
-            <Card className="p-6 bg-elevated/15 border border-border/50 rounded-2xl space-y-4">
-              <h3 className="text-sm font-bold text-foreground">Support & Inquiries</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                For student queries, institutional onboarding help, and developer relations:
-              </p>
-              <div className="text-sm space-y-2 text-foreground font-semibold">
-                <p className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-normal">Support:</span> support@purelearn.ai
+            <div className="space-y-12 max-w-md">
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Support & Inquiries</h3>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  For student queries, institutional onboarding help, and developer relations.
                 </p>
-                <p className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-normal">Partnerships:</span> edu@purelearn.ai
+                <div className="text-sm space-y-3 font-semibold pt-2">
+                  <p className="flex items-center gap-3">
+                    <span className="text-zinc-600 font-normal w-24">Support:</span> support@purelearn.ai
+                  </p>
+                  <p className="flex items-center gap-3">
+                    <span className="text-zinc-600 font-normal w-24">Partnerships:</span> edu@purelearn.ai
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Verification Support</h3>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  Educators applying for classroom verification can expedite approvals by submitting official academic credentials or linking institutional domain records.
                 </p>
               </div>
-            </Card>
-
-            <Card className="p-6 bg-elevated/15 border border-border/50 rounded-2xl space-y-3">
-              <h3 className="text-sm font-bold text-foreground">Verification Support</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Educators applying for classroom verification can expedite approvals by submitting official academic credentials or linking institutional domain records.
-              </p>
-            </Card>
+            </div>
           </div>
 
-          {/* Right Column: Contact form */}
-          <Card className="p-8 bg-elevated/10 border border-border/50 rounded-2xl shadow-xl">
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="name" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+          <footer className="mt-20 text-xs text-zinc-600">
+            © {new Date().getFullYear()} purelearn.ai. All rights reserved.
+          </footer>
+        </div>
+
+        {/* Right Side (White) */}
+        <div className="w-full md:w-1/2 bg-white text-black p-8 md:p-16 lg:p-24 flex flex-col justify-center relative">
+          
+          <div className="max-w-md w-full mx-auto">
+            <h2 className="text-2xl font-bold mb-10 text-zinc-900">Send a Message</h2>
+            <form className="space-y-8" onSubmit={handleSubmit}>
+              <div className="space-y-1">
+                <label htmlFor="name" className="block text-xs font-bold uppercase tracking-widest text-zinc-400">
                   Full Name
                 </label>
                 <input
@@ -94,12 +106,12 @@ function ContactPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+                  className="w-full border-b-2 border-zinc-200 bg-transparent px-0 py-3 text-black placeholder:text-zinc-300 focus:border-black focus:outline-none transition-colors rounded-none"
                 />
               </div>
 
-              <div>
-                <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+              <div className="space-y-1">
+                <label htmlFor="email" className="block text-xs font-bold uppercase tracking-widest text-zinc-400">
                   Email Address
                 </label>
                 <input
@@ -109,12 +121,12 @@ function ContactPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
+                  className="w-full border-b-2 border-zinc-200 bg-transparent px-0 py-3 text-black placeholder:text-zinc-300 focus:border-black focus:outline-none transition-colors rounded-none"
                 />
               </div>
 
-              <div>
-                <label htmlFor="message" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+              <div className="space-y-1">
+                <label htmlFor="message" className="block text-xs font-bold uppercase tracking-widest text-zinc-400">
                   Message Content
                 </label>
                 <textarea
@@ -124,29 +136,24 @@ function ContactPage() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none resize-none"
+                  className="w-full border-b-2 border-zinc-200 bg-transparent px-0 py-3 text-black placeholder:text-zinc-300 focus:border-black focus:outline-none transition-colors resize-none rounded-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting || !name || !email || !message}
-                className="w-full py-2.5 rounded-lg bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-sm font-bold transition flex items-center justify-center gap-1.5"
+                className="w-full py-4 mt-4 bg-black text-white font-bold tracking-wide uppercase text-sm hover:bg-zinc-800 disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors flex items-center justify-center gap-2"
               >
                 {isSubmitting ? "Sending..." : "Submit Inquiry"}
-                <Send className="h-3.5 w-3.5" />
+                <Send className="h-4 w-4" />
               </button>
             </form>
-          </Card>
-        </div>
-      </main>
+          </div>
 
-      {/* Footer */}
-      <footer className="border-t border-border/80 bg-background/50">
-        <div className="mx-auto max-w-4xl px-6 py-8 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} purelearn.ai. All rights reserved.</p>
         </div>
-      </footer>
+        
+      </div>
     </div>
   );
 }

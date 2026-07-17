@@ -18,7 +18,7 @@ export function AuthShell({
       <div className="flex flex-col">
         <header className="flex items-center justify-between border-b border-border px-8 py-5">
           <Link to="/" className="flex items-center">
-            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-9 w-auto" />
+            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
           </Link>
           <Link
             to="/"

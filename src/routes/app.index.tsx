@@ -397,6 +397,14 @@ function Dashboard() {
         if (profData) {
           loadedDisplayName = profData.name || "You";
           loadedAvatarUrl = profData.avatar_url || null;
+
+          // Backfill avatar if missing in DB but exists in auth metadata
+          const metaAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture;
+          if (!loadedAvatarUrl && metaAvatar) {
+            loadedAvatarUrl = metaAvatar;
+            await supabase.from("profiles").update({ avatar_url: loadedAvatarUrl }).eq("id", userId);
+          }
+
           setUserDisplayName(loadedDisplayName);
           setUserAvatarUrl(loadedAvatarUrl);
 
