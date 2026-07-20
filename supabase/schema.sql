@@ -119,7 +119,8 @@ CREATE TABLE public.notes (
     is_starred BOOLEAN DEFAULT false NOT NULL,
     pinned BOOLEAN DEFAULT false NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    images TEXT[]
 );
 
 ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
@@ -168,6 +169,7 @@ CREATE TABLE public.messages (
     encrypted_content TEXT NOT NULL, -- Message text encrypted in DB
     encryption_iv TEXT NOT NULL, -- Initialisation vector for crypto key alignment
     citation TEXT,
+    images TEXT[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

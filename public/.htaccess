@@ -2,12 +2,15 @@
   RewriteEngine On
   RewriteBase /
   
+  # Stop rewriting if we are already requesting index.html
+  RewriteRule ^index\.html$ - [L]
+  
   # If the requested file or directory does not exist
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   
   # Forward all other requests to index.html for SPA routing
-  RewriteRule ^ index.html [QSA,L]
+  RewriteRule . /index.html [L]
 </IfModule>
 
 # Caching for static assets

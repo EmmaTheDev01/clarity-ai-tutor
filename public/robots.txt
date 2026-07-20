@@ -1,8 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /app/
+Disallow: /admin/
+Disallow: /teacher/
 
 # Sitemaps can be added here
-# Sitemap: https://purelearn.ai/sitemap.xml
-
-
-
+Sitemap: https://purelearn.ai/sitemap.xml
