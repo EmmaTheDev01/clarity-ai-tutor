@@ -399,7 +399,7 @@ function Dashboard() {
           loadedAvatarUrl = profData.avatar_url || null;
 
           // Backfill avatar if missing in DB but exists in auth metadata
-          const metaAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture;
+          const metaAvatar = data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture;
           if (!loadedAvatarUrl && metaAvatar) {
             loadedAvatarUrl = metaAvatar;
             await supabase.from("profiles").update({ avatar_url: loadedAvatarUrl }).eq("id", userId);
@@ -454,6 +454,10 @@ function Dashboard() {
         }
 
         if (stdProf) {
+          if (typeof stdProf.xp === "number") {
+            setXp(stdProf.xp);
+            setStoredItem("student_xp", String(stdProf.xp));
+          }
           loadedEdLevel = stdProf.education_level || "Undergraduate";
           loadedGradeLevel = stdProf.grade_level || "2nd Year";
           loadedCognitiveProfile = stdProf.cognitive_profile || "standard";
@@ -805,21 +809,22 @@ function Dashboard() {
     setInputText("");
     setIsTyping(true);
 
-    // Award +15 XP on active study chat submission
+    // Award +15 XP on active study chat submission and update DB
     const newXp = xp + 15;
     setXp(newXp);
     setStoredItem("student_xp", String(newXp));
 
-    // Log the user action in user_logs in DB
+    // Log the user action and update XP in DB
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) {
+        supabase.from("student_profiles").update({ xp: newXp }).eq("student_id", data.user.id).then().catch(() => {});
         supabase.from("user_logs").insert({
           user_id: data.user.id,
           action_type: "chat_query_submitted",
           details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
-        }).then();
+        }).then().catch(() => {});
       }
-    });
+    }).catch(() => {});
 
     // Create session and insert student message immediately in background/sync
     let sId: string | null = null;
@@ -1529,8 +1534,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
         }
       >
         <div
-          className={`flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row ${cognitiveProfile === "sensory" ? "bg-[#FAF5EC]/30 text-[#433422]" : ""
-            }`}
+          className="flex h-[calc(100dvh-8rem)] min-h-0 flex-1 flex-col gap-6 items-stretch overflow-hidden transition-all duration-300 xl:flex-row"
         >
           {/* Left Side: Library Drawer/Column - Chat Sidebar */}
           <div
@@ -1843,34 +1847,19 @@ You write responses that read like **high-quality lecture notes** — rich, thor
           </div>
 
           {/* Right Side: Chat Workspace */}
-          <div className="flex min-w-0 flex-1 flex-col h-[500px] xl:h-full overflow-hidden">
-            <Card
-              className={`flex h-full flex-col overflow-hidden transition-all duration-300 ${cognitiveProfile === "dyslexia" ? "bg-[#FAF6EE] border-[#E6DCC8]" : ""
-                }`}
-            >
+          <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
+            <Card className="flex h-full flex-col overflow-hidden transition-all duration-300">
               {/* Chat Context Header */}
-              <div
-                className={`flex items-center justify-between border-b border-border bg-elevated/30 px-5 py-3 ${cognitiveProfile === "dyslexia" ? "border-b-[#E6DCC8] bg-[#F3EFE6]/50" : ""
-                  }`}
-              >
+              <div className="flex items-center justify-between border-b border-border bg-elevated/30 px-5 py-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary ${cognitiveProfile === "dyslexia" ? "bg-[#E6DCC8] text-[#605544]" : ""
-                      }`}
-                  >
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
                     <Sparkles className="h-3 w-3" />
                   </div>
                   <div className="min-w-0">
-                    <h3
-                      className={`truncate text-xs font-semibold ${cognitiveProfile === "dyslexia" ? "text-[#2D281E]" : "text-foreground"
-                        }`}
-                    >
+                    <h3 className="truncate text-xs font-semibold text-foreground">
                       {activeDoc ? `Working on: ${activeDoc.title}` : "General Library Chat"}
                     </h3>
-                    <p
-                      className={`text-xs truncate ${cognitiveProfile === "dyslexia" ? "text-[#605544]" : "text-muted-foreground"
-                        }`}
-                    >
+                    <p className="text-xs truncate text-muted-foreground">
                       {activeDoc
                         ? `Grounded in ${activeDoc.type} source`
                         : "Synthesizing across all materials"}
@@ -1880,10 +1869,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                 {activeDoc && (
                   <button
                     onClick={() => setActiveDoc(null)}
-                    className={`rounded border px-2 py-0.5 text-xs transition ${cognitiveProfile === "dyslexia"
-                      ? "border-[#E6DCC8] bg-[#FAF6EE] text-[#605544] hover:bg-[#F3EFE6]"
-                      : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      }`}
+                    className="rounded border border-border bg-background text-muted-foreground hover:text-foreground px-2 py-0.5 text-xs transition"
                   >
                     Clear focus
                   </button>
@@ -1891,7 +1877,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
               </div>
 
               {/* Chat Message Feed */}
-              <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-5 space-y-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
                 {cognitiveProfile === "adhd" && (
                   <p className="mb-2 text-center text-xs text-muted-foreground italic">
@@ -1905,17 +1891,10 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                   return (
                     <div
                       key={i}
-                      className={`flex gap-3 transition-all duration-300 ${isAi ? "" : "flex-row-reverse"} ${isDimmed ? "opacity-25 blur-[0.5px]" : "opacity-100"
+                      className={`flex w-full min-w-0 max-w-full gap-2.5 sm:gap-3 transition-all duration-300 ${isAi ? "" : "flex-row-reverse"} ${isDimmed ? "opacity-25 blur-[0.5px]" : "opacity-100"
                         }`}
                     >
-                      <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold overflow-hidden ${isAi
-                          ? cognitiveProfile === "dyslexia"
-                            ? "border-[#E6DCC8] bg-[#F3EFE6] text-[#605544]"
-                            : "border-primary/20 bg-primary/5 text-primary"
-                          : "border-border bg-muted text-foreground"
-                          }`}
-                      >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold overflow-hidden border-primary/20 bg-primary/5 text-primary">
                         {isAi ? (
                           <Sparkles className="h-3 w-3" />
                         ) : (
@@ -1926,26 +1905,16 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                           />
                         )}
                       </div>
-                      <div className={`flex flex-col ${isAi ? "items-start" : "items-end"}`}>
+                      <div className={`flex flex-col min-w-0 flex-1 max-w-full ${isAi ? "items-start" : "items-end"}`}>
                         <div
                           onClick={() => {
                             if (cognitiveProfile === "adhd") {
                               setFocusedMsgIndex(focusedMsgIndex === i ? null : i);
                             }
                           }}
-                          className={`w-fit max-w-[min(${isAi ? "92%" : "80%"},48rem)] transition-all ${isAi
-                            ? `py-1.5 ${cognitiveProfile === "dyslexia"
-                              ? "text-[#2D281E]"
-                              : cognitiveProfile === "sensory"
-                                ? "text-[#433422]"
-                                : cognitiveProfile === "adhd"
-                                  ? "text-white font-medium"
-                                  : "text-foreground"}`
-                            : `rounded-2xl px-4 py-2.5 ${cognitiveProfile === "dyslexia"
-                              ? "bg-[#F3EFE6] text-[#2D281E]"
-                              : cognitiveProfile === "sensory"
-                                ? "bg-[#EADFC9] text-[#433422]"
-                                : cognitiveProfile === "adhd"
+                          className={`min-w-0 max-w-full transition-all ${isAi
+                            ? `w-full py-1.5 text-foreground`
+                            : `w-auto max-w-[85%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 ${cognitiveProfile === "adhd"
                                   ? "bg-foreground text-background font-semibold"
                                   : "bg-muted text-foreground"}`
                             } ${isFocused ? "scale-[1.01]" : ""}`}
@@ -2126,20 +2095,10 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
                 {isTyping && (
                   <div className="flex gap-3">
-                    <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs ${cognitiveProfile === "dyslexia"
-                        ? "border-[#E6DCC8] bg-[#F3EFE6] text-[#605544]"
-                        : "border-primary/20 bg-primary/5 text-primary"
-                        }`}
-                    >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/5 text-primary text-xs">
                       <Sparkles className="h-3 w-3" />
                     </div>
-                    <div
-                      className={`max-w-[85%] rounded-lg border p-3.5 ${cognitiveProfile === "dyslexia"
-                        ? "bg-[#FFFDF9] border-[#E6DCC8]"
-                        : "border-border bg-background"
-                        }`}
-                    >
+                    <div className="max-w-[85%] rounded-lg border border-border bg-background p-3.5">
                       {cognitiveProfile === "sensory" ? (
                         <span className="text-xs text-muted-foreground font-medium">
                           Tutor is compiling response...
@@ -2196,16 +2155,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
               )}
 
               {/* Message input */}
-              <div
-                className={`border-t border-border p-4 ${cognitiveProfile === "dyslexia"
-                  ? "bg-[#FAF6EE] border-[#E6DCC8]"
-                  : "bg-background"
-                  }`}
-              >
-                <div
-                  className={`relative rounded-xl border border-border bg-elevated/40 p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all input-glow-pulse ${cognitiveProfile === "dyslexia" ? "border-[#E6DCC8] bg-[#FFFDF9]" : ""
-                    }`}
-                >
+              <div className="border-t border-border p-4 bg-background">
+                <div className="relative rounded-xl border border-border bg-elevated/40 p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all input-glow-pulse">
                   <Textarea
                     id="chat-input"
                     ref={chatInputRef}
@@ -2345,8 +2296,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
             </Card>
           </div>
 
-          {/* Sidebar: Gamification, Reminders & Focus Checkpoints */}
-          <div className="flex w-full shrink-0 flex-col gap-4 xl:w-72">
+          {/* Sidebar: Gamification, Reminders & Focus Checkpoints (Hidden by default on mobile) */}
+          <div className="hidden xl:flex w-full shrink-0 flex-col gap-4 xl:w-72">
             {/* Gamification Dashboard Card */}
             <Card className="p-5 border-primary/20 bg-elevated/50 flex flex-col">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center gap-1.5">
@@ -2464,6 +2415,11 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                               const newXp = xp + 15;
                               setXp(newXp);
                               setStoredItem("student_xp", String(newXp));
+                              supabase.auth.getUser().then(({ data }) => {
+                                if (data?.user) {
+                                  supabase.from("student_profiles").update({ xp: newXp }).eq("student_id", data.user.id).then();
+                                }
+                              });
                               setShowReward(true);
                               setTimeout(() => setShowReward(false), 2000);
                             }

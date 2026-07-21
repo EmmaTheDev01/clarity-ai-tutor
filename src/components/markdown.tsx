@@ -2,7 +2,19 @@ import React from "react";
 import katex from "katex";
 
 export function cleanLatexMathSyntax(text: string): string {
-  return text;
+  if (!text) return text;
+  return text
+    .replace(/│/g, "|")
+    .replace(/—/g, "-")
+    .replace(/′/g, "'")
+    .replace(/∥/g, "\\|")
+    .replace(/\u00A0/g, " ")
+    .replace(/\u200B/g, "")
+    .replace(/\u200C/g, "")
+    .replace(/\u200D/g, "")
+    .replace(/\uFEFF/g, "")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"');
 }
 
 // Bionic Reading text transformer for saccadic eye tracking
@@ -146,9 +158,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return <code key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">{token.slice(1, -1)}</code>;
         }
         if (token.startsWith("$") && token.endsWith("$")) {
-          const formula = token.slice(1, -1).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+          const formula = cleanLatexMathSyntax(token.slice(1, -1)).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
           try {
-            const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
+            const html = katex.renderToString(formula, { displayMode: false, throwOnError: false, strict: "ignore" });
             return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
           } catch {
             return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
@@ -156,9 +168,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         }
         
         // If it reaches here and it's a matched token (i % 2 === 1), it must be one of the math/LaTeX branches of the regex
-        const safeToken = token.replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+        const safeToken = cleanLatexMathSyntax(token).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
         try {
-          const html = katex.renderToString(safeToken, { displayMode: false, throwOnError: false });
+          const html = katex.renderToString(safeToken, { displayMode: false, throwOnError: false, strict: "ignore" });
           return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
         } catch {
           return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
@@ -177,9 +189,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     blocks.forEach((block, bIdx) => {
       const isMathBlock = bIdx % 2 === 1;
       if (isMathBlock) {
-        const rawMath = block.trim().replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
+        const rawMath = cleanLatexMathSyntax(block.trim()).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
         try {
-          const html = katex.renderToString(rawMath, { displayMode: true, throwOnError: false });
+          const html = katex.renderToString(rawMath, { displayMode: true, throwOnError: false, strict: "ignore" });
           elements.push(
             <div
               key={`mathblock-${bIdx}`}
@@ -513,5 +525,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     return elements;
   };
 
-  return <div className={`prose prose-sm max-w-none text-foreground ${className}`}>{parseMarkdown(cleanedContent)}</div>;
+  return (
+    <div className={`prose prose-sm w-full max-w-full min-w-0 overflow-hidden break-words text-foreground ${className}`}>
+      {parseMarkdown(cleanedContent)}
+    </div>
+  );
 };

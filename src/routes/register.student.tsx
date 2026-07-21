@@ -70,6 +70,7 @@ function StudentRegister() {
           name,
           email,
           role: "student",
+          theme_preference: "light",
         });
 
         // Log registration in audit log database

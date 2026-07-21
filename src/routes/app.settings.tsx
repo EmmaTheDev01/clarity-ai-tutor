@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useTheme, Theme, Scaling } from "@/hooks/use-theme";
 import { AppShell } from "@/components/app-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
@@ -17,6 +18,9 @@ import {
   X,
   Trash2,
   LogOut,
+  Palette,
+  Bell,
+  Blocks,
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/settings")({
@@ -24,7 +28,7 @@ export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
 });
 
-const sections = ["Profile", "Preferences", "Plan", "Security", "Danger zone"] as const;
+const sections = ["Profile", "Appearance", "Preferences", "Notifications", "Integrations", "Plan", "Security", "Danger zone"] as const;
 
 function SettingsPage() {
   const navigate = useNavigate();
@@ -43,19 +47,26 @@ function SettingsPage() {
 
   return (
     <AppShell title="Settings">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr] w-full items-start">
+      <div className="flex w-full flex-col lg:flex-row gap-8 lg:gap-12 items-start py-4">
         {/* Navigation Sidebar */}
-        <nav className="flex flex-row flex-wrap gap-1 lg:flex-col lg:pr-10 min-w-[200px]">
+        <nav className="flex flex-row overflow-x-auto pb-4 lg:pb-0 lg:flex-col gap-2 w-full lg:w-64 shrink-0 hide-scrollbar">
           {sections.map((s) => {
             const isActive = section === s;
             return (
               <button
                 key={s}
                 onClick={() => setSection(s)}
-                className={`flex items-center gap-3 w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                className={`flex items-center gap-3 shrink-0 lg:shrink w-auto lg:w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
+                  isActive 
+                    ? "bg-primary/10 text-primary font-bold shadow-sm" 
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
               >
                 {s === "Profile" && <User className="h-4 w-4 shrink-0" />}
+                {s === "Appearance" && <Palette className="h-4 w-4 shrink-0" />}
                 {s === "Preferences" && <SettingsIcon className="h-4 w-4 shrink-0" />}
+                {s === "Notifications" && <Bell className="h-4 w-4 shrink-0" />}
+                {s === "Integrations" && <Blocks className="h-4 w-4 shrink-0" />}
                 {s === "Plan" && <CreditCard className="h-4 w-4 shrink-0" />}
                 {s === "Security" && <ShieldAlert className="h-4 w-4 shrink-0" />}
                 {s === "Danger zone" && <AlertTriangle className="h-4 w-4 shrink-0" />}
@@ -66,9 +77,12 @@ function SettingsPage() {
         </nav>
 
         {/* Content Area */}
-        <div className="transition-all duration-300">
+        <div className="flex-1 w-full min-w-0 transition-all duration-300">
           {section === "Profile" && <ProfileSection />}
+          {section === "Appearance" && <AppearanceSection />}
           {section === "Preferences" && <PreferencesSection />}
+          {section === "Notifications" && <NotificationsSection />}
+          {section === "Integrations" && <IntegrationsSection />}
           {section === "Plan" && <PlanSection />}
           {section === "Security" && <SecuritySection />}
           {section === "Danger zone" && <DangerSection />}
@@ -88,15 +102,15 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="max-w-3xl py-2">
-      <div className="mb-5">
-        <h3 className="text-2xl font-bold tracking-tight text-foreground">
+    <div className="w-full max-w-4xl xl:max-w-5xl py-2 animate-fade-in lg:pr-12 xl:pr-24">
+      <div className="mb-6">
+        <h3 className="text-2xl font-extrabold tracking-tight text-foreground">
           {title}
         </h3>
-        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{description}</p>
       </div>
-      <div className="h-px bg-border my-6" />
-      <div className="space-y-6">{children}</div>
+      <div className="h-px bg-border/60 my-8" />
+      <div className="space-y-8">{children}</div>
     </div>
   );
 }
@@ -371,7 +385,7 @@ function ProfileSection() {
         <Label className="text-sm font-medium text-muted-foreground">
           Cognitive Presentation Mode
         </Label>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { id: "standard", title: "Standard", desc: "Balanced structure.", accent: "border-primary bg-primary/5" },
             { id: "adhd", title: "ADHD Focus", desc: "Gamified reward checks.", accent: "border-amber-500/40 bg-amber-500/5 text-amber-500" },
@@ -448,9 +462,8 @@ function PreferencesSection() {
             <Toggle defaultOn={i !== 2} />
           </div>
         ))}
-      </Section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
         <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">ADHD Visual Scaling</div>
@@ -477,6 +490,7 @@ function PreferencesSection() {
           </div>
         </div>
       </div>
+      </Section>
     </div>
   );
 }
@@ -730,9 +744,8 @@ function SecuritySection() {
             </Button>
           </div>
         </form>
-      </Section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
         <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-foreground">Multi-Factor Authentication (MFA)</div>
@@ -758,6 +771,7 @@ function SecuritySection() {
           </button>
         </div>
       </div>
+      </Section>
     </div>
   );
 }
@@ -924,5 +938,110 @@ function Toggle({ defaultOn = false }: { defaultOn?: boolean }) {
         }`}
       />
     </button>
+  );
+}
+
+function AppearanceSection() {
+  const { theme, setTheme, scaling, setScaling } = useTheme();
+
+  const handleThemeChange = async (newTheme: Theme) => {
+    setTheme(newTheme);
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user) {
+      await supabase.from("profiles").update({ theme_preference: newTheme }).eq("id", userData.user.id);
+    }
+  };
+
+  return (
+    <Section title="Appearance" description="Customize how the AI Tutor looks on your device.">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {[
+          { id: "light" as Theme, title: "Light Mode", desc: "Clear and bright." },
+          { id: "dark" as Theme, title: "Dark Mode", desc: "Easy on the eyes." },
+          { id: "low-light" as Theme, title: "Low Light", desc: "Warm & muted." },
+          { id: "system" as Theme, title: "System", desc: "Matches your OS." },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => handleThemeChange(t.id)}
+            className={`p-6 rounded-md border text-left text-xs transition-all duration-300 hover:scale-[1.01] h-full flex flex-col justify-between ${
+              theme === t.id
+                ? "border-primary bg-primary/5 font-semibold ring-1 ring-primary/20"
+                : "border-border/60 bg-background/30 text-muted-foreground hover:bg-muted/40 hover:border-border"
+            }`}
+          >
+            <div className={`font-semibold ${theme === t.id ? "text-primary" : "text-foreground"}`}>{t.title}</div>
+            <div className="text-xs opacity-80 mt-2 leading-relaxed">{t.desc}</div>
+          </button>
+        ))}
+      </div>
+      
+      <div className="mt-8 space-y-2">
+        <Label className="text-sm font-medium text-muted-foreground">Interface Scaling</Label>
+        <select 
+          value={scaling}
+          onChange={(e) => setScaling(e.target.value as Scaling)}
+          className="w-full max-w-sm rounded-md border border-border/80 bg-background/40 px-3 py-2.5 text-xs text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+        >
+          <option value="compact">Compact (More content)</option>
+          <option value="standard">Standard (Default)</option>
+          <option value="comfortable">Comfortable (Larger text)</option>
+        </select>
+      </div>
+    </Section>
+  );
+}
+
+function NotificationsSection() {
+  return (
+    <Section title="Notifications" description="Manage how you receive alerts and study reminders.">
+      <div className="space-y-6">
+        {[
+          { k: "Weekly Study Digest", v: "Receive an email summary of your learning progress every Sunday." },
+          { k: "Study Reminders", v: "Get push notifications to keep your streak alive." },
+          { k: "New Feature Announcements", v: "Occasional emails about new AI models and features." },
+        ].map((p, i) => (
+          <div key={p.k} className={`flex items-center justify-between gap-6 py-1 ${i > 0 ? "border-t border-border/30 pt-5" : ""}`}>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-foreground">{p.k}</div>
+              <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{p.v}</div>
+            </div>
+            <Toggle defaultOn={i !== 2} />
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function IntegrationsSection() {
+  return (
+    <Section title="Integrations" description="Connect external apps to seamlessly sync your study materials.">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="p-6 bg-background border border-border rounded-md flex flex-col justify-between h-full">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-foreground">Google Drive</div>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              Import PDFs, Docs, and Slides directly from your Drive.
+            </p>
+          </div>
+          <div className="mt-5">
+            <Button className="text-xs font-bold bg-muted text-foreground border border-border/60 hover:bg-muted/80 rounded-md">Connect Drive</Button>
+          </div>
+        </div>
+
+        <div className="p-6 bg-background border border-border rounded-md flex flex-col justify-between h-full">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wider text-foreground">Notion</div>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              Sync your Notion pages and databases into study sets.
+            </p>
+          </div>
+          <div className="mt-5">
+            <Button className="text-xs font-bold bg-muted text-foreground border border-border/60 hover:bg-muted/80 rounded-md">Connect Notion</Button>
+          </div>
+        </div>
+      </div>
+    </Section>
   );
 }

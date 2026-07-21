@@ -1,8 +1,8 @@
 const configuredModel = import.meta.env.VITE_GEMINI_MODEL?.trim();
 
-export const geminiModel = configuredModel || "gemini-flash-latest";
+export const geminiModel = configuredModel || "gemini-1.5-flash";
 
-const fallbackModels = ["gemini-flash-latest", "gemini-flash-latest"];
+const fallbackModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
 
 const getGeminiError = (payload: unknown, fallback: string) => {
   if (

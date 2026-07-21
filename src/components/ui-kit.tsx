@@ -108,7 +108,7 @@ export const Card = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEleme
   ({ children, className = "", ...rest }, ref) => (
     <div
       ref={ref}
-      className={`rounded-lg border border-border bg-background ${className}`}
+      className={`rounded-lg border border-border bg-card text-card-foreground ${className}`}
       {...rest}
     >
       {children}

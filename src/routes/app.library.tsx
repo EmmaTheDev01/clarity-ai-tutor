@@ -288,17 +288,17 @@ function LibraryPage() {
       </div>
 
       {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-lg border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_120px_120px_80px] items-center gap-4 border-b border-border bg-elevated px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border w-full">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 border-b border-border bg-elevated px-4 md:px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           <div>Name</div>
           <div className="hidden md:block">Size</div>
           <div className="hidden md:block">Updated</div>
-          <div />
+          <div className="text-right">Actions</div>
         </div>
         <ul>
           {visibleItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
-              <div className="grid grid-cols-[minmax(0,1fr)_120px_120px_80px] items-center gap-4 px-5 py-4 transition hover:bg-elevated">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated">
                 <Link
                   to="/app/documents/$id"
                   params={{ id: it.id }}
@@ -307,21 +307,25 @@ function LibraryPage() {
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
                     <it.icon className="h-4 w-4" strokeWidth={1.75} />
                   </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground flex items-center gap-1.5">
-                      {it.title}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+                      <span className="truncate min-w-0 max-w-xs sm:max-w-md md:max-w-lg" title={it.title}>
+                        {it.title}
+                      </span>
                       {it.pinned && (
                         <Pin className="h-3 w-3 text-primary shrink-0" />
                       )}
                     </div>
-                    <div className="mt-0.5 md:hidden">
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground md:hidden">
                       <Pill>{it.type}</Pill>
+                      <span>•</span>
+                      <span>{it.updated}</span>
                     </div>
                   </div>
                 </Link>
                 <div className="hidden text-sm text-muted-foreground md:block">{it.size}</div>
                 <div className="hidden text-sm text-muted-foreground md:block">{it.updated}</div>
-                <div className="flex items-center justify-end gap-1">
+                <div className="flex items-center justify-end gap-0.5 md:gap-1">
                   <button
                     onClick={() => handlePinToggle(it, !it.pinned)}
                     className={`rounded-md p-1.5 transition ${
@@ -352,12 +356,6 @@ function LibraryPage() {
                     title="Rename"
                   >
                     <PencilLine className="h-4 w-4" />
-                  </button>
-                  <button
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted transition"
-                    aria-label="More options"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
                   </button>
                 </div>
               </div>

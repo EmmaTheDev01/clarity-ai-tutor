@@ -96,6 +96,36 @@ function SignIn() {
             role: role,
           }),
         );
+
+        // Fetch and persist the user's saved theme preference so it loads correctly on next page
+        try {
+          const { data: themeData } = await supabase
+            .from("profiles")
+            .select("theme_preference")
+            .eq("id", data.user.id)
+            .maybeSingle();
+
+          const validThemes = ["light", "dark", "system", "low-light"];
+          const savedTheme = themeData?.theme_preference;
+          const themeToApply = savedTheme && validThemes.includes(savedTheme) ? savedTheme : "light";
+
+          localStorage.setItem("purelearn-theme", themeToApply);
+
+          // Apply the theme immediately so there's no flash after redirect
+          const root = document.documentElement;
+          root.classList.remove("light", "dark", "low-light");
+          if (themeToApply === "system") {
+            root.classList.add(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          } else {
+            root.classList.add(themeToApply);
+          }
+        } catch (themeErr) {
+          console.warn("Could not load theme preference:", themeErr);
+          // Fall back to light mode
+          localStorage.setItem("purelearn-theme", "light");
+          document.documentElement.classList.remove("dark", "low-light");
+          document.documentElement.classList.add("light");
+        }
       } else {
         toast.error("Sign-in failed: user details not returned.");
         return;

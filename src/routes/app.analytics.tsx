@@ -175,11 +175,14 @@ function AnalyticsPage() {
           supabase.from("materials").select("*", { count: "exact", head: true }).eq("uploaded_by", userId),
           supabase.from("chat_sessions").select("*", { count: "exact", head: true }).eq("student_id", userId),
           supabase.from("quiz_attempts").select("*", { count: "exact", head: true }).eq("student_id", userId),
+          supabase.from("student_profiles").select("xp, streak").eq("student_id", userId).maybeSingle(),
         ]);
 
-        const loadedXp = Number(getStoredItem("student_xp", "0"));
+        const stdProfData = (await supabase.from("student_profiles").select("xp, streak").eq("student_id", userId).maybeSingle()).data;
+        const dbXp = stdProfData?.xp;
+        const loadedXp = typeof dbXp === "number" ? dbXp : Number(getStoredItem("student_xp", "0"));
         const xpValue = Number.isFinite(loadedXp) ? loadedXp : 0;
-        const streakDays = xpValue > 0 ? Math.max(1, Math.floor(xpValue / 120)) : 0;
+        const streakDays = stdProfData?.streak || (xpValue > 0 ? Math.max(1, Math.floor(xpValue / 120)) : 0);
 
         setStats([
           {

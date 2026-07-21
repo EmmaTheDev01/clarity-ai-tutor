@@ -25,6 +25,30 @@
 
     <link rel="icon" type="image/png" href="/favicon.png" />
     <!-- Preconnect to external services if necessary (e.g. Supabase, Fonts) -->
+
+    <!-- Theme init: runs before render to prevent flash of wrong theme -->
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('purelearn-theme') || 'light';
+          var validThemes = ['light', 'dark', 'system', 'low-light'];
+          if (!validThemes.includes(theme)) theme = 'light';
+
+          var el = document.documentElement;
+          el.classList.remove('light', 'dark', 'low-light');
+
+          if (theme === 'system') {
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            el.classList.add(prefersDark ? 'dark' : 'light');
+          } else {
+            el.classList.add(theme);
+          }
+        } catch (e) {
+          // If localStorage is unavailable, default to light mode silently
+          document.documentElement.classList.add('light');
+        }
+      })();
+    </script>
   </head>
   <body class="antialiased bg-background text-foreground selection:bg-primary/20">
     <div id="root"></div>

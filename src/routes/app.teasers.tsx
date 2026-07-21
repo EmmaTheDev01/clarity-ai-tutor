@@ -121,8 +121,8 @@ function BrainTeasersPage() {
   const [activeTab, setActiveTab] = useState<"riddles" | "memory" | "bubbles" | "reflex" | "scramble" | "breathing">("riddles");
 
   // Scholar Achievements metrics
-  const [xp, setXp] = useState(() => Number(localStorage.getItem("student_xp") || "850"));
-  const [streak, setStreak] = useState(() => Number(localStorage.getItem("riddle_streak") || "3"));
+  const [xp, setXp] = useState(() => Number(localStorage.getItem("student_xp") || "0"));
+  const [streak, setStreak] = useState(() => Number(localStorage.getItem("riddle_streak") || "0"));
 
   // ── 1. Riddles State
   const [activeIdx, setActiveIdx] = useState(0);
@@ -153,7 +153,7 @@ function BrainTeasersPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ── 5. Word Scramble State
-  const [scrambleIdx, setScrambleIdx] = useState(0);
+  const [scrambleIdx, setScrambleIdx] = useState(() => Math.floor(Math.random() * mockScrambleWords.length));
   const [scrambledWord, setScrambledWord] = useState("");
   const [scrambleGuess, setScrambleGuess] = useState("");
   const [scrambleHintVisible, setScrambleHintVisible] = useState(false);
@@ -189,17 +189,48 @@ function BrainTeasersPage() {
     return () => clearTimeout(timer);
   }, [activeTab, breathingState, breathingCycle]);
 
+  // Load XP & streak from Supabase student_profiles
+  useEffect(() => {
+    const fetchStudentProfile = async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (u?.user) {
+          const { data: stdProf } = await supabase
+            .from("student_profiles")
+            .select("xp, streak")
+            .eq("student_id", u.user.id)
+            .maybeSingle();
+
+          if (stdProf) {
+            if (typeof stdProf.xp === "number") {
+              setXp(stdProf.xp);
+              localStorage.setItem("student_xp", String(stdProf.xp));
+            }
+            if (typeof stdProf.streak === "number" && stdProf.streak > 0) {
+              setStreak(stdProf.streak);
+              localStorage.setItem("riddle_streak", String(stdProf.streak));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch student profile XP in teasers:", err);
+      }
+    };
+    fetchStudentProfile();
+  }, []);
+
   // Synchronize XP changes
   const addXp = (amount: number, detailsMsg: string, logAction: string) => {
     const newXp = xp + amount;
     setXp(newXp);
     localStorage.setItem("student_xp", String(newXp));
 
-    // Log action to DB
+    // Log action & update XP in DB
     const logData = async () => {
       try {
         const { data: u } = await supabase.auth.getUser();
         if (u?.user) {
+          await supabase.from("student_profiles").update({ xp: newXp }).eq("student_id", u.user.id);
           await supabase.from("user_logs").insert({
             user_id: u.user.id,
             action_type: logAction,
@@ -405,7 +436,7 @@ function BrainTeasersPage() {
   };
 
   const initScrambleWord = (idx: number) => {
-    const item = mockScrambleWords[idx];
+    const item = mockScrambleWords[idx] || mockScrambleWords[0];
     setScrambledWord(scrambleWord(item.word));
     setScrambleGuess("");
     setScrambleHintVisible(false);
@@ -434,7 +465,10 @@ function BrainTeasersPage() {
   };
 
   const nextScrambleWord = () => {
-    const nextIdx = (scrambleIdx + 1) % mockScrambleWords.length;
+    let nextIdx = Math.floor(Math.random() * mockScrambleWords.length);
+    if (mockScrambleWords.length > 1 && nextIdx === scrambleIdx) {
+      nextIdx = (scrambleIdx + 1) % mockScrambleWords.length;
+    }
     setScrambleIdx(nextIdx);
   };
 

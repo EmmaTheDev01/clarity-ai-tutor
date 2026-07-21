@@ -65,6 +65,7 @@ function TeacherRegister() {
           email,
           role: "teacher",
           approval_status: "pending",
+          theme_preference: "light",
         });
 
         // 3. Log registration in audit logs

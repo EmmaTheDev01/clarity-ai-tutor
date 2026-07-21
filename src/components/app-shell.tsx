@@ -180,7 +180,31 @@ export function AppShell({
           // Fetch dynamic notifications from Supabase
           const loadedNotifications: NotificationItem[] = [];
 
-          // 1. Fetch note share invitations
+          // 1. Fetch persistent user notifications from Supabase DB
+          try {
+            const { data: dbNotifications } = await supabase
+              .from("notifications")
+              .select("id, title, message, icon, created_at, type")
+              .eq("user_id", userId)
+              .eq("is_read", false)
+              .order("created_at", { ascending: false });
+
+            if (dbNotifications) {
+              dbNotifications.forEach((n: any) => {
+                loadedNotifications.push({
+                  id: n.id,
+                  icon: n.icon || "🔔",
+                  title: n.title,
+                  message: n.message,
+                  time: new Date(n.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+                });
+              });
+            }
+          } catch (e) {
+            console.warn("Could not query DB notifications table:", e);
+          }
+
+          // 2. Fetch note share invitations
           try {
             const { data: dbShares } = await supabase
               .from("note_shares")
@@ -209,7 +233,7 @@ export function AppShell({
             console.warn("Could not query note shares for notification:", e);
           }
 
-          // 2. Add streak notifications if streak exists
+          // 3. Add streak notifications if streak exists
           try {
             const { data: stdProf } = await supabase
               .from("student_profiles")
@@ -220,7 +244,7 @@ export function AppShell({
             if (stdProf && Number(stdProf.streak) > 0) {
               loadedNotifications.push({
                 id: "streak_alert",
-                icon: "",
+                icon: "🔥",
                 title: `${stdProf.streak} Day Study Streak!`,
                 message: "You are on fire! Keep learning today to maintain your streak score.",
                 time: "Today",
@@ -230,11 +254,11 @@ export function AppShell({
             console.warn("Could not query streak score for notification:", e);
           }
 
-          // 3. Fallback welcome notification if empty
+          // 4. Fallback welcome notification if empty
           if (loadedNotifications.length === 0) {
             loadedNotifications.push({
               id: "welcome_alert",
-              icon: "",
+              icon: "✨",
               title: "Welcome to Purelearn!",
               message: "Start learning by uploading a document in the study workspace.",
               time: "Just now",
@@ -257,9 +281,10 @@ export function AppShell({
 
     loadProfile();
 
-    // Subscribe to realtime updates on profiles table
+    // Subscribe to realtime updates on profiles table safely
+    const channelId = `profiles-realtime-${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
-      .channel("profiles-realtime")
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
@@ -279,7 +304,7 @@ export function AppShell({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, []);
 
@@ -464,14 +489,23 @@ export function AppShell({
                 {showNotifications && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
-                    <div className="absolute right-0 mt-2.5 w-80 rounded-2xl border border-border bg-white shadow-2xl p-4 z-40 animate-fade-in origin-top-right">
+                    <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-80 max-w-sm rounded-2xl border border-border/80 bg-popover text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] low-light:shadow-[0_25px_60px_rgba(0,0,0,0.9)] ring-1 ring-border/40 p-4 z-40 animate-fade-in origin-top-right">
                       <div className="flex items-center justify-between pb-3 border-b border-border/40">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Notifications</span>
                         <span
                           className="text-[9px] font-extrabold text-primary hover:underline cursor-pointer"
-                          onClick={() => {
+                          onClick={async () => {
                             setNotifications([]);
                             toast.success("All notifications marked as read.");
+                            try {
+                              const { data: userData } = await supabase.auth.getUser();
+                              if (userData?.user) {
+                                await supabase
+                                  .from("notifications")
+                                  .update({ is_read: true })
+                                  .eq("user_id", userData.user.id);
+                              }
+                            } catch { /* ignored */ }
                           }}
                         >
                           Mark read
@@ -524,7 +558,7 @@ export function AppShell({
                 {showCognitiveDropdown && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowCognitiveDropdown(false)} />
-                    <div className="absolute right-0 mt-2.5 w-64 rounded-2xl border border-border bg-white shadow-2xl p-2 z-40 animate-fade-in origin-top-right">
+                    <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-64 max-w-xs rounded-2xl border border-border/80 bg-popover text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] low-light:shadow-[0_25px_60px_rgba(0,0,0,0.9)] ring-1 ring-border/40 p-2 z-40 animate-fade-in origin-top-right">
                       <div className="px-3 py-2 border-b border-border/40 mb-1">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Cognitive Profiles</span>
                         <p className="text-[9px] text-muted-foreground mt-1">Adjust text rendering to match your processing style.</p>
@@ -591,7 +625,7 @@ export function AppShell({
                 {showUserDropdown && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowUserDropdown(false)} />
-                    <div className="absolute right-0 mt-2.5 w-56 rounded-2xl border border-border/80 bg-white backdrop-blur-xl shadow-2xl p-2 z-40 animate-fade-in origin-top-right">
+                    <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-56 max-w-xs rounded-2xl border border-border/80 bg-popover text-popover-foreground backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] low-light:shadow-[0_25px_60px_rgba(0,0,0,0.9)] ring-1 ring-border/40 p-2 z-40 animate-fade-in origin-top-right">
                       <div className="px-3.5 py-2.5 border-b border-border/40">
                         <div className="text-[11px] font-bold text-foreground truncate">{profile?.name || "Scholar User"}</div>
                         <div className="text-[9px] text-muted-foreground truncate mt-0.5">Logged in User</div>

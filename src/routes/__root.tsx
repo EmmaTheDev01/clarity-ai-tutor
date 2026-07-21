@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CognitiveModeProvider } from "@/hooks/use-cognitive-mode";
+import { ThemeProvider } from "@/hooks/use-theme";
 import {
   Outlet,
   Link,
@@ -129,12 +130,14 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <CognitiveModeProvider>
-      <QueryClientProvider client={queryClient}>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <Toaster />
-      </QueryClientProvider>
-    </CognitiveModeProvider>
+    <ThemeProvider>
+      <CognitiveModeProvider>
+        <QueryClientProvider client={queryClient}>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <Toaster />
+        </QueryClientProvider>
+      </CognitiveModeProvider>
+    </ThemeProvider>
   );
 }
