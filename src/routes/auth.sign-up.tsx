@@ -30,8 +30,8 @@ function SignUp() {
 
   return (
     <AuthShell
-      title="Join Clarity AI Tutor."
-      subtitle="Select your account type to get started."
+      title="Join Purelearn.ai."
+      subtitle="Select your account type to get st`arted."
       footer={
         <>
           Already have an account?{" "}

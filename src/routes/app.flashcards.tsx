@@ -515,7 +515,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
     // Header metadata
     ctx.fillStyle = "#0f172a";
     ctx.font = "bold 20px sans-serif";
-    ctx.fillText("CLARITY AI TUTOR", 45, 65);
+    ctx.fillText("Purelearn.ai", 45, 65);
 
     ctx.fillStyle = "#64748b";
     ctx.font = "12px sans-serif";
@@ -576,9 +576,9 @@ Each question must target a fundamental key concept, definition, or equation. Ea
     ctx.font = "11px sans-serif";
     ctx.fillText(
       "Classroom Verified Material  •  Card " +
-        (currentCardIdx + 1) +
-        " of " +
-        activeDeckCards.length,
+      (currentCardIdx + 1) +
+      " of " +
+      activeDeckCards.length,
       45,
       445,
     );
@@ -614,11 +614,10 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                 <Card
                   key={deck.id}
                   onClick={() => selectDeck(deck)}
-                  className={`relative group/deck cursor-pointer p-4 transition text-left border ${
-                    isSelected
+                  className={`relative group/deck cursor-pointer p-4 transition text-left border ${isSelected
                       ? "border-foreground ring-1 ring-foreground bg-elevated/40"
                       : "border-border hover:bg-elevated/20"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span

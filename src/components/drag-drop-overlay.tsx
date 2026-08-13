@@ -64,7 +64,7 @@ export function DragDropOverlay({ onFilesDropped }: DragDropOverlayProps) {
         </div>
         <div className="text-center">
           <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Drop your study files here</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Upload study notes, PDFs, or media to Clarity AI Tutor</p>
+          <p className="mt-1 text-xs text-muted-foreground">Upload study notes, PDFs, or media to Purelearn.ai</p>
         </div>
       </div>
     </div>

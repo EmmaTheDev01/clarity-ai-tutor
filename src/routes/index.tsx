@@ -161,7 +161,7 @@ function Hero() {
             </div>
             <img
               src={appMockup}
-              alt="Clarity AI Tutor Workspace showing documents list and interactive AI tutor chat"
+              alt="Purelearn.ai Workspace showing documents list and interactive AI tutor chat"
               width={1600}
               height={1008}
               className="block h-auto w-full"
@@ -610,7 +610,7 @@ function Footer() {
           <FooterCol title="Company" links={["Community", "Blog", "Contact us"]} />
           <FooterCol title="Legal" links={["Terms & conditions", "Privacy policy", "GDPR"]} />
         </div>
-        
+
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-border/80 pt-8 sm:flex-row">
           <div className="flex flex-col gap-1 text-center sm:text-left">
             <p className="text-sm text-muted-foreground">

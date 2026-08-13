@@ -1,17 +1,17 @@
 # Google OAuth Integration Guide for Supabase Auth
 
-This guide provides step-by-step instructions to enable Google Sign-In for **Clarity AI Tutor** using Supabase.
+This guide provides step-by-step instructions to enable Google Sign-In for **Purelearn.ai** using Supabase.
 
 ---
 
 ## Step 1: Create credentials on Google Cloud Console
 
 1. Navigate to the **[Google Cloud Console](https://console.cloud.google.com/)**.
-2. Click **Select a project** (top bar) and select **New Project**. Give it a descriptive name (e.g., `Clarity AI Tutor`) and click **Create**.
+2. Click **Select a project** (top bar) and select **New Project**. Give it a descriptive name (e.g., `Purelearn.ai`) and click **Create**.
 3. Go to **APIs & Services** > **OAuth consent screen**:
    * Select **External** (unless you are using Google Workspace for internal organization users) and click **Create**.
    * Fill in the mandatory app details:
-     * **App name**: `Clarity AI Tutor`
+     * **App name**: `Purelearn.ai`
      * **User support email**: Your support email.
      * **Developer contact information**: Your developer email address.
    * Click **Save and Continue** (skip Scopes and Test Users by default unless restricting access).

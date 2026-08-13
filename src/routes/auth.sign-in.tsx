@@ -10,8 +10,8 @@ import { GoogleIcon } from "@/components/icons";
 export const Route = createFileRoute("/auth/sign-in")({
   head: () => ({
     meta: [
-      { title: "Sign in to Clarity — tutor.vigilance.rw" },
-      { name: "description", content: "Sign in to Clarity AI Tutor." },
+      { title: "Sign in to Purelearn.ai." },
+      { name: "description", content: "Sign in to Purelearn.ai." },
     ],
   }),
   component: SignIn,
