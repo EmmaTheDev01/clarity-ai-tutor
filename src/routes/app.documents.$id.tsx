@@ -464,6 +464,7 @@ ${material?.content || "No extracted text available yet."}
         } catch {
           // Best effort auto flashcard deck
         }
+      }
       // Auto-escalate study note for this material (appends chat Q&A to existing note for the material)
       if (text && text.length > 40 && material) {
         (async () => {
