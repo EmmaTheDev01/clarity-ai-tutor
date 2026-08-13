@@ -477,20 +477,116 @@ function PreferencesSection() {
           </div>
         </div>
 
-        <div className="p-6 md:p-8 bg-background border border-border rounded-md  flex flex-col justify-between h-full">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-foreground">API Keys Credentials</div>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              Allow using external custom API keys to run generative models when limits are reached.
-            </p>
-          </div>
-          <div className="mt-5 flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Status: Enabled</span>
-            <Toggle defaultOn />
-          </div>
-        </div>
+        <GeminiApiKeyCard />
       </div>
       </Section>
+    </div>
+  );
+}
+
+import { isAdminUser, saveSystemApiKeyToDb, fetchSystemApiKeyFromDb } from "@/lib/gemini";
+
+function GeminiApiKeyCard() {
+  const [apiKey, setApiKey] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const admin = isAdminUser();
+
+  useEffect(() => {
+    const loadKey = async () => {
+      const dbKey = await fetchSystemApiKeyFromDb();
+      const saved = dbKey || localStorage.getItem("system_gemini_api_key") || localStorage.getItem("custom_gemini_api_key") || import.meta.env.VITE_GEMINI_API_KEY || "";
+      setApiKey(saved);
+    };
+    loadKey();
+  }, []);
+
+  const handleSave = async () => {
+    if (!admin) return;
+    setIsSaving(true);
+    const res = await saveSystemApiKeyToDb(apiKey);
+    setIsSaving(false);
+
+    if (res.success) {
+      setIsSaved(true);
+      toast.success("Gemini API Key saved to database!");
+      setTimeout(() => setIsSaved(false), 2000);
+    } else {
+      toast.error(`Save error: ${res.error || "Failed to save key."}`);
+    }
+  };
+
+  const isValidFormat = apiKey.trim().startsWith("AIzaSy");
+
+  if (!admin) {
+    return (
+      <div className="p-6 md:p-8 bg-background border border-border rounded-md flex flex-col justify-between h-full col-span-1 md:col-span-2">
+        <div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-foreground">API Credentials (.env Default)</div>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">Managed by System Admin</span>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+            All AI tutor queries use the global system environment configuration (<code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">.env</code>). System credentials are configured globally by administrators.
+          </p>
+        </div>
+        <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+          <span>Active Provider: Google Gemini API</span>
+          <span className="font-mono text-[11px] text-green-600 dark:text-green-400 font-semibold">Active (.env)</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 md:p-8 bg-background border border-border rounded-md flex flex-col justify-between h-full col-span-1 md:col-span-2">
+      <div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-bold uppercase tracking-wider text-foreground">Google Gemini API Key (Admin Control)</div>
+          <a
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+          >
+            Get Free Key (Google AI Studio) →
+          </a>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+          Google Gemini API keys start with <code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">AIzaSy</code>. As a System Administrator, you can set a custom API key override below.
+        </p>
+
+        <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="AIzaSy..."
+            className="flex-1 px-3 py-2 rounded-md border border-border bg-card text-foreground text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 shrink-0"
+          >
+            {isSaved ? <Check className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Save Key
+          </button>
+        </div>
+
+        {apiKey && (
+          <div className="mt-3 text-[11px] flex items-center gap-1.5">
+            {isValidFormat ? (
+              <span className="text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                <Check className="h-3 w-3" /> Valid Google API Key format (starts with AIzaSy)
+              </span>
+            ) : (
+              <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Note: Official Google Gemini keys start with "AIzaSy". Current key might return 401 Unauthorized.
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

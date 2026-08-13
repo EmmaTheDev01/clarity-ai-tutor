@@ -437,6 +437,25 @@ Use clean, beautiful markdown formatting throughout. Be thorough.`;
     console.warn("AI text extraction failed during upload, proceeding with default content:", err);
   }
 
+  // Auto-generate AI Flashcards for every created/uploaded learning material
+  if (extractedContent && !extractedContent.includes("[FLASHCARDS]")) {
+    try {
+      const flashcardPrompt = `You are an expert AI professor. Generate 4-8 precision key-point Q&A flashcards for mastering this study material ("${normalizedTitle}").
+Format each line strictly as:
+Q: [Question] | A: [Concise Answer]
+
+Material Content:
+${extractedContent.slice(0, 3000)}`;
+
+      const fcResult = await generateGeminiText(flashcardPrompt, 1500);
+      if (fcResult?.text && fcResult.text.includes("Q:")) {
+        extractedContent = `${extractedContent}\n\n[FLASHCARDS]\n${fcResult.text}`;
+      }
+    } catch (fcErr) {
+      console.warn("Auto flashcards generation for material failed (best effort):", fcErr);
+    }
+  }
+
   const { data, error } = await supabase
     .from("materials")
     .insert({
@@ -454,5 +473,37 @@ Use clean, beautiful markdown formatting throughout. Be thorough.`;
     .single();
 
   if (error) throw error;
+
+  // Persist newly created material's AI flashcard deck to localStorage for immediate availability
+  if (typeof window !== "undefined" && window.localStorage && extractedContent && extractedContent.includes("Q:")) {
+    try {
+      const cards: Array<{ q: string; a: string }> = [];
+      const lines = extractedContent.split("\n");
+      lines.forEach((line) => {
+        const match = line.match(/^Q:\s*([^|]+)\|\s*A:\s*(.+)$/i);
+        if (match) {
+          cards.push({
+            q: match[1].trim().replace(/\*\*/g, ""),
+            a: match[2].trim().replace(/\*\*/g, ""),
+          });
+        }
+      });
+
+      if (cards.length > 0) {
+        const newDeck = {
+          id: `ai_deck_mat_${data.id}`,
+          title: data.title,
+          subject: data.type || "Learning Material",
+          cards,
+        };
+        const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
+        const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+      }
+    } catch {
+      // LocalStorage update best-effort
+    }
+  }
+
   return mapMaterialRow(data);
 }

@@ -20,7 +20,12 @@ import {
   User,
   CreditCard,
   Glasses,
+  ShieldCheck,
+  BookOpen,
   Check,
+  LayoutDashboard,
+  Users,
+  Activity,
 } from "lucide-react";
 import { Kbd } from "./ui-kit";
 import { toast } from "sonner";
@@ -36,6 +41,16 @@ const nav = [
   { to: "/app/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
 
+const adminNav = [
+  { to: "/admin", tab: "overview", label: "Overview", icon: LayoutDashboard },
+  { to: "/admin", tab: "users", label: "Users", icon: Users },
+  { to: "/admin", tab: "materials", label: "Materials", icon: FileText },
+  { to: "/admin", tab: "flashcards", label: "Flashcards", icon: Layers },
+  { to: "/admin", tab: "analytics", label: "Analytics (System)", icon: BarChart3 },
+  { to: "/admin", tab: "logs", label: "System Logs", icon: Activity },
+  { to: "/admin", tab: "settings", label: "App Settings", icon: Settings },
+] as const;
+
 export function AppShell({
   children,
   title,
@@ -47,8 +62,21 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const location = useRouterState({ select: (r) => r.location });
+  const pathname = location.pathname;
+  const currentAdminTab = (location.search as Record<string, string>)?.tab || "overview";
   const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
+  const [userRole, setUserRole] = useState<string>("student");
+
+  useEffect(() => {
+    try {
+      const local = localStorage.getItem("user_profile");
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (parsed.role) setUserRole(parsed.role);
+      }
+    } catch (e) {}
+  }, []);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showCognitiveDropdown, setShowCognitiveDropdown] = useState(false);
@@ -122,7 +150,7 @@ export function AppShell({
 
           const { data: prof, error: profErr } = await supabase
             .from("profiles")
-            .select("name, avatar_url")
+            .select("name, avatar_url, role")
             .eq("id", userId)
             .maybeSingle();
 
@@ -141,16 +169,18 @@ export function AppShell({
                 role: "student",
                 avatar_url: newAvatar,
               })
-              .select("name, avatar_url")
+              .select("name, avatar_url, role")
               .maybeSingle();
 
             if (createdProf) {
               finalName = createdProf.name || "Student User";
               finalAvatar = createdProf.avatar_url || null;
+              if (createdProf.role) setUserRole(createdProf.role);
             }
           } else {
             finalName = prof.name || "Student User";
             finalAvatar = prof.avatar_url || null;
+            if (prof.role) setUserRole(prof.role);
             
             // Backfill avatar if missing in DB but exists in auth metadata
             const metaAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture;
@@ -368,10 +398,59 @@ export function AppShell({
           </Link>
         </div>
 
-        <nav className="px-2">
-          <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}>
-            Workspace
-          </div>
+        <nav className="px-2 space-y-4">
+          {(userRole === "admin" || pathname.startsWith("/admin")) && (
+            <div>
+              <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}>
+                Admin Management
+              </div>
+              {adminNav.map((item) => {
+                const active = pathname.startsWith("/admin") && currentAdminTab === item.tab;
+                return (
+                  <Link
+                    key={item.tab}
+                    to={item.to}
+                    search={{ tab: item.tab }}
+                    onClick={() => setOpen(false)}
+                    className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2 text-xs font-semibold transition-all lg:justify-start ${
+                      isCollapsed ? "lg:justify-center" : "lg:justify-start"
+                    } ${
+                      active
+                        ? "bg-muted text-foreground font-bold border border-border/80"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                    title={item.label}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                    <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {userRole === "teacher" && !pathname.startsWith("/admin") && (
+            <Link
+              to="/teacher"
+              onClick={() => setOpen(false)}
+              className={`mb-3 flex items-center gap-3 rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all border border-border bg-foreground text-background ${
+                isCollapsed ? "lg:justify-center" : "lg:justify-start"
+              }`}
+              title="Educator Portal"
+            >
+              <BookOpen className="h-4 w-4 shrink-0 text-background" />
+              <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+                Educator Portal
+              </span>
+            </Link>
+          )}
+
+          <div>
+            <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}>
+              Workspace
+            </div>
           {nav.map((item) => {
             const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
             return (
@@ -393,6 +472,7 @@ export function AppShell({
               </Link>
             );
           })}
+          </div>
         </nav>
 
         <div className="absolute inset-x-0 bottom-0 border-t border-border p-3">

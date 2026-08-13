@@ -51,7 +51,24 @@ function isStandaloneMath(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
 
-  const hasMathIndicator = /^[=\-+/*]|\\|[_{}^]/.test(trimmed);
+  // Cannot be markdown headings, lists, blockquotes, HTML tags, CSS rules, or JS code
+  if (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("* ") ||
+    trimmed.startsWith("- ") ||
+    trimmed.startsWith("> ") ||
+    /^\d+\.\s+/.test(trimmed) ||
+    trimmed.startsWith("<") ||
+    trimmed.startsWith("/*") ||
+    trimmed.startsWith("*/") ||
+    trimmed.startsWith("//") ||
+    /^\.[a-zA-Z0-9_-]+\s*\{/.test(trimmed) ||
+    /^\s*(?:function|const|let|var|if|else|return|class|switch|case)\b/.test(trimmed)
+  ) {
+    return false;
+  }
+
+  const hasMathIndicator = /^\$\$|\\[a-zA-Z]+|\\Delta|\\partial|\\frac/.test(trimmed);
   if (!hasMathIndicator) return false;
 
   const words = trimmed.split(/[^a-zA-Z]/).filter((w) => w.length > 3);
@@ -63,6 +80,7 @@ function isStandaloneMath(line: string): boolean {
     "beta",
     "gamma",
     "delta",
+    "Delta",
     "theta",
     "lambda",
     "omega",
@@ -70,7 +88,6 @@ function isStandaloneMath(line: string): boolean {
     "right",
     "sqrt",
     "approx",
-    "const",
     "log",
     "det",
     "lim",
@@ -78,7 +95,6 @@ function isStandaloneMath(line: string): boolean {
     "cos",
     "tan",
     "mu",
-    "Sigma",
   ];
   const nonMathWords = words.filter((w) => !mathKeywords.includes(w));
 
@@ -130,21 +146,28 @@ function formatInlineHtml(text: string): string {
     if (token.startsWith("$") && token.endsWith("$")) {
       const math = token.slice(1, -1).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
       try {
-        const rendered = katex.renderToString(math, { throwOnError: false });
+        const rendered = katex.renderToString(math, { throwOnError: true });
         return rendered.replace(/^<span class="katex">/, `<span class="katex" data-latex="${math.replace(/"/g, '&quot;')}">`);
       } catch (e) {
-        return `<span style="font-family:serif;font-style:italic;user-select:all;">${math}</span>`;
+        return `<span>${math}</span>`;
       }
     }
 
-    // Must be a math/LaTeX token
-    const safeToken = token.replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
-    try {
-      const rendered = katex.renderToString(safeToken, { throwOnError: false });
-      return rendered.replace(/^<span class="katex">/, `<span class="katex" data-latex="${safeToken.replace(/"/g, '&quot;')}">`);
-    } catch (e) {
-      return `<span style="font-family:serif;font-style:italic;user-select:all;">${token}</span>`;
+    // Only attempt KaTeX rendering if token is explicit LaTeX and NOT code/comments
+    const isCodeOrComment = /^(?:function|const|let|var|if|else|return|class|document|window|Math\.|setInterval|clearInterval|Date\.now|\/\*|\*\/|;|\{|\})/m.test(token.trim());
+    const isExplicitLaTeX = token.startsWith("\\") || /^[\\{}_^T()\-+/*=]+|\\Sigma|\\mu|\\frac|\\mathbf|\\alpha|\\beta|\\delta|\\Delta|\\partial/i.test(token);
+
+    if (isExplicitLaTeX && !isCodeOrComment) {
+      const safeToken = token.replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+      try {
+        const rendered = katex.renderToString(safeToken, { throwOnError: true });
+        return rendered.replace(/^<span class="katex">/, `<span class="katex" data-latex="${safeToken.replace(/"/g, '&quot;')}">`);
+      } catch (e) {
+        return `<span>${token}</span>`;
+      }
     }
+
+    return `<span>${token}</span>`;
   }).join("");
 }
 
@@ -173,8 +196,83 @@ function markdownToHtml(md: string): string {
       let inUl = false;
       let inOl = false;
       let inTable = false;
+      let inCodeBlock = false;
+      let codeBlockLines: string[] = [];
+      let codeBlockLang = "code";
       let tableRows: string[][] = [];
       let tableAlignments: string[] = [];
+
+function highlightSyntaxHtml(code: string, lang: string): string {
+  if (!code) return "";
+  const lines = code.split("\n");
+
+  return lines
+    .map((line, lineIdx) => {
+      const trimmed = line.trim();
+
+      // Full line comments
+      if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+        const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        return `<div style="display:table-row;"><span style="display:table-cell;color:#64748b;font-family:monospace;user-select:none;padding-right:16px;text-align:right;font-size:10px;opacity:0.4;min-width:2rem;">${lineIdx + 1}</span><span style="display:table-cell;color:#94a3b8;font-style:italic;">${escaped}</span></div>`;
+      }
+
+      // Tokenizing regex for syntax components
+      const tokenRegex = /(".*?"|'.*?'|`.*?`|\/\/[^\n]*|\/\*.*?\*\/|\b(?:const|let|var|function|return|if|else|switch|case|for|while|import|export|from|class|extends|async|await|try|catch|new|null|undefined|true|false)\b|\b\d+(?:\.\d+)?\b|<\/?[a-zA-Z0-9-]+|\b[a-zA-Z_]\w*(?=\())/g;
+
+      let lineHtml = "";
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = tokenRegex.exec(line)) !== null) {
+        const matchText = match[0];
+        const matchIndex = match.index;
+
+        if (matchIndex > lastIndex) {
+          const textSlice = line.slice(lastIndex, matchIndex);
+          lineHtml += textSlice.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        const escapedToken = matchText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        let colorStyle = "color:#e2e8f0;";
+
+        if (/^["'`]/.test(matchText)) {
+          colorStyle = "color:#34d399;font-weight:500;"; // Emerald green strings
+        } else if (/^\/\//.test(matchText) || /^\/\*/.test(matchText)) {
+          colorStyle = "color:#94a3b8;font-style:italic;"; // Slate gray comments
+        } else if (/^\d/.test(matchText)) {
+          colorStyle = "color:#fbbf24;font-weight:600;"; // Amber gold numbers
+        } else if (/^(const|let|var|function|return|if|else|switch|case|for|while|import|export|from|class|extends|async|await|try|catch|new|null|undefined|true|false)$/.test(matchText)) {
+          colorStyle = "color:#38bdf8;font-weight:bold;"; // Sky blue keywords
+        } else if (/^<\/?[a-zA-Z0-9-]+/.test(matchText)) {
+          colorStyle = "color:#fb7185;font-weight:bold;"; // Rose pink HTML tags
+        } else if (/^[a-zA-Z_]\w*$/.test(matchText) && line[matchIndex + matchText.length] === "(") {
+          colorStyle = "color:#60a5fa;font-weight:600;"; // Blue function calls
+        }
+
+        lineHtml += `<span style="${colorStyle}">${escapedToken}</span>`;
+        lastIndex = matchIndex + matchText.length;
+      }
+
+      if (lastIndex < line.length) {
+        const textSlice = line.slice(lastIndex);
+        lineHtml += textSlice.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      return `<div style="display:table-row;"><span style="display:table-cell;color:#64748b;font-family:monospace;user-select:none;padding-right:16px;text-align:right;font-size:10px;opacity:0.4;min-width:2rem;">${lineIdx + 1}</span><span style="display:table-cell;">${lineHtml || "&nbsp;"}</span></div>`;
+    })
+    .join("");
+}
+
+      const closeCodeBlock = () => {
+        if (inCodeBlock && codeBlockLines.length > 0) {
+          const rawCode = codeBlockLines.join("\n");
+          const highlightedHtml = highlightSyntaxHtml(rawCode, codeBlockLang);
+          html += `<div style="margin:16px 0;overflow:hidden;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:#0d1117;color:#f8fafc;font-family:monospace;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,0.2);"><div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);padding:6px 12px;font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;"><span>${codeBlockLang}</span></div><div style="padding:14px;overflow-x:auto;"><div style="display:table;width:100%;border-collapse:collapse;font-family:monospace;line-height:1.5;">${highlightedHtml}</div></div></div>`;
+          codeBlockLines = [];
+          inCodeBlock = false;
+          codeBlockLang = "code";
+        }
+      };
 
       const closeList = () => {
         if (inUl) {
@@ -210,6 +308,7 @@ function markdownToHtml(md: string): string {
       };
 
       const closeAll = () => {
+        closeCodeBlock();
         closeList();
         closeTable();
       };
@@ -217,8 +316,34 @@ function markdownToHtml(md: string): string {
       for (const line of lines) {
         const trimmed = line.trim();
 
+        if (inCodeBlock) {
+          if (trimmed.startsWith("```")) {
+            closeCodeBlock();
+          } else {
+            codeBlockLines.push(line);
+          }
+          continue;
+        }
+
         if (trimmed.startsWith("```")) {
           closeAll();
+          inCodeBlock = true;
+          codeBlockLang = trimmed.slice(3).trim() || "code";
+          continue;
+        }
+
+        const hMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+        if (hMatch) {
+          closeAll();
+          const level = hMatch[1].length;
+          const sizes = ["1.5em", "1.3em", "1.15em", "1em", "0.95em", "0.9em"];
+          html += `<h${level} style="font-size:${sizes[level - 1]};font-weight:700;margin:0.75em 0 0.4em;">${formatInlineHtml(hMatch[2])}</h${level}>`;
+          continue;
+        }
+
+        if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+          closeAll();
+          html += '<hr style="border:none;border-top:1px solid var(--color-border);margin:1em 0;">';
           continue;
         }
 
@@ -264,21 +389,6 @@ function markdownToHtml(md: string): string {
             .map((s) => s.trim())
             .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
           tableRows.push(cells);
-          continue;
-        }
-
-        const hMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
-        if (hMatch) {
-          closeAll();
-          const level = hMatch[1].length;
-          const sizes = ["1.5em", "1.3em", "1.15em", "1em", "0.95em", "0.9em"];
-          html += `<h${level} style="font-size:${sizes[level - 1]};font-weight:700;margin:0.75em 0 0.4em;">${formatInlineHtml(hMatch[2])}</h${level}>`;
-          continue;
-        }
-
-        if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
-          closeAll();
-          html += '<hr style="border:none;border-top:1px solid var(--color-border);margin:1em 0;">';
           continue;
         }
 

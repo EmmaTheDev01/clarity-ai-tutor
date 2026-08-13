@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import katex from "katex";
+import { Copy, Check } from "lucide-react";
 
 export function cleanLatexMathSyntax(text: string): string {
   if (!text) return text;
@@ -14,7 +15,167 @@ export function cleanLatexMathSyntax(text: string): string {
     .replace(/\u200D/g, "")
     .replace(/\uFEFF/g, "")
     .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"');
+    .replace(/[“”]/g, '"')
+    .replace(/(?<!\\)Δ/g, "\\Delta ")
+    .replace(/(?<!\\)∂/g, "\\partial ")
+    .replace(/(?<!\\)×/g, "\\times ");
+}
+
+// Tokenize and color-code code syntax
+function highlightSyntax(code: string, lang: string): React.ReactNode {
+  if (!code) return code;
+  const lines = code.split("\n");
+
+  return lines.map((line, lineIdx) => {
+    const trimmed = line.trim();
+
+    // Full line comments
+    if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+      return (
+        <div key={lineIdx} className="table-row">
+          <span className="table-cell text-slate-500 font-mono select-none pr-4 text-right text-[10px] opacity-40 leading-relaxed min-w-[2rem]">{lineIdx + 1}</span>
+          <span className="table-cell text-slate-400 italic leading-relaxed">{line}</span>
+        </div>
+      );
+    }
+
+    // Tokenize line for syntax color-coding
+    const tokenRegex = /(".*?"|'.*?'|`.*?`|\/\/[^\n]*|\/\*.*?\*\/|\b(?:const|let|var|function|return|if|else|switch|case|for|while|import|export|from|class|extends|async|await|try|catch|new|null|undefined|true|false|document|window|STATES|MODES)\b|\b\d+(?:\.\d+)?\b|\b[a-zA-Z_]\w*(?=\()|<\/?[a-zA-Z0-9-]+|"[^"]*"|'[^']*')/g;
+
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = tokenRegex.exec(line)) !== null) {
+      const matchText = match[0];
+      const matchIndex = match.index;
+
+      if (matchIndex > lastIndex) {
+        parts.push(line.slice(lastIndex, matchIndex));
+      }
+
+      let colorClass = "text-slate-200";
+      if (/^["'`]/.test(matchText)) {
+        colorClass = "text-emerald-400 font-medium"; // Strings
+      } else if (/^\/\//.test(matchText) || /^\/\*/.test(matchText)) {
+        colorClass = "text-slate-400 italic"; // Comments
+      } else if (/^\d/.test(matchText)) {
+        colorClass = "text-amber-400 font-semibold"; // Numbers
+      } else if (/^(const|let|var|function|return|if|else|switch|case|for|while|import|export|from|class|extends|async|await|try|catch|new|null|undefined|true|false)$/.test(matchText)) {
+        colorClass = "text-sky-400 font-bold"; // JS/TS Keywords
+      } else if (/^(document|window|STATES|MODES)$/.test(matchText)) {
+        colorClass = "text-purple-300 font-semibold"; // Globals / Constants
+      } else if (/^<\/?[a-zA-Z0-9-]+/.test(matchText)) {
+        colorClass = "text-rose-400 font-bold"; // HTML tags
+      } else if (/^[a-zA-Z_]\w*$/.test(matchText) && line[matchIndex + matchText.length] === "(") {
+        colorClass = "text-blue-400 font-semibold"; // Function calls
+      }
+
+      parts.push(
+        <span key={matchIndex} className={colorClass}>
+          {matchText}
+        </span>
+      );
+
+      lastIndex = matchIndex + matchText.length;
+    }
+
+    if (lastIndex < line.length) {
+      parts.push(line.slice(lastIndex));
+    }
+
+    return (
+      <div key={lineIdx} className="table-row">
+        <span className="table-cell text-slate-500 font-mono select-none pr-4 text-right text-[10px] opacity-40 leading-relaxed min-w-[2rem]">{lineIdx + 1}</span>
+        <span className="table-cell leading-relaxed">{parts.length > 0 ? parts : line}</span>
+      </div>
+    );
+  });
+}
+
+function CodeBlockContainer({ code, language }: { code: string; language?: string }) {
+  const [copied, setCopied] = useState(false);
+  const lang = (language || "code").toLowerCase();
+
+  const handleCopy = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="my-4 overflow-hidden rounded-xl border border-border/80 bg-[#0d1117] text-slate-100 shadow-md font-mono text-[11.5px]">
+      {/* Code Header Bar */}
+      <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase select-none">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
+            <div className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+          </div>
+          <span className="ml-1 text-slate-300 font-mono font-bold">{lang}</span>
+        </div>
+
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:bg-white/10 hover:text-slate-100 transition"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-emerald-400" />
+              <span className="text-emerald-400 font-bold">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3 text-slate-400" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Code Body */}
+      <div className="p-4 overflow-x-auto select-all leading-relaxed">
+        <div className="table w-full border-collapse font-mono">
+          {highlightSyntax(code, lang)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function detectCodeLanguage(line: string): string | null {
+  const trm = line.trim();
+  if (!trm) return null;
+
+  // HTML tag detector
+  if (/^<\/?(?:div|button|span|p|h[1-6]|section|article|header|footer|main|aside|nav|ul|ol|li|table|tr|th|td|form|input|label|select|option|a|img|script|style|link|meta)\b[^>]*\/?>/i.test(trm)) {
+    return "html";
+  }
+
+  // CSS rule/property detector
+  if (
+    /^\.[a-zA-Z0-9_-]+\s*\{/i.test(trm) ||
+    /^\#[a-zA-Z0-9_-]+\s*\{/i.test(trm) ||
+    /^\/\*\s*Dynamic State/i.test(trm) ||
+    (/^[a-zA-Z-]+:\s*[^;]+;/i.test(trm) && !trm.includes("http") && !trm.includes("url("))
+  ) {
+    return "css";
+  }
+
+  // JS/TS code detector
+  if (
+    /^\s*(?:\/\/\s*---|const|let|var|function|class|import|export|if\s*\(|else|return|switch|case|for\s*\(|while\s*\(|try|catch)\b/.test(trm) ||
+    /^\/\*\*/.test(trm) ||
+    /^\s*(?:[a-zA-Z_]\w*\.[a-zA-Z_]\w*\s*=|currentState\s*=|startTime\s*=)/.test(trm) ||
+    /^(?:IDLE|RUNNING|PAUSED|WORK|BREAK):\s*\{/.test(trm)
+  ) {
+    return "javascript";
+  }
+
+  return null;
 }
 
 // Bionic Reading text transformer for saccadic eye tracking
@@ -41,10 +202,42 @@ function toBionic(text: string): React.ReactNode {
   });
 }
 
+function deMangleSingleCharLines(text: string): string {
+  if (!text) return text;
+  const lines = text.split("\n");
+  const result: string[] = [];
+  let singleCharBuffer: string[] = [];
+
+  const flush = () => {
+    if (singleCharBuffer.length > 0) {
+      result.push(singleCharBuffer.join(""));
+      singleCharBuffer = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    const isSingleChar = trimmed.length === 1 && !/^[#*\-+]$/.test(trimmed);
+
+    if (isSingleChar) {
+      singleCharBuffer.push(trimmed);
+    } else {
+      flush();
+      result.push(line);
+    }
+  }
+  flush();
+
+  return result.join("\n");
+}
+
 // Weld list markers and their contents together if separated by a newline
 function preProcessMarkdown(text: string): string {
   if (!text) return text;
-  const lines = text.split("\n");
+  const demangled = deMangleSingleCharLines(text);
+  const lines = demangled.split("\n");
   const result: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -67,8 +260,12 @@ function preProcessMarkdown(text: string): string {
 
 function preProcessRawLatex(text: string): string {
   if (!text) return text;
-  const lines = text.split("\n");
-  const processedLines = lines.map(line => {
+
+  // Normalize Unicode Delta (Δ) to \Delta
+  let normalized = text.replace(/(?<!\\)Δ/g, "\\Delta ");
+
+  const lines = normalized.split("\n");
+  const processedLines = lines.map((line) => {
     const trimmed = line.trim();
     if (!trimmed) return line;
 
@@ -80,24 +277,32 @@ function preProcessRawLatex(text: string): string {
     }
 
     // Check if the line is a standalone math line:
-    // It contains a backslash and typical math symbols, and does not contain regular English words.
-    const hasMathCommands = /\\(frac|partial|theta|alpha|beta|gamma|delta|lambda|sigma|Sigma|sum|prod|left|right|times|div|approx|in|dots|mathbf|begin|end)/.test(trimmed);
+    const hasMathCommands = /\\(frac|dfrac|sqrt|partial|nabla|theta|alpha|beta|gamma|delta|Delta|lambda|sigma|Sigma|sum|prod|int|iint|iiint|lim|left|right|times|div|approx|in|notin|subset|supset|cup|cap|dots|mathbf|mathbb|mathcal|vec|hat|overline|underline|begin|end|neq|le|leq|ge|geq|propto|equiv|to|rightarrow)\b/.test(trimmed);
     if (hasMathCommands) {
-      const words = trimmed.split(/[^a-zA-Z]/).filter(w => w.length > 3);
-      const mathKeywords = ["frac", "partial", "theta", "alpha", "beta", "gamma", "delta", "lambda", "sigma", "Sigma", "sum", "prod", "left", "right", "times", "div", "approx", "in", "dots", "mathbf", "begin", "end"];
-      const nonMathWords = words.filter(w => !mathKeywords.includes(w));
-      
+      const words = trimmed.split(/[^a-zA-Z]/).filter((w) => w.length > 3);
+      const mathKeywords = [
+        "frac", "dfrac", "sqrt", "partial", "nabla", "theta", "alpha", "beta", "gamma", "delta", "Delta", "lambda",
+        "sigma", "Sigma", "sum", "prod", "int", "iint", "iiint", "lim", "left", "right", "times", "div",
+        "approx", "in", "notin", "subset", "supset", "cup", "cap", "dots", "mathbf", "mathbb", "mathcal",
+        "vec", "hat", "overline", "underline", "begin", "end", "neq", "le", "leq", "ge", "geq", "propto",
+        "equiv", "to", "rightarrow", "text", "cases", "bmatrix", "pmatrix", "vmatrix"
+      ];
+      const nonMathWords = words.filter((w) => !mathKeywords.includes(w));
+
       // If no or very few non-math words, wrap the entire line in $$
       if (nonMathWords.length <= 1) {
         return `$$${trimmed}$$`;
       }
     }
 
-    // Otherwise, replace loose macros (like \theta_1, \alpha, \dots) with $...$
+    // Otherwise, replace loose macros (like \Delta t, \theta_1, \alpha, \dots) with $...$
     let lineText = line;
-    lineText = lineText.replace(/(?<!\$)\\(?:theta|alpha|beta|gamma|delta|lambda|sigma|Sigma|mu|in|dots|cdot|partial|times|approx)\b(?:_[a-zA-Z0-9]|_{[^}]+})?(?:\^[a-zA-Z0-9]|^{[^}]+})?(?!\$)/g, (match) => {
-      return `$${match}$`;
-    });
+    lineText = lineText.replace(
+      /(?<!\$)\\(?:theta|alpha|beta|gamma|delta|Delta|lambda|sigma|Sigma|mu|nu|xi|pi|rho|tau|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|in|notin|subset|supset|cup|cap|dots|cdot|partial|nabla|times|div|approx|neq|le|leq|ge|geq|propto|equiv|to|rightarrow)\b(?:_[a-zA-Z0-9]|_{[^}]+})?(?:\^[a-zA-Z0-9]|^{[^}]+})?(?!\$)/g,
+      (match) => {
+        return `$${match}$`;
+      },
+    );
 
     return lineText;
   });
@@ -141,7 +346,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       // Parse inline blocks: code, bold, math, italics, or explicit LaTeX expressions
       const regex = /(`[^`]+`|\*\*[^*]+\*\*|\$[^\$]+\$|\*[^*]+\*|f\([a-zA-Z0-9_^{}\-+=/*\\]+\)\s*=\s*[a-zA-Z0-9_^{}\-+=/*\\]+|[a-zA-Z0-9\-+/*=()]+(?:_\{[^{}]+\}|_[a-zA-Z0-9]+|\^\{[^{}]+\}|\^[a-zA-Z0-9]+)+|\\(?:mu|Sigma|frac|mathbf|alpha|beta|theta|lambda|pi|phi|sigma|delta|gamma|omega|Sigma|Pi|Delta|Gamma|Omega|ln|log|left|right|[a-zA-Z]+)(?:\{[^{}]+\})*(?:\^[^{}]+|\^T|\^\{[^{}]+\})?(?:_[^{}]+|_[a-zA-Z0-9]+|_(?:\{[^{}]+\}))?)/g;
       const subTokens = lineText.split(regex);
-      
+
       return subTokens.map((token, i) => {
         if (!token) return null;
         if (i % 2 === 0) {
@@ -160,20 +365,22 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         if (token.startsWith("$") && token.endsWith("$")) {
           const formula = cleanLatexMathSyntax(token.slice(1, -1)).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
           try {
-            const html = katex.renderToString(formula, { displayMode: false, throwOnError: false, strict: "ignore" });
+            const html = katex.renderToString(formula, { displayMode: false, throwOnError: true, strict: "ignore" });
             return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
           } catch {
-            return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
+            const cleanFallback = formula.replace(/\\[a-zA-Z]+/g, "").replace(/[{}]/g, "");
+            return <span key={i} className="font-serif italic text-foreground select-all">{cleanFallback || formula}</span>;
           }
         }
-        
+
         // If it reaches here and it's a matched token (i % 2 === 1), it must be one of the math/LaTeX branches of the regex
         const safeToken = cleanLatexMathSyntax(token).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
         try {
-          const html = katex.renderToString(safeToken, { displayMode: false, throwOnError: false, strict: "ignore" });
+          const html = katex.renderToString(safeToken, { displayMode: false, throwOnError: true, strict: "ignore" });
           return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
         } catch {
-          return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
+          const cleanFallback = safeToken.replace(/\\[a-zA-Z]+/g, "").replace(/[{}]/g, "");
+          return <span key={i} className="font-serif italic text-foreground select-all">{cleanFallback || token}</span>;
         }
       });
     };
@@ -185,13 +392,20 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       const prev = blocks.pop();
       blocks.push((prev || "") + "$$" + (last || ""));
     }
-    
+
     blocks.forEach((block, bIdx) => {
-      const isMathBlock = bIdx % 2 === 1;
+      const trimmedBlock = block.trim();
+      const containsCodeOrText =
+        /^\s*(?:function|const|let|var|if|else|return|class|stopTimerEngine|currentState|handleReset|handlePause|handleStart|<button|\.pomodoro-card)\b/m.test(trimmedBlock) ||
+        /^#{1,6}\s+/m.test(trimmedBlock) ||
+        trimmedBlock.length > 400;
+
+      const isMathBlock = bIdx % 2 === 1 && !containsCodeOrText;
+
       if (isMathBlock) {
-        const rawMath = cleanLatexMathSyntax(block.trim()).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
+        const rawMath = cleanLatexMathSyntax(trimmedBlock).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
         try {
-          const html = katex.renderToString(rawMath, { displayMode: true, throwOnError: false, strict: "ignore" });
+          const html = katex.renderToString(rawMath, { displayMode: true, throwOnError: true, strict: "ignore" });
           elements.push(
             <div
               key={`mathblock-${bIdx}`}
@@ -205,7 +419,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               key={`mathblock-${bIdx}`}
               className="my-3 py-2 text-center overflow-x-auto font-serif text-[15px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed min-h-[2rem] flex items-center justify-center"
             >
-              {block.trim()}
+              {trimmedBlock}
             </div>
           );
         }
@@ -214,6 +428,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         let inList = false;
         let listItems: React.ReactNode[] = [];
         let inCodeBlock = false;
+        let codeBlockLang = "code";
         let codeBlockLines: string[] = [];
         let inDiagram = false;
         let diagramLines: string[] = [];
@@ -278,14 +493,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
         const closeDiagram = (lineKey: string) => {
           if (inDiagram && diagramLines.length > 0) {
-            elements.push(
-              <pre
-                key={`diagram-${lineKey}`}
-                className="p-4 rounded-xl bg-muted/60 font-mono text-[11px] text-foreground overflow-x-auto whitespace-pre leading-normal border border-border my-3 select-all"
-              >
-                <code>{diagramLines.join("\n")}</code>
-              </pre>
-            );
+            // Trim leading/trailing blank lines from diagram block
+            let linesToRender = [...diagramLines];
+            while (linesToRender.length > 0 && linesToRender[0].trim() === "") linesToRender.shift();
+            while (linesToRender.length > 0 && linesToRender[linesToRender.length - 1].trim() === "") linesToRender.pop();
+
+            if (linesToRender.length > 0) {
+              elements.push(
+                <div
+                  key={`diagram-card-${lineKey}`}
+                  className="my-4 rounded-xl border border-border/80 bg-muted/40 p-4 shadow-sm overflow-x-auto select-all"
+                >
+                  <pre className="font-mono text-[11px] leading-relaxed text-foreground whitespace-pre">
+                    <code>{linesToRender.join("\n")}</code>
+                  </pre>
+                </div>
+              );
+            }
             diagramLines = [];
             inDiagram = false;
           }
@@ -295,21 +519,54 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           const trimmed = line.trim();
           const key = `blk-${bIdx}-ln-${idx}`;
 
+          const detectedLang = detectCodeLanguage(line);
+          const nextNonEmpty = lines.slice(idx + 1).find((l) => l.trim().length > 0);
+          const isNextCode = nextNonEmpty ? detectCodeLanguage(nextNonEmpty) !== null : false;
+
           if (inCodeBlock) {
-            if (trimmed.startsWith("```")) {
+            if (trimmed.startsWith("```") || (!codeBlockLang.startsWith("fenced:") && !detectedLang && trimmed === "")) {
               elements.push(
-                <pre
+                <CodeBlockContainer
                   key={`code-${key}`}
-                  className="p-4 rounded-xl bg-muted/60 font-mono text-[11px] text-foreground overflow-x-auto whitespace-pre leading-normal border border-border my-3 select-all"
-                >
-                  <code>{codeBlockLines.join("\n")}</code>
-                </pre>
+                  code={codeBlockLines.join("\n")}
+                  language={codeBlockLang.replace("fenced:", "")}
+                />
               );
               codeBlockLines = [];
+              codeBlockLang = "code";
               inCodeBlock = false;
             } else {
               codeBlockLines.push(line);
             }
+            return;
+          }
+
+          // Un-fenced code block auto-detection
+          if (detectedLang && !trimmed.startsWith("#") && !trimmed.startsWith("* ") && !trimmed.startsWith("- ")) {
+            closeDiagram(key);
+            closeTable(key);
+            if (inList) {
+              elements.push(<ul key={`list-${key}`} className="list-disc list-inside space-y-1 mb-3 pl-2">{[...listItems]}</ul>);
+              listItems = [];
+              inList = false;
+            }
+            inCodeBlock = true;
+            codeBlockLang = detectedLang;
+            codeBlockLines.push(line);
+            return;
+          }
+
+          // Code block toggle (```)
+          if (trimmed.startsWith("```")) {
+            closeDiagram(key);
+            closeTable(key);
+            if (inList) {
+              elements.push(<ul key={`list-${key}`} className="list-disc list-inside space-y-1 mb-3 pl-2">{[...listItems]}</ul>);
+              listItems = [];
+              inList = false;
+            }
+            inCodeBlock = true;
+            codeBlockLang = `fenced:${trimmed.slice(3).trim() || "code"}`;
             return;
           }
 
@@ -355,50 +612,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
             tableRows.push(cells);
             return;
-          }
-
-          // Code block toggle (```)
-          if (trimmed.startsWith("```")) {
-            closeDiagram(key);
-            if (inList) {
-              elements.push(<ul key={`list-${key}`} className="list-disc list-inside space-y-1 mb-3 pl-2">{[...listItems]}</ul>);
-              listItems = [];
-              inList = false;
-            }
-            inCodeBlock = true;
-            return;
-          }
-
-
-
-          // Diagram block auto-detection
-          const isDiagramLine = (txt: string): boolean => {
-            const trimmed = txt.trim();
-            if (
-              trimmed.startsWith("#") ||
-              trimmed.startsWith("*") ||
-              trimmed.startsWith("-") ||
-              trimmed.startsWith("+") ||
-              trimmed.startsWith(">") ||
-              /^\d+\.\s+/.test(trimmed)
-            ) {
-              return false;
-            }
-            const diagramChars = /[┌┐└┘┬┴┼├┤│─━┃┏┓┗┛┳┻╋┣┫▼▲◄►➔➔]|[-━─_]{4,}|[|/\\+]{4,}/;
-            return diagramChars.test(txt);
-          };
-
-          if (isDiagramLine(line)) {
-            if (inList) {
-              elements.push(<ul key={`list-${key}`} className="list-disc list-inside space-y-1 mb-3 pl-2">{[...listItems]}</ul>);
-              listItems = [];
-              inList = false;
-            }
-            inDiagram = true;
-            diagramLines.push(line);
-            return;
-          } else {
-            closeDiagram(key);
           }
 
           // Horizontal rule
@@ -511,12 +724,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
         if (inCodeBlock && codeBlockLines.length > 0) {
           elements.push(
-            <pre
+            <CodeBlockContainer
               key={`code-${bIdx}-unclosed`}
-              className="p-4 rounded-xl bg-muted/60 font-mono text-[11px] text-foreground overflow-x-auto whitespace-pre leading-normal border border-border my-3 select-all"
-            >
-              <code>{codeBlockLines.join("\n")}</code>
-            </pre>
+              code={codeBlockLines.join("\n")}
+              language={codeBlockLang.replace("fenced:", "")}
+            />
           );
         }
       }

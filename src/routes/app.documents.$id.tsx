@@ -17,7 +17,7 @@ import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
-import { generateGeminiText } from "@/lib/gemini";
+import { generateGeminiText, streamGeminiText, generateGeminiStructured, GeminiContent } from "@/lib/gemini";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
@@ -197,41 +197,56 @@ function DocumentWorkspace() {
 
 
 function SummaryPanel({ material }: { material: LearningMaterial | null }) {
+  const { mode: cognitiveProfile } = useCognitiveMode();
   const [isSaving, setIsSaving] = useState(false);
 
   const saveToNotebook = async () => {
     if (!material?.content) return;
     setIsSaving(true);
     try {
-      const newNote = {
-        id: "auto_" + Date.now(),
-        title: `Summary: ${material.title}`,
-        subject: material.type || "General",
-        content: material.content,
-        updated: "Just now",
-        isAi: true,
-      };
-
-
-      // Save to Supabase
       const { data: userData } = await supabase.auth.getUser();
       if (userData?.user) {
-        await supabase.from("notes").insert({
-          student_id: userData.user.id,
-          title: newNote.title,
-          subject: newNote.subject,
-          content: newNote.content,
-          is_ai_generated: true,
-        });
+        // Search for existing note for this material
+        const { data: existingNotes } = await supabase
+          .from("notes")
+          .select("*")
+          .eq("student_id", userData.user.id);
+
+        const matchingNote = existingNotes?.find(
+          (n) => n.title.includes(material.title) || n.title === `Summary: ${material.title}`
+        );
+
+        if (matchingNote) {
+          // ESCALATE / UPDATE EXISTING NOTE for this material!
+          let updatedContent = matchingNote.content;
+          if (!updatedContent.includes(material.content.slice(0, 40))) {
+            updatedContent += `\n\n---\n\n### Material Summary: ${material.title}\n\n${material.content}`;
+          }
+          await supabase
+            .from("notes")
+            .update({ content: updatedContent, updated_at: new Date().toISOString() })
+            .eq("id", matchingNote.id);
+
+          toast.success(`Escalated existing study note for "${material.title}"!`);
+        } else {
+          // Create initial note
+          await supabase.from("notes").insert({
+            student_id: userData.user.id,
+            title: `Summary: ${material.title}`,
+            subject: material.type || "General",
+            content: material.content,
+            is_ai_generated: true,
+          });
+
+          toast.success(`Study note created for "${material.title}"!`);
+        }
 
         await supabase.from("user_logs").insert({
           user_id: userData.user.id,
           action_type: "note_created",
-          details: `Generated study note from ${material.type}: "${material.title}"`,
+          details: `Saved/escalated study note for ${material.type}: "${material.title}"`,
         });
       }
-
-      toast.success("Study note saved to your notebook!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to save study note.");
@@ -384,16 +399,110 @@ ${material?.content || "No extracted text available yet."}
 - Ground all citations and examples in the active material title: *${material?.title || "Unknown"}*.
 - End with a Socratic question that guides the student toward deeper thinking.`;
 
-      const prompt = `${systemPrompt}
+      const contentsHistory: GeminiContent[] = messages.map((m) => ({
+        role: m.from === "user" ? ("user" as const) : ("model" as const),
+        parts: [{ text: m.text }],
+      }));
+      contentsHistory.push({ role: "user", parts: [{ text: trimmed }] });
 
-Conversation History:
-${chatHistory}
+      let text = "";
+      setMessages([...nextMessages, { from: "ai", text: "Thinking...", citation: material?.title }]);
 
-Student: ${trimmed}
-Professor:`;
+      try {
+        const streamRes = await streamGeminiText(
+          {
+            systemInstruction: systemPrompt,
+            contents: contentsHistory,
+            maxOutputTokens: 3500,
+          },
+          (chunk) => {
+            text += chunk;
+            setMessages((prev) => {
+              const next = [...prev];
+              const lastIdx = next.length - 1;
+              if (lastIdx >= 0 && next[lastIdx].from === "ai") {
+                next[lastIdx] = { ...next[lastIdx], text: text || "Thinking..." };
+              }
+              return next;
+            });
+          },
+        );
+        text = streamRes.text;
+      } catch (streamErr) {
+        console.warn("Document chat streaming failed, using fallback:", streamErr);
+        const fallbackRes = await generateGeminiText({
+          systemInstruction: systemPrompt,
+          contents: contentsHistory,
+          maxOutputTokens: 3500,
+        });
+        text = fallbackRes.text;
+        setMessages([...nextMessages, { from: "ai", text, citation: material?.title }]);
+      }
 
-      const { text } = await generateGeminiText(prompt, 3500);
-      setMessages([...nextMessages, { from: "ai", text, citation: material?.title }]);
+      // Auto-create AI flashcard deck for document tutor prompt
+      if (text && text.length > 40) {
+        try {
+          const cards: Array<{ q: string; a: string }> = [];
+          const topicSnippet = trimmed.slice(0, 40).replace(/[^a-zA-Z0-9 ]/g, "").trim() || (material?.title || "Document Concept");
+          const cleanTextExcerpt = text.replace(/[*#`]/g, "").slice(0, 180).replace(/\n/g, " ").trim();
+          cards.push({
+            q: `What is the core takeaway regarding ${topicSnippet}?`,
+            a: cleanTextExcerpt,
+          });
+
+          const newDeck = {
+            id: `ai_deck_doc_${Date.now()}`,
+            title: `${material?.title || "Document"}: ${topicSnippet}`,
+            subject: material?.type || "Document Tutor",
+            cards,
+          };
+          if (typeof window !== "undefined" && window.localStorage) {
+            const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
+            const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+            localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+          }
+        } catch {
+          // Best effort auto flashcard deck
+        }
+      // Auto-escalate study note for this material (appends chat Q&A to existing note for the material)
+      if (text && text.length > 40 && material) {
+        (async () => {
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            if (userData?.user) {
+              const { data: existingNotes } = await supabase
+                .from("notes")
+                .select("*")
+                .eq("student_id", userData.user.id);
+
+              const matchingNote = existingNotes?.find(
+                (n) => n.title.includes(material.title) || n.title === `Summary: ${material.title}`
+              );
+
+              const qaSection = `\n\n---\n\n### AI Tutor Discussion (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})\n\n**Student Prompt:** ${trimmed}\n\n${text}`;
+
+              if (matchingNote) {
+                const updatedContent = matchingNote.content + qaSection;
+                await supabase
+                  .from("notes")
+                  .update({ content: updatedContent, updated_at: new Date().toISOString() })
+                  .eq("id", matchingNote.id);
+              } else {
+                const initialContent = `# ${material.title}\n\n${material.content || ""}${qaSection}`;
+                await supabase.from("notes").insert({
+                  student_id: userData.user.id,
+                  title: `Summary: ${material.title}`,
+                  subject: material.type || "General",
+                  content: initialContent,
+                  is_ai_generated: true,
+                });
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to auto-escalate note for material:", err);
+          }
+        })();
+      }
 
       // Save user & AI response to database in background
       (async () => {
@@ -558,6 +667,7 @@ function Message({
   text: string;
   citation?: string;
 }) {
+  const { mode: cognitiveProfile } = useCognitiveMode();
   const isAi = from === "ai";
   const [isSaving, setIsSaving] = useState(false);
 
@@ -670,21 +780,38 @@ function QuizPanel({ material }: { material: any }) {
     setGenerating(true);
     try {
       const contentExcerpt = material.content || "General learning contents.";
-      const prompt = `Based on the following educational text, generate exactly 3 multiple-choice study questions in valid JSON format.
-Do NOT include markdown formatting wrappers, only a clean JSON array of questions.
-Each question object MUST contain:
-- "question": string
-- "options": array of exactly 4 strings
-- "correctIndex": number (0 to 3)
+      const quizSchema = {
+        type: "OBJECT",
+        properties: {
+          questions: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                question: { type: "STRING" },
+                options: {
+                  type: "ARRAY",
+                  items: { type: "STRING" },
+                },
+                correctIndex: { type: "INTEGER" },
+                socratic_explanation: { type: "STRING" },
+              },
+              required: ["question", "options", "correctIndex"],
+            },
+          },
+        },
+        required: ["questions"],
+      };
 
-Educational Text:
-${contentExcerpt.slice(0, 3000)}
+      const result = await generateGeminiStructured<{
+        questions: Array<{ question: string; options: string[]; correctIndex: number; socratic_explanation?: string }>;
+      }>({
+        systemInstruction: "You are an expert educational assessment author.",
+        prompt: `Based on the following educational text, generate exactly 3 multiple-choice study questions.\n\nEducational Text:\n${contentExcerpt.slice(0, 3000)}`,
+        responseSchema: quizSchema,
+      });
 
-Response JSON:`;
-
-      const response = await generateGeminiText(prompt);
-      const cleanJson = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsedQuestions = JSON.parse(cleanJson);
+      const parsedQuestions = result.data.questions;
 
       const { data: userData } = await supabase.auth.getUser();
       const creatorId = userData?.user?.id;

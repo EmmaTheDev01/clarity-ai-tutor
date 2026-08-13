@@ -16,7 +16,7 @@ import {
   togglePinMaterial,
   uploadLearningMaterial,
 } from "@/lib/learning-materials";
-import { geminiModel, generateGeminiText } from "@/lib/gemini";
+import { geminiModel, generateGeminiText, streamGeminiText, GeminiContent, GeminiContentPart } from "@/lib/gemini";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
@@ -711,15 +711,24 @@ function Dashboard() {
       const url = urlMatches[0];
       const toastId = toast.loading(`Analyzing link: ${url}...`);
       try {
-        // Attempt to resolve real page title via a proxy-safe fetch
+        // Attempt to resolve real page title via proxy-safe / oEmbed fetch
         let resolvedTitle = url.replace(/https?:\/\/(www\.)?/, "").split("/")[0] || "Web Link";
         try {
-          const resp = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-          if (resp.ok) {
-            const json = await resp.json() as { contents?: string };
-            const titleMatch = json.contents?.match(/<title[^>]*>([^<]+)<\/title>/i);
-            if (titleMatch?.[1]) {
-              resolvedTitle = titleMatch[1].trim().substring(0, 80);
+          if (url.includes("youtube.com") || url.includes("youtu.be")) {
+            const oembedResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+            if (oembedResp.ok) {
+              const oembedJson = (await oembedResp.json()) as { title?: string; author_name?: string };
+              if (oembedJson.title) {
+                resolvedTitle = `YouTube: ${oembedJson.title}`;
+              }
+            }
+          } else {
+            const noembedResp = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+            if (noembedResp.ok) {
+              const noembedJson = (await noembedResp.json()) as { title?: string };
+              if (noembedJson.title) {
+                resolvedTitle = noembedJson.title.trim().substring(0, 80);
+              }
             }
           }
         } catch {
@@ -815,16 +824,19 @@ function Dashboard() {
     setStoredItem("student_xp", String(newXp));
 
     // Log the user action and update XP in DB
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        supabase.from("student_profiles").update({ xp: newXp }).eq("student_id", data.user.id).then().catch(() => {});
-        supabase.from("user_logs").insert({
-          user_id: data.user.id,
-          action_type: "chat_query_submitted",
-          details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
-        }).then().catch(() => {});
-      }
-    }).catch(() => {});
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) {
+          await supabase.from("student_profiles").update({ xp: newXp }).eq("student_id", data.user.id);
+          await supabase.from("user_logs").insert({
+            user_id: data.user.id,
+            action_type: "chat_query_submitted",
+            details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
+          });
+        }
+      } catch {}
+    })();
 
     // Create session and insert student message immediately in background/sync
     let sId: string | null = null;
@@ -890,7 +902,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
 ### RESPONSE STRUCTURE — ALWAYS FOLLOW THIS ORDER:
 1. **Theory First** — Begin with a deep conceptual explanation. Explain the *why* before the *how*. Use **bold** for key terms when first introduced. Use *italics* for emphasis on critical ideas. Use \`## Heading\` and \`### Subheading\` markdown to organize complex topics into logical sections.
-2. **Formulas & Definitions Second** — After laying the theory, present any relevant formulas, equations, or formal definitions clearly, using code blocks or inline math notation (e.g. \`f(x) = ...\`). Explain what each symbol means.
+2. **Formulas & Definitions Second** — Present all formulas, partial derivatives, and equations in strict single-line inline (\`$ ... $\`) or block (\`$$ ... $$\`) KaTeX/LaTeX notation (e.g. \`\\frac{\\partial C}{\\partial w} = (a - y) \\cdot x\`). Never split LaTeX macros, fraction numerators, or denominators across separate plain text lines. Explain what each symbol means.
 3. **Worked Examples Last** — Only after theory and formulas are established, walk through 1–2 illustrative examples. Do NOT give direct solutions — instead guide the student with Socratic steps and questions mid-example.
 
 ### DEPTH & RICHNESS REQUIREMENTS:
@@ -926,31 +938,80 @@ You write responses that read like **high-quality lecture notes** — rich, thor
    - The AI must generate 2 to 4 smart, dynamic, highly educational flashcards based on the concepts discussed. Keep questions and answers strictly in plain text (no bold stars **, no italics, no headers, no lists).`;
 
     try {
-      const chatHistoryContext = updatedHistory
+      // Generate response from Gemini using real-time SSE streaming and separated system_instruction
+      const contentsPayload: GeminiContent[] = updatedHistory
         .slice(-20)
-        .map((msg) => `${msg.from === "user" ? "Student" : "Mentor"}: ${msg.text}`)
-        .join("\n\n");
+        .map((msg) => ({
+          role: msg.from === "user" ? ("user" as const) : ("model" as const),
+          parts: [{ text: msg.text }],
+        }));
 
-      // Generate response from Gemini (handles text or multimodal image payloads)
+      const currentUserParts: GeminiContentPart[] = [];
+      if (imagesToSend.length > 0) {
+        imagesToSend.forEach((img) => {
+          currentUserParts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+        });
+      }
+      currentUserParts.push({ text: `${linkPromptOverride ? linkPromptOverride + "\n\n" : ""}${trimmed}` });
+      contentsPayload.push({ role: "user", parts: currentUserParts });
+
       let generatedText = "";
       let respondingModel = geminiModel;
-      if (imagesToSend.length > 0) {
-        const { generateGeminiMultimodal } = await import("@/lib/gemini");
-        const res = await generateGeminiMultimodal(
-          `${systemInstruction}${linkPromptOverride}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
-          imagesToSend.map((img) => ({ base64: img.base64, mimeType: img.mimeType })),
-          undefined,
-          4096,
+
+      const aiPlaceholder: Message = {
+        from: "ai",
+        text: "Thinking...",
+        timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      };
+
+      setChatHistories((prev) => ({
+        ...prev,
+        [activeDocIdForResponse]: [...updatedHistory, aiPlaceholder],
+      }));
+
+      try {
+        const streamRes = await streamGeminiText(
+          {
+            systemInstruction: `${systemInstruction}`,
+            contents: contentsPayload,
+            maxOutputTokens: 4096,
+          },
+          (chunkText) => {
+            generatedText += chunkText;
+            const display = generatedText.split("[NOTE_SUMMARY]")[0].trim();
+            setChatHistories((prev) => {
+              const currentHist = prev[activeDocIdForResponse] || [];
+              if (currentHist.length === 0) return prev;
+              const next = [...currentHist];
+              const lastIdx = next.length - 1;
+              if (lastIdx >= 0 && next[lastIdx].from === "ai") {
+                next[lastIdx] = { ...next[lastIdx], text: display || "Thinking..." };
+              }
+              return { ...prev, [activeDocIdForResponse]: next };
+            });
+          },
         );
-        generatedText = res.text;
-        respondingModel = res.model;
-      } else {
-        const res = await generateGeminiText(
-          `${systemInstruction}${linkPromptOverride}\n\nConversation History:\n${chatHistoryContext}\n\nStudent Message:\n${trimmed}`,
-          4096,
-        );
-        generatedText = res.text;
-        respondingModel = res.model;
+        respondingModel = streamRes.model;
+      } catch (streamErr) {
+        console.warn("Streaming fallback to generateGeminiText:", streamErr);
+        const fallbackRes = await generateGeminiText({
+          systemInstruction: `${systemInstruction}`,
+          contents: contentsPayload,
+          maxOutputTokens: 4096,
+        });
+        generatedText = fallbackRes.text;
+        respondingModel = fallbackRes.model;
+        setChatHistories((prev) => {
+          const currentHist = prev[activeDocIdForResponse] || [];
+          if (currentHist.length === 0) return prev;
+          const next = [...currentHist];
+          const lastIdx = next.length - 1;
+          const display = fallbackRes.text.split("[NOTE_SUMMARY]")[0].trim();
+          if (lastIdx >= 0 && next[lastIdx].from === "ai") {
+            next[lastIdx] = { ...next[lastIdx], text: display };
+          }
+          return { ...prev, [activeDocIdForResponse]: next };
+        });
       }
 
       let coachText = generatedText;
@@ -973,11 +1034,21 @@ You write responses that read like **high-quality lecture notes** — rich, thor
         }
       }
 
-      // Process Note Auto-save in the background
-      if (noteSummary) {
-        const titleMatch = noteSummary.match(/Title:\s*([^|]+)/i);
-        const subjectMatch = noteSummary.match(/Subject:\s*([^|]+)/i);
-        const contentMatch = noteSummary.match(/Content:\s*(.+)/i);
+      // Process Note & Flashcards Auto-save for EVERY AI prompt
+      let noteSummaryToUse = noteSummary;
+      if (!noteSummaryToUse && coachText && coachText.length > 30) {
+        const topicSnippet = trimmed.slice(0, 45).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Study Concept";
+        const cleanCoachExcerpt = coachText.replace(/[*#`]/g, "").slice(0, 180).replace(/\n/g, " ").trim();
+        noteSummaryToUse = `[NOTE_SUMMARY] Title: ${topicSnippet} | Subject: AI Tutoring | Content: Key takeaways on ${topicSnippet}.\n[FLASHCARDS]\nQ: What is the core principle of ${topicSnippet}? | A: ${cleanCoachExcerpt}`;
+        if (!flashcardBlock) {
+          flashcardBlock = `[FLASHCARDS]\nQ: What is the core principle of ${topicSnippet}? | A: ${cleanCoachExcerpt}`;
+        }
+      }
+
+      if (noteSummaryToUse) {
+        const titleMatch = noteSummaryToUse.match(/Title:\s*([^|]+)/i);
+        const subjectMatch = noteSummaryToUse.match(/Subject:\s*([^|]+)/i);
+        const contentMatch = noteSummaryToUse.match(/Content:\s*(.+)/i);
 
         const rawTitle = titleMatch ? titleMatch[1].trim() : "AI Concept Note";
         const cleanTitle = rawTitle.replace(/^\[|\]$/g, "");
@@ -1006,33 +1077,83 @@ You write responses that read like **high-quality lecture notes** — rich, thor
           try {
             const { data: userData } = await supabase.auth.getUser();
             if (userData?.user) {
-              const { data: dbNote } = await supabase
-                .from("notes")
-                .insert({
-                  student_id: userData.user.id,
-                  title: newNote.title,
-                  subject: newNote.subject,
-                  content: newNote.content,
-                  is_ai_generated: true,
-                  images: newNote.images,
-                })
-                .select("id")
-                .maybeSingle();
+              const activeMatTitle = activeDocForResponse?.title || "";
 
-              if (dbNote) {
-                newNote.id = dbNote.id;
+              const { data: existingNotes } = await supabase
+                .from("notes")
+                .select("*")
+                .eq("student_id", userData.user.id);
+
+              const matchingNote = activeMatTitle
+                ? existingNotes?.find(
+                    (n) => n.title.includes(activeMatTitle) || n.title === `Summary: ${activeMatTitle}`
+                  )
+                : null;
+
+              if (matchingNote) {
+                // ESCALATE / UPDATE EXISTING NOTE FOR THIS MATERIAL
+                const updateSection = `\n\n---\n\n### ${cleanTitle} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})\n\n${cleanContent}\n\n**Student Discussion:** ${trimmed}\n\n*Updated from active study session.*`;
+                const updatedContent = matchingNote.content + updateSection;
+
+                await supabase
+                  .from("notes")
+                  .update({ content: updatedContent, updated_at: new Date().toISOString() })
+                  .eq("id", matchingNote.id);
+              } else {
+                // CREATE NEW NOTE FOR THIS MATERIAL
+                const { data: dbNote } = await supabase
+                  .from("notes")
+                  .insert({
+                    student_id: userData.user.id,
+                    title: activeMatTitle ? `Summary: ${activeMatTitle}` : newNote.title,
+                    subject: newNote.subject,
+                    content: newNote.content,
+                    is_ai_generated: true,
+                    images: newNote.images,
+                  })
+                  .select("id")
+                  .maybeSingle();
+
+                if (dbNote) {
+                  newNote.id = dbNote.id;
+                }
               }
 
               // Prepend local cache so it updates list immediately
               const stored = getStoredItem("digital_notebook", "[]");
               const currentNotes = stored ? JSON.parse(stored) : [];
               setStoredItem("digital_notebook", JSON.stringify([newNote, ...currentNotes]));
+
+              // Extract & store custom AI Flashcard Deck directly for Flashcard View
+              const cards: Array<{ q: string; a: string }> = [];
+              const lines = noteContent.split("\n");
+              lines.forEach((line) => {
+                const match = line.match(/^Q:\s*([^|]+)\|\s*A:\s*(.+)$/i);
+                if (match) {
+                  cards.push({
+                    q: match[1].trim().replace(/\*\*/g, ""),
+                    a: match[2].trim().replace(/\*\*/g, ""),
+                  });
+                }
+              });
+
+              if (cards.length > 0) {
+                const newDeck = {
+                  id: `ai_deck_prompt_${newNote.id}`,
+                  title: cleanTitle,
+                  subject: cleanSubject,
+                  cards,
+                };
+                const rawAiDecks = getStoredItem("purelearn_ai_custom_decks", "[]");
+                const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+                setStoredItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+              }
             }
           } catch (err) {
             console.warn("Supabase notes save or update fail:", err);
           }
 
-          toast.success(`"${cleanTitle}" saved to notebook.`, { duration: 2500 });
+          toast.success(`"${cleanTitle}" & Flashcard Deck saved.`, { duration: 2500 });
         }
       }
 

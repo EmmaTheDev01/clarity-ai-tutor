@@ -18,6 +18,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as BlogRouteImport } from './routes/blog'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeacherIndexRouteImport } from './routes/teacher.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -79,6 +80,11 @@ const ChangelogRoute = ChangelogRouteImport.update({
 const BlogRoute = BlogRouteImport.update({
   id: '/blog',
   path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -169,6 +175,7 @@ const AppDocumentsIdRoute = AppDocumentsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/blog': typeof BlogRoute
   '/changelog': typeof ChangelogRoute
   '/community': typeof CommunityRoute
@@ -197,6 +204,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/blog': typeof BlogRoute
   '/changelog': typeof ChangelogRoute
   '/community': typeof CommunityRoute
@@ -226,6 +234,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/blog': typeof BlogRoute
   '/changelog': typeof ChangelogRoute
   '/community': typeof CommunityRoute
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$'
     | '/blog'
     | '/changelog'
     | '/community'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$'
     | '/blog'
     | '/changelog'
     | '/community'
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$'
     | '/blog'
     | '/changelog'
     | '/community'
@@ -341,6 +353,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   BlogRoute: typeof BlogRoute
   ChangelogRoute: typeof ChangelogRoute
   CommunityRoute: typeof CommunityRoute
@@ -431,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/blog'
       fullPath: '/blog'
       preLoaderRoute: typeof BlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -557,6 +577,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   BlogRoute: BlogRoute,
   ChangelogRoute: ChangelogRoute,
   CommunityRoute: CommunityRoute,

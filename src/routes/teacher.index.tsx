@@ -1,23 +1,26 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui-kit";
+import { AppShell } from "@/components/app-shell";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
   Users,
   BookOpen,
-  Settings,
-  HelpCircle,
-  Upload,
   Plus,
   Trash2,
   FileCheck2,
   Lock,
   Unlock,
   MessageSquare,
-  LogOut,
-  Brain,
+  FileText,
+  HelpCircle,
+  Upload,
+  RefreshCw,
+  Clock,
   Layers,
+  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { uploadLearningMaterial } from "@/lib/learning-materials";
 
@@ -26,62 +29,47 @@ export const Route = createFileRoute("/teacher/")({
   component: TeacherPortal,
 });
 
-// Mock Students data enrolled in Dr. Sarah Adeyemi's Class (Linear Algebra & ML)
-const mockStudents = [
-  {
-    id: "s1",
-    name: "Alex Johnson",
-    email: "alex@school.edu",
-    grade: "88%",
-    profile: "ADHD Focus",
-    activity: "Active 2h ago",
-  },
-  {
-    id: "s2",
-    name: "Aisha Keza",
-    email: "aisha@school.edu",
-    grade: "94%",
-    profile: "Dyslexia Friendly",
-    activity: "Active 10m ago",
-  },
-  {
-    id: "s3",
-    name: "Jean-Luc Munyaneza",
-    email: "jl.m@school.edu",
-    grade: "76%",
-    profile: "Standard Mode",
-    activity: "Active Yesterday",
-  },
-  {
-    id: "s4",
-    name: "Deborah Umutoni",
-    email: "deborah@school.edu",
-    grade: "91%",
-    profile: "Sensory Low-Stimulus",
-    activity: "Active 3d ago",
-  },
-];
-
-type PublishedMaterial = {
-  title: string;
-  type: string;
-  quiz: boolean;
-  cards: number;
-};
-
-const getErrorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
-
-function TeacherPortal() {
+export function TeacherPortal() {
   const navigate = useNavigate();
 
+  // Teacher Approval & Profile state
   const [profileStatus, setProfileStatus] = useState<"loading" | "approved" | "pending" | "rejected">("loading");
   const [userEmail, setUserEmail] = useState("");
-  const [educatorName, setEducatorName] = useState("Dr. Sarah Adeyemi");
-  const [institutionName, setInstitutionName] = useState("University of Rwanda");
+  const [educatorName, setEducatorName] = useState("Educator");
+  const [userId, setUserId] = useState<string | null>(null);
 
+  // Live Database States (NO MOCK DATA)
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [activeClassroom, setActiveClassroom] = useState<any | null>(null);
+  const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
+  const [classroomMaterials, setClassroomMaterials] = useState<any[]>([]);
+  const [classroomQuizzes, setClassroomQuizzes] = useState<any[]>([]);
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Classroom creation state
+  const [newClassName, setNewClassName] = useState("");
+  const [newClassSubject, setNewClassSubject] = useState("");
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+
+  // Material upload state
+  const [materialTitle, setMaterialTitle] = useState("");
+  const [materialType, setMaterialType] = useState("PDF");
+  const [materialContent, setMaterialContent] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Quiz creation state
+  const [quizTitle, setQuizTitle] = useState("");
+  const [quizQuestion, setQuizQuestion] = useState("");
+  const [quizOptions, setQuizOptions] = useState(["", "", ""]);
+  const [correctIndex, setCorrectIndex] = useState(0);
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
+
+  // Check teacher authentication & approval status
   useEffect(() => {
-    const checkApproval = async () => {
+    const initTeacherData = async () => {
+      setIsLoading(true);
       try {
         const { data: userData } = await supabase.auth.getUser();
         if (!userData?.user) {
@@ -89,567 +77,639 @@ function TeacherPortal() {
           if (localProfile) {
             const parsed = JSON.parse(localProfile);
             setUserEmail(parsed.email || "");
-            setEducatorName(parsed.name || "Dr. Sarah Adeyemi");
-            setInstitutionName(parsed.institution || "University of Rwanda");
-
-            const { data: dbProf } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("email", parsed.email)
-              .maybeSingle();
-            if (dbProf && (dbProf as any).approval_status) {
-              setProfileStatus((dbProf as any).approval_status);
-            } else {
-              setProfileStatus("approved");
-            }
-          } else {
-            setProfileStatus("approved");
+            setEducatorName(parsed.name || "Educator");
           }
+          setProfileStatus("approved");
+          setIsLoading(false);
           return;
         }
+
+        const uId = userData.user.id;
+        setUserId(uId);
         setUserEmail(userData.user.email || "");
+
         const { data: dbProf } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", userData.user.id)
+          .eq("id", uId)
           .maybeSingle();
 
         if (dbProf) {
           if (dbProf.name) setEducatorName(dbProf.name);
-          setProfileStatus(((dbProf as any).approval_status || "approved") as any);
+          setProfileStatus((dbProf.approval_status || "approved") as any);
         } else {
           setProfileStatus("approved");
         }
+
+        // Fetch real teacher classrooms from database
+        fetchTeacherClassrooms(uId);
       } catch (err) {
+        console.warn("Could not load teacher profile:", err);
         setProfileStatus("approved");
+        setIsLoading(false);
       }
     };
-    checkApproval();
+
+    initTeacherData();
   }, []);
 
-  // States for Class, Materials & Quiz loop
-  const [materialTitle, setMaterialTitle] = useState("");
-  const [materialType, setMaterialType] = useState("PDF");
-  const [materialContent, setMaterialContent] = useState("");
+  // Fetch classrooms created by this teacher
+  const fetchTeacherClassrooms = async (tId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("classrooms")
+        .select("*")
+        .eq("teacher_id", tId)
+        .order("created_at", { ascending: false });
 
-  // Quiz creation inputs
-  const [quizAttached, setQuizAttached] = useState(false);
-  const [quizQuestion, setQuizQuestion] = useState("");
-  const [quizOptions, setQuizOptions] = useState(["", "", ""]);
-  const [correctIndex, setCorrectIndex] = useState(0);
-
-  // Flashcards creation inputs
-  const [flashcardAttached, setFlashcardAttached] = useState(false);
-  const [flashcardFront, setFlashcardFront] = useState("");
-  const [flashcardBack, setFlashcardBack] = useState("");
-
-  // AI Prompt custom sandbox rules
-  const [sandboxPrompt, setSandboxPrompt] = useState(
-    "You are a strict Socratic STEM coach. Identify the core logical flaw in their code/math and ask 2 helpful hints. Never print code chunks.",
-  );
-  const [uploadedSyllabi, setUploadedSyllabi] = useState<string[]>([
-    "linear-algebra-syllabus-2026.pdf",
-  ]);
-  const [syllabiFile, setSyllabiFile] = useState("");
-  const [syllabiStatus, setSyllabiStatus] = useState("");
-
-  // Publish Status
-  const [publishedMaterials, setPublishedMaterials] = useState<PublishedMaterial[]>([
-    { title: "Linear Algebra — Chapter 4", type: "PDF", quiz: true, cards: 4 },
-    { title: "Neural Networks Lecture Notes", type: "Text", quiz: true, cards: 8 },
-  ]);
-
-  const isPublishLocked = !materialTitle || !materialContent || !quizAttached || !flashcardAttached;
-
-  const handleAttachQuiz = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quizQuestion || quizOptions.some((opt) => !opt.trim())) return;
-    setQuizAttached(true);
+      if (data) {
+        setClassrooms(data);
+        if (data.length > 0) {
+          setActiveClassroom(data[0]);
+          fetchClassroomDetails(data[0].id);
+        }
+      }
+    } catch (err) {
+      console.warn("Error loading classrooms from DB:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAttachFlashcard = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!flashcardFront || !flashcardBack) return;
-    setFlashcardAttached(true);
+  // Fetch enrolled students, materials, and quizzes for a classroom
+  const fetchClassroomDetails = async (classId: string) => {
+    try {
+      // 1. Fetch Enrolled Students in classroom
+      const { data: sData } = await supabase
+        .from("classroom_students")
+        .select("student_id, joined_at, profiles(name, email, role)")
+        .eq("classroom_id", classId);
+
+      if (sData) {
+        setEnrolledStudents(sData);
+      } else {
+        setEnrolledStudents([]);
+      }
+
+      // 2. Fetch Materials for classroom
+      const { data: mData } = await supabase
+        .from("materials")
+        .select("*")
+        .eq("classroom_id", classId)
+        .order("created_at", { ascending: false });
+
+      if (mData) {
+        setClassroomMaterials(mData);
+      } else {
+        setClassroomMaterials([]);
+      }
+
+      // 3. Fetch Quizzes for classroom
+      const { data: qData } = await supabase
+        .from("quizzes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (qData) {
+        setClassroomQuizzes(qData);
+
+        // 4. Fetch Quiz Attempts for student submissions
+        const quizIds = qData.map((q) => q.id);
+        if (quizIds.length > 0) {
+          const { data: attData } = await supabase
+            .from("quiz_attempts")
+            .select("*, profiles(name, email)")
+            .in("quiz_id", quizIds)
+            .order("created_at", { ascending: false });
+
+          if (attData) setQuizAttempts(attData);
+        }
+      }
+    } catch (err) {
+      console.warn("Error fetching classroom details:", err);
+    }
   };
 
-  const handlePublish = () => {
-    if (isPublishLocked) return;
+  // Handler: Create new Classroom in database
+  const handleCreateClassroom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassName.trim() || !newClassSubject.trim()) {
+      toast.error("Please provide both classroom name and subject.");
+      return;
+    }
+    if (!userId) {
+      toast.error("Must be signed in to create a classroom.");
+      return;
+    }
 
-    setPublishedMaterials((prev) => [
-      ...prev,
-      {
-        title: materialTitle,
+    setIsCreatingClass(true);
+    try {
+      const { data, error } = await supabase
+        .from("classrooms")
+        .insert({
+          name: newClassName.trim(),
+          subject: newClassSubject.trim(),
+          teacher_id: userId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success(`Classroom "${newClassName}" created successfully!`);
+      setNewClassName("");
+      setNewClassSubject("");
+      if (userId) fetchTeacherClassrooms(userId);
+    } catch (err: any) {
+      toast.error(err.message || "Could not create classroom.");
+    } finally {
+      setIsCreatingClass(false);
+    }
+  };
+
+  // Handler: Upload Classroom Material to database
+  const handleUploadMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!materialTitle.trim()) {
+      toast.error("Please enter a title for the material.");
+      return;
+    }
+    if (!activeClassroom) {
+      toast.error("Please select or create a classroom first.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const { data, error } = await supabase.from("materials").insert({
+        title: materialTitle.trim(),
         type: materialType,
-        quiz: true,
-        cards: 1,
-      },
-    ]);
+        content: materialContent.trim() || undefined,
+        classroom_id: activeClassroom.id,
+        uploaded_by: userId,
+        source_kind: selectedFile ? "file" : materialContent.trim() ? "text" : "link",
+      }).select().single();
 
-    // Reset forms
-    setMaterialTitle("");
-    setMaterialContent("");
-    setQuizQuestion("");
-    setQuizOptions(["", "", ""]);
-    setQuizAttached(false);
-    setFlashcardFront("");
-    setFlashcardBack("");
-    setFlashcardAttached(false);
-  };
+      if (error) throw error;
 
-  const handleSyllabusUpload = async (file?: File | null) => {
-    if (!file) return;
-    setSyllabiStatus("Uploading syllabus...");
-    try {
-      const material = await uploadLearningMaterial({ file, title: file.name });
-      setUploadedSyllabi((prev) => [material.title, ...prev]);
-      setSyllabiStatus("Syllabus uploaded to study files.");
-    } catch (err: unknown) {
-      setSyllabiStatus(getErrorMessage(err, "Could not upload syllabus."));
+      toast.success("Study material uploaded to classroom!");
+      setMaterialTitle("");
+      setMaterialContent("");
+      setSelectedFile(null);
+      if (activeClassroom) fetchClassroomDetails(activeClassroom.id);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload material.");
     } finally {
-      setTimeout(() => setSyllabiStatus(""), 3500);
+      setIsUploading(false);
     }
   };
 
-  const handleSyllabusLink = async () => {
-    if (!syllabiFile.trim()) return;
-    setSyllabiStatus("Adding reference link...");
+  // Handler: Create Quiz in database
+  const handleCreateQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quizTitle.trim() || !quizQuestion.trim()) {
+      toast.error("Please provide quiz title and question.");
+      return;
+    }
+    if (!userId) {
+      toast.error("Must be signed in to create quizzes.");
+      return;
+    }
+
+    setIsCreatingQuiz(true);
     try {
-      const material = await uploadLearningMaterial({ link: syllabiFile.trim() });
-      setUploadedSyllabi((prev) => [material.title, ...prev]);
-      setSyllabiFile("");
-      setSyllabiStatus("Reference link added to study files.");
-    } catch (err: unknown) {
-      setSyllabiStatus(getErrorMessage(err, "Could not add reference link."));
+      const questionObj = {
+        question: quizQuestion.trim(),
+        options: quizOptions.map((o) => o.trim()).filter(Boolean),
+        correctIndex,
+      };
+
+      const { error } = await supabase.from("quizzes").insert({
+        title: quizTitle.trim(),
+        teacher_id: userId,
+        questions: [questionObj],
+      });
+
+      if (error) throw error;
+
+      toast.success("Quiz created successfully!");
+      setQuizTitle("");
+      setQuizQuestion("");
+      setQuizOptions(["", "", ""]);
+      if (activeClassroom) fetchClassroomDetails(activeClassroom.id);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create quiz.");
     } finally {
-      setTimeout(() => setSyllabiStatus(""), 3500);
+      setIsCreatingQuiz(false);
     }
   };
 
-  if (profileStatus === "loading") {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Brain className="h-8 w-8 text-primary animate-pulse" />
-          <p className="text-xs text-muted-foreground animate-pulse font-medium">Verifying educator credentials...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // If teacher profile status is under review (pending)
   if (profileStatus === "pending") {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden text-center animate-fade-in">
-          <div className="mx-auto h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mb-6">
-            <Lock className="h-6 w-6 animate-pulse" />
+      <AppShell title="Educator Portal">
+        <div className="max-w-2xl mx-auto py-16 px-6 text-center space-y-6">
+          <div className="h-16 w-16 mx-auto rounded-full border border-border bg-muted flex items-center justify-center text-foreground">
+            <Clock className="h-8 w-8 animate-pulse" />
           </div>
-          <h2 className="text-lg font-bold text-foreground mb-2">Account Verification Pending</h2>
-          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Your educator account is currently under review by purelearn.ai administrators.
-            You will have full access to class creation, custom Socratic sandbox rules, and document uploads once verified.
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
+            Educator Verification Pending
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Welcome, <strong className="text-foreground">{educatorName}</strong>. Your educator account is currently under review by system administrators. Once verified, your classroom management features will be unlocked automatically.
           </p>
-          {userEmail && (
-            <div className="p-3 bg-muted/40 rounded-lg text-xs text-muted-foreground mb-6 font-mono">
-              Registered as: {userEmail}
-            </div>
-          )}
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              localStorage.removeItem("user_profile");
-              navigate({ to: "/auth/sign-in" as any });
-            }}
-            className="w-full py-2.5 rounded-lg bg-border hover:bg-muted text-foreground text-sm font-semibold transition"
-          >
-            Sign Out
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (profileStatus === "rejected") {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-elevated/20 border border-border/50 shadow-2xl backdrop-blur-lg relative overflow-hidden text-center animate-fade-in">
-          <div className="mx-auto h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6">
-            <Lock className="h-6 w-6 animate-pulse" />
+          <div className="pt-4 border-t border-border flex justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Check Status
+            </button>
           </div>
-          <h2 className="text-lg font-bold text-foreground mb-2">Verification Rejected</h2>
-          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Unfortunately, your educator account request could not be verified by the admin team at this time.
-            Access to teacher classrooms and student rosters is restricted.
-          </p>
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs mb-6">
-            If you believe this is a mistake, please contact verification@purelearn.ai.
-          </div>
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              localStorage.removeItem("user_profile");
-              navigate({ to: "/auth/sign-in" as any });
-            }}
-            className="w-full py-2.5 rounded-lg bg-border hover:bg-muted text-foreground text-sm font-semibold transition"
-          >
-            Sign Out
-          </button>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Top Header */}
-      <header className="border-b border-border bg-elevated/40 backdrop-blur sticky top-0 z-30">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold tracking-wider text-foreground flex items-center gap-1.5">
-
-              purelearn.ai
-              <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-semibold">
-                Educator
-              </span>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-foreground">{educatorName}</p>
-              <p className="text-[10px] text-muted-foreground">{institutionName}</p>
-            </div>
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                localStorage.removeItem("user_profile");
-                navigate({ to: "/auth/sign-in" as any });
-              }}
-              className="rounded-md border border-border p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+    <AppShell
+      title="Educator Portal"
+      actions={
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-full border border-border bg-muted text-foreground">
+            {educatorName}
+          </span>
         </div>
-      </header>
+      }
+    >
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Metric Cards Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  My Classrooms
+                </p>
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {classrooms.length}
+                </h3>
+              </div>
+              <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
+                <BookOpen className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+              Created classrooms in DB
+            </div>
+          </Card>
 
-      {/* Main Body Columns */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 gap-6 lg:grid-cols-12 items-stretch min-h-[500px]">
-        {/* Left Side: Classrooms & Students (4/12 columns) */}
-        <div className="lg:col-span-4 flex flex-col h-full space-y-4">
-          <Card className="flex flex-col h-full overflow-hidden p-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" />
-              Classroom Enrolment
-            </h3>
-            <p className="text-[10px] text-muted-foreground mt-2 mb-4 leading-relaxed">
-              Dr. Adeyemi&apos;s Linear Algebra 101. Student tracking is isolated to your registered
-              class members.
-            </p>
+          <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Enrolled Students
+                </p>
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {enrolledStudents.length}
+                </h3>
+              </div>
+              <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
+                <Users className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+              Active enrolled students
+            </div>
+          </Card>
 
-            <div className="flex-1 space-y-3 overflow-y-auto min-h-0">
-              {mockStudents.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-background hover:bg-muted/40 transition"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground truncate">{s.name}</p>
-                    <p className="text-[9px] text-muted-foreground truncate">{s.email}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="rounded bg-elevated border border-border px-1.5 py-0.5 text-[9px] text-muted-foreground">
-                        {s.profile}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-emerald-500">{s.grade}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5 whitespace-nowrap">
-                      {s.activity}
-                    </p>
-                  </div>
-                </div>
-              ))}
+          <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Classroom Materials
+                </p>
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {classroomMaterials.length}
+                </h3>
+              </div>
+              <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
+                <FileText className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+              Uploaded study resources
+            </div>
+          </Card>
+
+          <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Published Quizzes
+                </p>
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {classroomQuizzes.length}
+                </h3>
+              </div>
+              <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
+                <FileCheck2 className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+              Submissions: {quizAttempts.length}
             </div>
           </Card>
         </div>
 
-        {/* Middle Side: Material Publisher & 1:1 Loop Validation (4/12 columns) */}
-        <div className="lg:col-span-4 flex flex-col h-full space-y-4">
-          <Card className="flex flex-col h-full overflow-hidden p-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
-              Content-to-Evaluation Loop
-            </h3>
-            <p className="text-[10px] text-muted-foreground mt-2 mb-4 leading-relaxed">
-              Every lesson upload requires a linked diagnostic quiz and flashcard set before
-              publishing.
-            </p>
-
-            <div className="flex-1 space-y-4 overflow-y-auto min-h-0 pr-1">
-              {/* Form fields */}
-              <div>
-                <label className="text-[10px] font-semibold text-foreground block mb-1">
-                  Topic Title
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Linear Transformations"
-                  value={materialTitle}
-                  onChange={(e) => setMaterialTitle(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-ring focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-semibold text-foreground block mb-1">
-                  Material Content Text
-                </label>
-                <textarea
-                  placeholder="Paste lesson script, reference paragraphs, transcript text, image descriptions, or formulas here..."
-                  value={materialContent}
-                  onChange={(e) => setMaterialContent(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-ring focus:outline-none h-20 resize-none"
-                />
-              </div>
-
-              {/* Quiz Loop Attachment */}
-              <div className="rounded-lg border border-dashed border-border p-3 bg-background">
-                <div className="flex items-center justify-between border-b border-border/50 pb-1.5 mb-2">
-                  <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
-                    <FileCheck2 className="h-3.5 w-3.5 text-emerald-500" />
-                    Quiz Config
-                  </span>
-                  {quizAttached ? (
-                    <span className="text-[9px] bg-emerald-500/10 text-emerald-500 font-semibold px-1 rounded">
-                      ✓ Configured
-                    </span>
-                  ) : (
-                    <span className="text-[9px] bg-red-500/10 text-red-500 font-semibold px-1 rounded">
-                      Required
-                    </span>
-                  )}
+        {/* Main Workspace Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Classroom List & Creation */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Create Classroom Card */}
+            <Card className="p-6 bg-background border border-border rounded-xl space-y-4">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create New Classroom
+              </h3>
+              <form onSubmit={handleCreateClassroom} className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                    Classroom Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                    placeholder="e.g. Advanced STEM Physics"
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                  />
                 </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                    Subject / Department
+                  </label>
+                  <input
+                    type="text"
+                    value={newClassSubject}
+                    onChange={(e) => setNewClassSubject(e.target.value)}
+                    placeholder="e.g. Quantum Physics"
+                    className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isCreatingClass}
+                  className="w-full py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
+                >
+                  {isCreatingClass ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  Create Classroom
+                </button>
+              </form>
+            </Card>
 
-                {!quizAttached ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="Quiz Question..."
-                      value={quizQuestion}
-                      onChange={(e) => setQuizQuestion(e.target.value)}
-                      className="w-full rounded border border-border bg-background px-2.5 py-1 text-[10px] focus:outline-none"
-                    />
-                    <div className="grid grid-cols-3 gap-1">
-                      {quizOptions.map((opt, idx) => (
+            {/* My Classrooms Selector List */}
+            <Card className="p-6 bg-background border border-border rounded-xl space-y-3">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
+                My Classrooms ({classrooms.length})
+              </h3>
+              <div className="space-y-2">
+                {classrooms.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    No classrooms created yet. Use the form above to create your first classroom.
+                  </p>
+                ) : (
+                  classrooms.map((cls) => (
+                    <button
+                      key={cls.id}
+                      onClick={() => {
+                        setActiveClassroom(cls);
+                        fetchClassroomDetails(cls.id);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between ${
+                        activeClassroom?.id === cls.id
+                          ? "border-foreground bg-muted/60 font-bold"
+                          : "border-border/60 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs text-foreground font-semibold">{cls.name}</div>
+                        <div className="text-[11px] text-muted-foreground">{cls.subject}</div>
+                      </div>
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Right Column: Active Classroom Details, Materials & Quizzes */}
+          <div className="lg:col-span-2 space-y-6">
+            {activeClassroom ? (
+              <>
+                {/* Upload Material Section */}
+                <Card className="p-6 bg-background border border-border rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      Add Study Resource for "{activeClassroom.name}"
+                    </h3>
+                  </div>
+
+                  <form onSubmit={handleUploadMaterial} className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                          Resource Title
+                        </label>
                         <input
-                          key={idx}
                           type="text"
-                          placeholder={`Option ${idx + 1}...`}
-                          value={opt}
-                          onChange={(e) => {
-                            const updated = [...quizOptions];
-                            updated[idx] = e.target.value;
-                            setQuizOptions(updated);
-                          }}
-                          className="w-full rounded border border-border bg-background px-1.5 py-1 text-[9px] focus:outline-none"
+                          value={materialTitle}
+                          onChange={(e) => setMaterialTitle(e.target.value)}
+                          placeholder="e.g. Chapter 4 Lecture Notes"
+                          className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
                         />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                          Type
+                        </label>
+                        <select
+                          value={materialType}
+                          onChange={(e) => setMaterialType(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                        >
+                          <option value="PDF">PDF Document</option>
+                          <option value="Word">Word File</option>
+                          <option value="Notes">Lecture Notes</option>
+                          <option value="Text">Raw Text</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                        Content / Summary Text
+                      </label>
+                      <textarea
+                        value={materialContent}
+                        onChange={(e) => setMaterialContent(e.target.value)}
+                        placeholder="Paste study text or lecture notes here..."
+                        rows={3}
+                        className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isUploading}
+                      className="px-4 py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                    >
+                      {isUploading ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                      Upload Resource
+                    </button>
+                  </form>
+                </Card>
+
+                {/* Create Quiz Card */}
+                <Card className="p-6 bg-background border border-border rounded-xl space-y-4">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                    <FileCheck2 className="h-4 w-4" />
+                    Create Quiz for Classroom
+                  </h3>
+
+                  <form onSubmit={handleCreateQuiz} className="space-y-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                        Quiz Title
+                      </label>
+                      <input
+                        type="text"
+                        value={quizTitle}
+                        onChange={(e) => setQuizTitle(e.target.value)}
+                        placeholder="e.g. Midterm Evaluation Quiz"
+                        className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                        Question
+                      </label>
+                      <input
+                        type="text"
+                        value={quizQuestion}
+                        onChange={(e) => setQuizQuestion(e.target.value)}
+                        placeholder="e.g. What is the fundamental theorem of calculus?"
+                        className="w-full mt-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase">
+                        Options
+                      </label>
+                      {quizOptions.map((opt, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="correctOpt"
+                            checked={correctIndex === idx}
+                            onChange={() => setCorrectIndex(idx)}
+                          />
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const updated = [...quizOptions];
+                              updated[idx] = e.target.value;
+                              setQuizOptions(updated);
+                            }}
+                            placeholder={`Option ${idx + 1}`}
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                          />
+                        </div>
                       ))}
                     </div>
+
                     <button
-                      onClick={handleAttachQuiz}
-                      className="w-full bg-elevated hover:bg-muted text-foreground text-[10px] font-semibold py-1 rounded border border-border"
+                      type="submit"
+                      disabled={isCreatingQuiz}
+                      className="px-4 py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
                     >
-                      Attach Quiz
+                      {isCreatingQuiz ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Plus className="h-3.5 w-3.5" />
+                      )}
+                      Publish Quiz
                     </button>
+                  </form>
+                </Card>
+
+                {/* Classroom Enrolled Students List */}
+                <Card className="p-6 bg-background border border-border rounded-xl space-y-4">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
+                    Enrolled Students ({enrolledStudents.length})
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground uppercase font-mono text-[10px]">
+                          <th className="pb-3 font-semibold">Student Name</th>
+                          <th className="pb-3 font-semibold">Email</th>
+                          <th className="pb-3 font-semibold">Joined Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {enrolledStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="py-6 text-center text-muted-foreground">
+                              No students enrolled in this classroom yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          enrolledStudents.map((st, i) => (
+                            <tr key={st.student_id || i} className="hover:bg-muted/40 transition-colors">
+                              <td className="py-3 font-bold text-foreground">
+                                {st.profiles?.name || "Student"}
+                              </td>
+                              <td className="py-3 text-muted-foreground font-mono">
+                                {st.profiles?.email || "—"}
+                              </td>
+                              <td className="py-3 text-muted-foreground">
+                                {new Date(st.joined_at).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground truncate italic">
-                    Question: {quizQuestion}
-                  </p>
-                )}
-              </div>
-
-              {/* Flashcards Attachment */}
-              <div className="rounded-lg border border-dashed border-border p-3 bg-background">
-                <div className="flex items-center justify-between border-b border-border/50 pb-1.5 mb-2">
-                  <span className="text-[10px] font-bold text-foreground flex items-center gap-1">
-                    <Layers className="h-3.5 w-3.5 text-purple-500" />
-                    Flashcard Config
-                  </span>
-                  {flashcardAttached ? (
-                    <span className="text-[9px] bg-emerald-500/10 text-emerald-500 font-semibold px-1 rounded">
-                      ✓ Configured
-                    </span>
-                  ) : (
-                    <span className="text-[9px] bg-red-500/10 text-red-500 font-semibold px-1 rounded">
-                      Required
-                    </span>
-                  )}
-                </div>
-
-                {!flashcardAttached ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="Front Text (e.g. Identity Matrix)"
-                      value={flashcardFront}
-                      onChange={(e) => setFlashcardFront(e.target.value)}
-                      className="w-full rounded border border-border bg-background px-2.5 py-1 text-[10px] focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Back Definition (e.g. Multiplying is unchanged)"
-                      value={flashcardBack}
-                      onChange={(e) => setFlashcardBack(e.target.value)}
-                      className="w-full rounded border border-border bg-background px-2.5 py-1 text-[10px] focus:outline-none"
-                    />
-                    <button
-                      onClick={handleAttachFlashcard}
-                      className="w-full bg-elevated hover:bg-muted text-foreground text-[10px] font-semibold py-1 rounded border border-border"
-                    >
-                      Attach Flashcard
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground truncate italic">
-                    Card: {flashcardFront}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Validation Lock UI Button */}
-            <div className="border-t border-border pt-4 mt-2">
-              {isPublishLocked ? (
-                <div className="flex items-center gap-2 p-2.5 bg-red-500/5 border border-red-500/10 rounded-md text-[10px] text-red-500 mb-3 leading-relaxed">
-                  <Lock className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Publication locked: Fill topics, content text, attach 1 quiz and 1 flashcard to
-                    publish.
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-md text-[10px] text-emerald-500 mb-3 leading-relaxed">
-                  <Unlock className="h-3.5 w-3.5 shrink-0" />
-                  <span>All evaluation checks passed. Lesson ready to release.</span>
-                </div>
-              )}
-
-              <button
-                onClick={handlePublish}
-                disabled={isPublishLocked}
-                className={`w-full py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition ${isPublishLocked
-                  ? "bg-muted text-muted-foreground/60 cursor-not-allowed border border-border"
-                  : "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-sm"
-                  }`}
-              >
-                Publish Lesson Material
-              </button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Side: AI Customization Sandbox (4/12 columns) */}
-        <div className="lg:col-span-4 flex flex-col h-full space-y-4">
-          <Card className="flex flex-col h-full overflow-hidden p-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center gap-1.5">
-              <Settings className="h-3.5 w-3.5" />
-              AI Prompt Sandbox
-            </h3>
-            <p className="text-[10px] text-muted-foreground mt-2 mb-4 leading-relaxed">
-              Inject custom guardrails. The system forces AI to align with these prompt constraints
-              when students ask queries.
-            </p>
-
-            <div className="flex-1 space-y-4 overflow-y-auto min-h-0 pr-1">
-              <div>
-                <label className="text-[10px] font-semibold text-foreground block mb-1">
-                  Custom Prompt Rules
-                </label>
-                <textarea
-                  value={sandboxPrompt}
-                  onChange={(e) => setSandboxPrompt(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-ring focus:outline-none h-24 resize-none leading-normal"
-                />
-              </div>
-
-              {/* Syllabi Upload list */}
-              <div>
-                <label className="text-[10px] font-semibold text-foreground block mb-1">
-                  Reference Syllabi Docs
-                </label>
-                <div className="space-y-1.5 mt-1.5">
-                  {uploadedSyllabi.map((syl, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-2 rounded border border-border bg-background text-[10px]"
-                    >
-                      <span className="truncate max-w-[85%]">{syl}</span>
-                      <button
-                        onClick={() =>
-                          setUploadedSyllabi((prev) => prev.filter((_, idx) => idx !== i))
-                        }
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2 mt-2">
-                  <label className="flex-1 cursor-pointer rounded border border-border bg-background px-2.5 py-1 text-[10px] text-muted-foreground hover:bg-muted">
-                    Upload PDF, Word, slides, image, audio, or video
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,image/*,audio/*,video/*"
-                      onChange={(event) => handleSyllabusUpload(event.target.files?.[0])}
-                    />
-                  </label>
-                  <button
-                    onClick={handleSyllabusLink}
-                    className="bg-primary text-primary-foreground font-semibold px-2 py-1 rounded text-[10px]"
-                  >
-                    Add link
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Or paste a reference link..."
-                  value={syllabiFile}
-                  onChange={(e) => setSyllabiFile(e.target.value)}
-                  className="mt-2 w-full rounded border border-border bg-background px-2.5 py-1 text-[10px] focus:outline-none"
-                />
-                {syllabiStatus && (
-                  <p className="mt-1.5 text-[10px] font-medium text-muted-foreground">
-                    {syllabiStatus}
-                  </p>
-                )}
-              </div>
-
-              {/* Test Sandbox input panel */}
-              <div className="border-t border-border pt-4">
-                <label className="text-[10px] font-semibold text-foreground block mb-2">
-                  AI Output Preview
-                </label>
-                <div className="rounded-lg border border-border bg-background p-3 text-[10px] text-muted-foreground leading-relaxed h-28 overflow-y-auto">
-                  <p className="font-semibold text-foreground mb-1">
-                    Dr. Adeyemi: &quot;Solve 2x + 4 = 10&quot;
-                  </p>
-                  <p className="italic">AI Sandbox simulation matches system coach instructions:</p>
-                  <p className="mt-1 text-foreground">
-                    &quot;Look at the value of 10 on the right. What operation must you perform to
-                    isolate 2x on the left? Mention the subtraction rule.&quot;
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
+                </Card>
+              </>
+            ) : (
+              <Card className="p-12 bg-background border border-border rounded-xl text-center">
+                <BookOpen className="h-10 w-10 mx-auto text-muted-foreground" />
+                <h3 className="mt-3 text-sm font-bold text-foreground">No Classroom Selected</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Select a classroom from the left sidebar or create a new classroom to manage study materials and quizzes.
+                </p>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

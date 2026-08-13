@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { Card, Pill, Button } from "@/components/ui-kit";
+import { Card, Pill, Button, Input, Textarea, Label } from "@/components/ui-kit";
 import {
   Layers,
   Sparkles,
@@ -12,16 +12,26 @@ import {
   Download,
   BookOpen,
   Trash2,
+  Plus,
+  Loader2,
+  FileText,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { CacheManager } from "@/lib/cache";
+import { generateGeminiStructured } from "@/lib/gemini";
+import { LearningMaterial, mapMaterialRow } from "@/lib/learning-materials";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/flashcards")({
   head: () => ({ meta: [{ title: "Flashcards — tutor.vigilance.rw" }] }),
   component: FlashcardsPage,
 });
+
+const sliceText = (text: string, maxLength: number) => {
+  if (!text) return "";
+  return text.length > maxLength ? text.slice(0, maxLength).trim() + "…" : text;
+};
 
 const defaultDecks = [
   {
@@ -38,7 +48,7 @@ const defaultDecks = [
         a: "The scalar factor by which an eigenvector is scaled during a linear transformation.",
       },
       {
-        q: "What does det(A - lambda I) = 0 compute?",
+        q: "What does det(A - λI) = 0 compute?",
         a: "The characteristic equation used to solve for the eigenvalues of a square matrix.",
       },
       {
@@ -47,7 +57,7 @@ const defaultDecks = [
       },
       {
         q: "When is a square matrix diagonalizable?",
-        a: "When it has n linearly independent eigenvectors, allowing it to be decomposed into PDP inverse.",
+        a: "When it has n linearly independent eigenvectors, allowing it to be decomposed into P D P⁻¹.",
       },
       {
         q: "What is the rank of a matrix?",
@@ -124,9 +134,9 @@ function stripMarkdown(text: string): string {
   if (!text) return "";
   return text
     .replace(/\*\*/g, "") // remove bold markers
-    .replace(/\*/g, "")  // remove italic markers
-    .replace(/#/g, "")   // remove header markers
-    .replace(/`/g, "")   // remove backticks
+    .replace(/\*/g, "") // remove italic markers
+    .replace(/#/g, "") // remove header markers
+    .replace(/`/g, "") // remove backticks
     .replace(/^[*\-\+]\s+/gm, "") // remove list indicators
     .replace(/\s+/g, " ") // clean whitespace
     .trim();
@@ -151,7 +161,7 @@ function generateCardsFromNoteContent(content: string): Array<{ q: string; a: st
       }
     });
     if (cards.length > 0) {
-      return cards; // Return only smart AI flashcards!
+      return cards;
     }
   }
 
@@ -186,7 +196,7 @@ function generateCardsFromNoteContent(content: string): Array<{ q: string; a: st
       a: stripMarkdown(content.substring(0, 150)) || "Please expand the note content to generate detailed study flashcards.",
     });
   }
-  
+
   // Unique filter
   const unique: typeof cards = [];
   const seen = new Set();
@@ -197,43 +207,74 @@ function generateCardsFromNoteContent(content: string): Array<{ q: string; a: st
       unique.push(c);
     }
   });
-  
-  return unique.slice(0, 20); // Max 20 cards per note
+
+  return unique.slice(0, 25);
 }
 
 function FlashcardsPage() {
   const [notes, setNotes] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<LearningMaterial[]>([]);
+  const [aiDecks, setAiDecks] = useState<any[]>([]);
   const [activeDeckId, setActiveDeckId] = useState<string>("deck1");
   const [currentCardIdx, setCurrentCardIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState({ correct: 0, incorrect: 0 });
-  const [deletedCardKeys, setDeletedCardKeys] = useState<Set<string>>(() => new Set());
-  const [hiddenDeckIds, setHiddenDeckIds] = useState<Set<string>>(() => new Set());
+
+  // Persistence for deleted card keys and hidden deck IDs
+  const [deletedCardKeys, setDeletedCardKeys] = useState<Set<string>>(() => {
+    if (typeof window === "undefined" || !window.localStorage) return new Set();
+    try {
+      const raw = localStorage.getItem("purelearn_deleted_flashcard_keys");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [hiddenDeckIds, setHiddenDeckIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined" || !window.localStorage) return new Set();
+    try {
+      const raw = localStorage.getItem("purelearn_hidden_deck_ids");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // AI Generator modal state
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [customTopic, setCustomTopic] = useState("");
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Sync deleted keys to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem("purelearn_deleted_flashcard_keys", JSON.stringify(Array.from(deletedCardKeys)));
+    }
+  }, [deletedCardKeys]);
+
+  // Sync hidden decks to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem("purelearn_hidden_deck_ids", JSON.stringify(Array.from(hiddenDeckIds)));
+    }
+  }, [hiddenDeckIds]);
 
   useEffect(() => {
-    const fetchNotes = async () => {
+    const fetchData = async () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user) {
-          const cacheKey = `notes_data_${userData.user.id}`;
-          const cached = CacheManager.get(cacheKey);
-          if (cached) {
-            setNotes(cached.notes);
-            return;
-          }
-
           const { data: dbNotes } = await supabase
             .from("notes")
             .select("*")
             .order("created_at", { ascending: false });
 
-          // Load from LocalStorage fallback
           const stored = window.localStorage.getItem("digital_notebook");
           const localNotes = stored ? JSON.parse(stored) : [];
 
           const allNotes = [...(dbNotes || []), ...localNotes];
-          
-          // Unique by ID or title
           const seen = new Set();
           const uniqueNotes: any[] = [];
           allNotes.forEach((n) => {
@@ -243,12 +284,31 @@ function FlashcardsPage() {
             }
           });
           setNotes(uniqueNotes);
+
+          // Fetch materials for dropdown selector
+          const { data: matData } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
+          if (matData) {
+            setMaterials(matData.map((m) => mapMaterialRow(m)));
+          }
         }
       } catch (err) {
-        console.warn("Failed to load notes for flashcards:", err);
+        console.warn("Failed to load notes or materials for flashcards:", err);
       }
     };
-    fetchNotes();
+
+    // Load custom AI generated decks stored in localStorage
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
+        if (rawAiDecks) {
+          setAiDecks(JSON.parse(rawAiDecks));
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+
+    fetchData();
   }, []);
 
   const noteDecks = useMemo(() => {
@@ -264,8 +324,8 @@ function FlashcardsPage() {
   }, [notes]);
 
   const allDecks = useMemo(() => {
-    return [...noteDecks, ...defaultDecks];
-  }, [noteDecks]);
+    return [...aiDecks, ...noteDecks, ...defaultDecks];
+  }, [aiDecks, noteDecks]);
 
   const visibleDecks = useMemo(() => {
     return allDecks.filter((d) => !hiddenDeckIds.has(d.id));
@@ -277,7 +337,7 @@ function FlashcardsPage() {
 
   const activeDeckCards = useMemo(() => {
     if (!selectedDeck) return [];
-    return selectedDeck.cards.filter((card) => {
+    return selectedDeck.cards.filter((card: { q: string; a: string }) => {
       const key = `${selectedDeck.id}_${card.q}`;
       return !deletedCardKeys.has(key);
     });
@@ -312,9 +372,19 @@ function FlashcardsPage() {
       next.add(deckId);
       return next;
     });
-    toast.success("Deck removed from list.");
+
+    // If deck was an AI custom deck, purge from aiDecks state and localStorage
+    if (deckId.startsWith("ai_deck_")) {
+      const updatedAi = aiDecks.filter((d) => d.id !== deckId);
+      setAiDecks(updatedAi);
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify(updatedAi));
+      }
+    }
+
+    toast.success("Deck deleted.");
     if (activeDeckId === deckId) {
-      const remaining = allDecks.filter((d) => d.id !== deckId && !hiddenDeckIds.has(d.id));
+      const remaining = visibleDecks.filter((d) => d.id !== deckId);
       if (remaining.length > 0) {
         setActiveDeckId(remaining[0].id);
         setCurrentCardIdx(0);
@@ -334,7 +404,7 @@ function FlashcardsPage() {
       next.add(key);
       return next;
     });
-    toast.success("Card deleted from session deck.");
+    toast.success("Card deleted from deck.");
     setShowAnswer(false);
     if (currentCardIdx > 0) {
       setCurrentCardIdx((prev) => prev - 1);
@@ -343,9 +413,90 @@ function FlashcardsPage() {
     }
   };
 
+  // Generate AI Flashcards using Gemini structured JSON schema
+  const handleGenerateAiDeck = async () => {
+    const mat = materials.find((m) => m.id === selectedMaterialId);
+    const topic = customTopic.trim() || mat?.title || "Key Subject Concepts";
+
+    if (!topic && !mat) {
+      toast.error("Please enter a topic or select a study material.");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const flashcardsSchema = {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          subject: { type: "STRING" },
+          cards: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                q: { type: "STRING" },
+                a: { type: "STRING" },
+              },
+              required: ["q", "a"],
+            },
+          },
+        },
+        required: ["title", "subject", "cards"],
+      };
+
+      const sourceContent = mat?.content
+        ? `\n\nStudy Material Text:\n${mat.content.slice(0, 4000)}`
+        : "";
+
+      const prompt = `You are a world-class AI professor creating precision study flashcards for students.
+Generate 8-12 high-impact, key-point flashcards for mastering the topic: "${topic}".
+Each question must target a fundamental key concept, definition, or equation. Each answer must be concise, accurate, and pedagogically clear.${sourceContent}`;
+
+      const res = await generateGeminiStructured<{
+        title: string;
+        subject: string;
+        cards: Array<{ q: string; a: string }>;
+      }>({
+        systemInstruction: "You generate precision educational flashcard decks in valid JSON.",
+        prompt,
+        responseSchema: flashcardsSchema,
+      });
+
+      const newDeck = {
+        id: `ai_deck_${Date.now()}`,
+        title: res.data.title || topic,
+        subject: res.data.subject || mat?.type || "AI Mastery Deck",
+        cards: res.data.cards.map((c) => ({
+          q: stripMarkdown(c.q),
+          a: stripMarkdown(c.a),
+        })),
+      };
+
+      const nextAiDecks = [newDeck, ...aiDecks];
+      setAiDecks(nextAiDecks);
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify(nextAiDecks));
+      }
+
+      setActiveDeckId(newDeck.id);
+      setCurrentCardIdx(0);
+      setShowAnswer(false);
+      setShowAiModal(false);
+      setCustomTopic("");
+      setSelectedMaterialId("");
+      toast.success("AI Flashcard Deck generated successfully!");
+    } catch (err) {
+      console.error("AI Flashcard generation error:", err);
+      toast.error("Failed to generate AI flashcards. Please check your network connection and try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Canvas Card Exporter (Flashcard-to-Image Engine)
   const exportCardToImage = () => {
-    if (activeDeckCards.length === 0) return;
+    if (activeDeckCards.length === 0 || !selectedDeck) return;
     const canvas = document.createElement("canvas");
     canvas.width = 800;
     canvas.height = 500;
@@ -357,46 +508,43 @@ function FlashcardsPage() {
     ctx.fillRect(0, 0, 800, 500);
 
     // Draw light card borders
-    ctx.strokeStyle = "#cbd5e1"; // slate-300
+    ctx.strokeStyle = "#cbd5e1";
     ctx.lineWidth = 6;
     ctx.strokeRect(15, 15, 770, 470);
 
-    // Logo & header metadata
-    ctx.fillStyle = "#0f172a"; // dark slate
+    // Header metadata
+    ctx.fillStyle = "#0f172a";
     ctx.font = "bold 20px sans-serif";
     ctx.fillText("CLARITY AI TUTOR", 45, 65);
 
-    ctx.fillStyle = "#64748b"; // slate-500
-    ctx.font = "12px tracking-wider sans-serif";
+    ctx.fillStyle = "#64748b";
+    ctx.font = "12px sans-serif";
     ctx.fillText(
       "Purelearn.ai  •  " + selectedDeck.subject.toUpperCase() + " STUDY GUIDE",
       45,
       90,
     );
 
-    // Draw active card mode tag
     ctx.fillStyle = "#0f172a";
     ctx.font = "bold 11px sans-serif";
     ctx.fillText("STUDY FLASHCARD", 640, 65);
 
     // Divider line
-    ctx.strokeStyle = "#e2e8f0"; // slate-200
+    ctx.strokeStyle = "#e2e8f0";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(45, 115);
     ctx.lineTo(755, 115);
     ctx.stroke();
 
-    // Helper function for wrapping text
     const wrapText = (textStr: string, startX: number, startY: number, maxW: number, lineH: number) => {
       const words = textStr.split(" ");
       let currentLine = "";
       let currentY = startY;
       for (let n = 0; n < words.length; n++) {
-        let testLine = currentLine + words[n] + " ";
-        let metrics = ctx.measureText(testLine);
-        let testWidth = metrics.width;
-        if (testWidth > maxW && n > 0) {
+        const testLine = currentLine + words[n] + " ";
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxW && n > 0) {
           ctx.fillText(currentLine, startX, currentY);
           currentLine = words[n] + " ";
           currentY += lineH;
@@ -405,40 +553,36 @@ function FlashcardsPage() {
         }
       }
       ctx.fillText(currentLine, startX, currentY);
-      return currentY + lineH; // Return next Y position
+      return currentY + lineH;
     };
 
-    // Draw Question block
-    ctx.fillStyle = "#64748b"; // label color
+    ctx.fillStyle = "#64748b";
     ctx.font = "bold 12px sans-serif";
     ctx.fillText("QUESTION:", 45, 155);
 
-    ctx.fillStyle = "#0f172a"; // text color
+    ctx.fillStyle = "#0f172a";
     ctx.font = "semibold 18px sans-serif";
-    let nextY = wrapText(currentCard.q, 45, 185, 710, 26);
+    const nextY = wrapText(currentCard.q, 45, 185, 710, 26);
 
-    // Draw Answer block
-    ctx.fillStyle = "#10b981"; // emerald green label
+    ctx.fillStyle = "#10b981";
     ctx.font = "bold 12px sans-serif";
     ctx.fillText("ANSWER:", 45, nextY + 15);
 
-    ctx.fillStyle = "#334155"; // slightly softer dark text
+    ctx.fillStyle = "#334155";
     ctx.font = "normal 18px sans-serif";
     wrapText(currentCard.a, 45, nextY + 45, 710, 26);
 
-    // Branding signature footer
-    ctx.fillStyle = "#64748b"; // slate-500
+    ctx.fillStyle = "#64748b";
     ctx.font = "11px sans-serif";
     ctx.fillText(
       "Classroom Verified Material  •  Card " +
-      (currentCardIdx + 1) +
-      " of " +
-      activeDeckCards.length,
+        (currentCardIdx + 1) +
+        " of " +
+        activeDeckCards.length,
       45,
       445,
     );
 
-    // Download URL triggering
     const link = document.createElement("a");
     link.download = `flashcard-${selectedDeck.id}-${currentCardIdx + 1}.png`;
     link.href = canvas.toDataURL("image/png");
@@ -450,38 +594,60 @@ function FlashcardsPage() {
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Left column: Decks List */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
-          <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
-            Decks
-          </h2>
-          <div className="space-y-2">
-            {visibleDecks.map((deck) => (
-              <Card
-                key={deck.id}
-                onClick={() => selectDeck(deck)}
-                className={`relative group/deck cursor-pointer p-4 transition text-left border ${
-                  selectedDeck && selectedDeck.id === deck.id
-                    ? "border-foreground ring-1 ring-foreground bg-elevated/40"
-                    : "border-border hover:bg-elevated/20"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {deck.subject}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <Pill className="text-[10px]">{deck.cards.filter(c => !deletedCardKeys.has(`${deck.id}_${c.q}`)).length} cards</Pill>
-                    <button
-                      onClick={(e) => handleDeleteDeck(deck.id, e)}
-                      className="lg:opacity-0 lg:group-hover/deck:opacity-100 p-0.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all"
-                      title="Hide Deck"
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+              Decks ({visibleDecks.length})
+            </h2>
+            <Button
+              onClick={() => setShowAiModal(true)}
+              className="text-xs font-bold gap-1 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Create AI Deck
+            </Button>
+          </div>
+
+          <div className="space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+            {visibleDecks.map((deck) => {
+              const activeCount = deck.cards.filter((c: { q: string; a: string }) => !deletedCardKeys.has(`${deck.id}_${c.q}`)).length;
+              const isSelected = selectedDeck && selectedDeck.id === deck.id;
+              return (
+                <Card
+                  key={deck.id}
+                  onClick={() => selectDeck(deck)}
+                  className={`relative group/deck cursor-pointer p-4 transition text-left border ${
+                    isSelected
+                      ? "border-foreground ring-1 ring-foreground bg-elevated/40"
+                      : "border-border hover:bg-elevated/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate max-w-[140px]"
+                      title={deck.subject}
                     >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                      {sliceText(deck.subject, 18)}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Pill className="text-[10px]">{activeCount} cards</Pill>
+                      <button
+                        onClick={(e) => handleDeleteDeck(deck.id, e)}
+                        className="opacity-60 group-hover/deck:opacity-100 p-1 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all"
+                        title="Delete Deck"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <h3 className="mt-2 text-sm font-semibold text-foreground pr-5">{deck.title}</h3>
-              </Card>
-            ))}
+                  <h3
+                    className="mt-2 text-sm font-semibold text-foreground pr-5 truncate"
+                    title={deck.title}
+                  >
+                    {sliceText(deck.title, 32)}
+                  </h3>
+                </Card>
+              );
+            })}
+
             {visibleDecks.length === 0 && (
               <div className="text-center py-8 border border-dashed border-border rounded-xl">
                 <p className="text-xs text-muted-foreground">No active decks remaining.</p>
@@ -496,21 +662,36 @@ function FlashcardsPage() {
             <Card className="w-full max-w-2xl p-12 text-center border border-dashed border-border rounded-2xl flex flex-col items-center justify-center min-h-[340px]">
               <Layers className="h-10 w-10 text-muted-foreground mb-4 animate-pulse" />
               <h3 className="text-base font-bold text-foreground mb-2">No Decks Available</h3>
-              <p className="text-xs text-muted-foreground max-w-sm">
-                All course decks have been removed from the session. Create new AI notes to automatically populate smart flashcard decks.
+              <p className="text-xs text-muted-foreground max-w-sm mb-4">
+                All course decks have been removed. Click below to generate precision key-point flashcards using Gemini AI.
               </p>
+              <Button
+                onClick={() => setShowAiModal(true)}
+                className="gap-2 text-xs font-bold px-4 py-2 rounded-xl bg-primary text-primary-foreground"
+              >
+                <Sparkles className="h-4 w-4" /> Create AI Flashcards
+              </Button>
             </Card>
           ) : (
             <div className="w-full max-w-2xl space-y-6">
               {/* Stats Header */}
               <div className="flex items-center justify-between text-xs font-extrabold text-muted-foreground bg-elevated/40 border border-border/50 px-4 py-3 rounded-xl shadow-inner w-full">
-                <span className="flex items-center gap-1.5 uppercase tracking-wider">
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  Card {activeDeckCards.length > 0 ? currentCardIdx + 1 : 0} of {activeDeckCards.length}
-                </span>
-                <div className="flex gap-3">
-                  <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">✓ {score.correct} Understood</span>
-                  <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2.5 py-0.5 rounded-full">✗ {score.incorrect} Not Understood</span>
+                <div className="flex items-center gap-2 truncate max-w-[240px]">
+                  <BookOpen className="h-4 w-4 text-primary shrink-0" />
+                  <span className="truncate font-semibold text-foreground" title={selectedDeck?.title}>
+                    {sliceText(selectedDeck?.title || "Deck", 24)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    ({activeDeckCards.length > 0 ? currentCardIdx + 1 : 0}/{activeDeckCards.length})
+                  </span>
+                </div>
+                <div className="flex gap-3 shrink-0">
+                  <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                    ✓ {score.correct} Understood
+                  </span>
+                  <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2.5 py-0.5 rounded-full">
+                    ✗ {score.incorrect} Review
+                  </span>
                 </div>
               </div>
 
@@ -543,7 +724,7 @@ function FlashcardsPage() {
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      All cards deleted or no content available in this deck.
+                      All cards deleted from this deck.
                     </p>
                   )}
                 </div>
@@ -556,7 +737,7 @@ function FlashcardsPage() {
 
               {/* Controls */}
               <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/50 pt-5">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -591,7 +772,7 @@ function FlashcardsPage() {
                     onClick={handleDeleteCard}
                     disabled={activeDeckCards.length === 0}
                     className="rounded-xl inline-flex items-center gap-1.5 px-4 font-bold border border-red-200 bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground transition text-xs"
-                    title="Delete this card"
+                    title="Delete this flashcard"
                   >
                     <Trash2 className="h-3.5 w-3.5 text-red-500" /> Delete Card
                   </Button>
@@ -606,7 +787,7 @@ function FlashcardsPage() {
                       }}
                       className="rounded-xl inline-flex items-center gap-1.5 px-4 py-2 border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-extrabold"
                     >
-                      <X className="h-3.5 w-3.5" /> Not Understood
+                      <X className="h-3.5 w-3.5" /> Review
                     </Button>
                     <Button
                       onClick={() => {
@@ -624,6 +805,87 @@ function FlashcardsPage() {
           )}
         </div>
       </div>
+
+      {/* AI Flashcard Generator Modal */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <Card className="w-full max-w-lg p-6 space-y-5 border border-border bg-background shadow-2xl rounded-2xl relative">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Create AI Flashcard Deck</h3>
+                  <p className="text-xs text-muted-foreground">Generate key point questions & concise answers using Gemini AI</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs font-bold text-foreground mb-1.5 block">Select Study Material (Optional)</Label>
+                <select
+                  value={selectedMaterialId}
+                  onChange={(e) => setSelectedMaterialId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Choose from your uploaded materials --</option>
+                  {materials.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.type}: {sliceText(m.title, 45)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-foreground mb-1.5 block">Custom Subject or Topic</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Organic Chemistry Functional Groups, Fourier Transforms, World War II"
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-border/60 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowAiModal(false)}
+                disabled={isGenerating}
+                className="text-xs font-semibold rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGenerateAiDeck}
+                disabled={isGenerating}
+                className="text-xs font-bold gap-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Generating Deck...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" /> Generate Deck
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </AppShell>
   );
 }
+

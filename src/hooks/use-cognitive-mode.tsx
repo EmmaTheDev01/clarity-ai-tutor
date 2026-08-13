@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-export type CognitiveMode = "default" | "adhd" | "dyslexia";
+export type CognitiveMode = "default" | "adhd" | "dyslexia" | "sensory";
 
 interface CognitiveModeContextType {
   mode: CognitiveMode;
@@ -14,7 +14,7 @@ export function CognitiveModeProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     const savedMode = localStorage.getItem("purelearn-cognitive-mode") as CognitiveMode;
-    if (savedMode && ["default", "adhd", "dyslexia"].includes(savedMode)) {
+    if (savedMode && ["default", "adhd", "dyslexia", "sensory"].includes(savedMode)) {
       setModeState(savedMode);
     }
   }, []);

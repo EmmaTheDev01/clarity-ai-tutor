@@ -1061,7 +1061,7 @@ function NotesPage() {
               {/* Note Content — WYSIWYG Rich Editor with toolbar */}
               <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto pr-1">
                 {selectedNote.readOnly ? (
-                  <div className="text-foreground min-h-[300px] flex-1">
+                  <div className="text-foreground min-h-[300px] flex-1 rounded-2xl border border-border/80 bg-elevated/30 p-6 md:p-8 shadow-sm">
                     <MarkdownRenderer content={selectedNote.content} cognitiveProfile={cognitiveProfile} />
                   </div>
                 ) : (
