@@ -71,16 +71,25 @@ function SignIn() {
       if (data?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, name")
+          .select("role, name, approval_status")
           .eq("id", data.user.id)
-          .single();
+          .maybeSingle();
+
+        if (profile?.approval_status === "banned") {
+          await supabase.auth.signOut();
+          localStorage.removeItem("user_profile");
+          toast.error("This account has been suspended by an administrator. Please contact support.");
+          setLoading(false);
+          return;
+        }
+
         if (profile) role = profile.role;
 
         // Log the login audit action in DB
         try {
           await supabase.from("user_logs").insert({
             user_id: data.user.id,
-            action_type: "user_login",
+            action_type: "login",
             details: `Signed in successfully as ${role}`,
           });
         } catch (logErr) {

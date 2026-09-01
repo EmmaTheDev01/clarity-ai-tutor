@@ -30,6 +30,8 @@ import {
   AlertTriangle,
   Globe,
   Settings as SettingsIcon,
+  X,
+  Loader2,
 } from "lucide-react";
 import {
   saveSystemApiKeyToDb,
@@ -132,6 +134,32 @@ export function AdminPortal() {
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Custom Modal Confirmation State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    cancelText?: string;
+    variant: "danger" | "warning" | "primary";
+    icon: "trash" | "ban" | "alert" | "check";
+    onConfirm: () => Promise<void> | void;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Confirm",
+    variant: "danger",
+    icon: "alert",
+    onConfirm: () => {},
+    isLoading: false,
+  });
+
+  const closeConfirmModal = () => {
+    setConfirmModal((prev) => ({ ...prev, isOpen: false, isLoading: false }));
+  };
 
   // Reset pagination pages on filter changes
   useEffect(() => {
@@ -249,12 +277,12 @@ export function AdminPortal() {
         .select("*", { count: "exact", head: true });
       if (qaCount !== null) setQuizAttemptsCount(qaCount);
 
-      // 6. Fetch User Audit Logs
+      // 6. Fetch User Audit Logs (Up to 1000 recent logs for live weekly analytics)
       const { data: lData } = await supabase
         .from("user_logs")
         .select("id, action_type, details, created_at, user_id")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(1000);
 
       if (lData) setUserLogs(lData);
 
@@ -276,7 +304,7 @@ export function AdminPortal() {
           if (s.key === "logging_level") setLoggingLevel(s.value);
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Error loading system-wide admin data:", err);
       toast.error("Failed to load database records.");
     } finally {
@@ -288,57 +316,208 @@ export function AdminPortal() {
     fetchWholeSystemData();
   }, []);
 
-  // Handle verify teacher profile in database
-  const handleVerifyTeacher = async (teacherId: string, status: "approved" | "rejected") => {
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ approval_status: status })
-        .eq("id", teacherId);
+  // Modal-driven Prompt for Delete User with Instant Optimistic UI + Database Execution
+  const promptDeleteUser = (user: { id: string; name?: string; email?: string; role?: string }) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Permanently Delete User",
+      description: `Are you sure you want to permanently delete "${user.name || "User"}" (${user.email || "No email"})? All associated student records, note shares, and study telemetry will be removed from the system.`,
+      confirmText: "Delete User",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: "trash",
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, isLoading: true }));
+        
+        // 1. Instant Optimistic UI Update
+        setUsersList((prev) => prev.filter((u) => u.id !== user.id));
+        setTotalUsers((prev) => Math.max(0, prev - 1));
+        if (user.role === "student") setStudentCount((prev) => Math.max(0, prev - 1));
+        if (user.role === "teacher") setTeacherCount((prev) => Math.max(0, prev - 1));
 
-      if (error) throw error;
-      toast.success(`Educator account ${status}!`);
-      fetchWholeSystemData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update status.");
-    }
+        try {
+          // Try RPC first for clean cascade
+          const { error: rpcErr } = await supabase.rpc("admin_delete_user", {
+            target_user_id: user.id,
+          });
+
+          if (rpcErr) {
+            // Fallback direct delete
+            await supabase.from("classroom_students").delete().eq("student_id", user.id);
+            await supabase.from("quiz_attempts").delete().eq("student_id", user.id);
+            await supabase.from("notes").delete().eq("student_id", user.id);
+            await supabase.from("flashcard_decks").delete().eq("user_id", user.id);
+            await supabase.from("materials").delete().eq("uploaded_by", user.id);
+            await supabase.from("user_logs").delete().eq("user_id", user.id);
+            const { error: directErr } = await supabase.from("profiles").delete().eq("id", user.id);
+            if (directErr) throw directErr;
+          }
+
+          toast.success(`User "${user.name || "User"}" permanently deleted.`);
+          closeConfirmModal();
+          void fetchWholeSystemData();
+        } catch (err: any) {
+          toast.error(err.message || "Failed to delete user account.");
+          setConfirmModal((p) => ({ ...p, isLoading: false }));
+          // Re-sync on failure
+          void fetchWholeSystemData();
+        }
+      },
+    });
   };
 
-  // Handle Admin Ban / Unban User
-  const handleBanUser = async (userId: string, currentStatus: string) => {
-    const isBanned = currentStatus === "banned";
+  // Modal-driven Prompt for Ban / Unban User with Instant Optimistic UI + Database Execution
+  const promptBanUser = (user: { id: string; name?: string; email?: string; approval_status?: string }) => {
+    const isBanned = user.approval_status === "banned";
     const nextStatus = isBanned ? "approved" : "banned";
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ approval_status: nextStatus })
-        .eq("id", userId);
 
-      if (error) throw error;
-      toast.success(`User account ${isBanned ? "unbanned" : "banned"} successfully!`);
-      fetchWholeSystemData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update ban status.");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: isBanned ? "Unban User Account" : "Ban User Account",
+      description: isBanned
+        ? `Restore full platform access for "${user.name || "User"}" (${user.email || ""})? They will be able to log in and participate in classrooms again.`
+        : `Are you sure you want to ban "${user.name || "User"}" (${user.email || ""})? The account will be immediately blocked from signing in or accessing the AI tutor.`,
+      confirmText: isBanned ? "Unban Account" : "Ban Account",
+      cancelText: "Cancel",
+      variant: isBanned ? "primary" : "warning",
+      icon: "ban",
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, isLoading: true }));
+
+        // 1. Instant Optimistic UI Update
+        setUsersList((prev) =>
+          prev.map((u) =>
+            u.id === user.id ? { ...u, approval_status: nextStatus } : u
+          )
+        );
+
+        try {
+          // Try RPC first
+          const { error: rpcErr } = await supabase.rpc("admin_set_user_status", {
+            target_user_id: user.id,
+            new_status: nextStatus,
+          });
+
+          if (rpcErr) {
+            // Direct update fallback
+            const { error: directErr } = await supabase
+              .from("profiles")
+              .update({ approval_status: nextStatus, updated_at: new Date().toISOString() })
+              .eq("id", user.id);
+
+            if (directErr) throw directErr;
+          }
+
+          toast.success(`User account ${isBanned ? "unbanned" : "banned"} successfully!`);
+          closeConfirmModal();
+          void fetchWholeSystemData();
+        } catch (err: any) {
+          toast.error(err.message || "Failed to update ban status.");
+          setConfirmModal((p) => ({ ...p, isLoading: false }));
+          void fetchWholeSystemData();
+        }
+      },
+    });
   };
 
-  // Handle Admin Delete User
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete user "${userName || "User"}"? This will delete all associated data.`)) {
-      return;
-    }
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
+  // Modal-driven Prompt for Verify Teacher
+  const promptVerifyTeacher = (teacher: { id: string; name?: string; email?: string }, status: "approved" | "rejected") => {
+    const isApprove = status === "approved";
+    setConfirmModal({
+      isOpen: true,
+      title: isApprove ? "Approve Educator Verification" : "Reject Educator Verification",
+      description: isApprove
+        ? `Grant educator privileges to "${teacher.name || "Teacher"}" (${teacher.email || ""})? They will be able to create classrooms, assign quizzes, and view student telemetry.`
+        : `Reject educator application for "${teacher.name || "Teacher"}" (${teacher.email || ""})?`,
+      confirmText: isApprove ? "Approve Educator" : "Reject Educator",
+      cancelText: "Cancel",
+      variant: isApprove ? "primary" : "warning",
+      icon: isApprove ? "check" : "alert",
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, isLoading: true }));
+        try {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ approval_status: status })
+            .eq("id", teacher.id);
 
-      if (error) throw error;
-      toast.success(`User account "${userName || "User"}" permanently deleted.`);
-      fetchWholeSystemData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete user account.");
-    }
+          if (error) throw error;
+          toast.success(`Educator account ${status}!`);
+          closeConfirmModal();
+          fetchWholeSystemData();
+        } catch (err: any) {
+          toast.error(err.message || "Failed to update educator status.");
+          setConfirmModal((p) => ({ ...p, isLoading: false }));
+        }
+      },
+    });
+  };
+
+  // Modal-driven Prompt for Material Deletion
+  const promptDeleteMaterial = (mat: { id: string; title: string }) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Study Material",
+      description: `Are you sure you want to permanently delete "${mat.title}"? Classrooms and students will no longer be able to access this resource.`,
+      confirmText: "Delete Material",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: "trash",
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, isLoading: true }));
+        try {
+          const { error } = await supabase
+            .from("materials")
+            .delete()
+            .eq("id", mat.id);
+
+          if (error) throw error;
+          toast.success(`Material "${mat.title}" deleted.`);
+          closeConfirmModal();
+          fetchWholeSystemData();
+        } catch (err: any) {
+          toast.error(err.message || "Failed to delete study material.");
+          setConfirmModal((p) => ({ ...p, isLoading: false }));
+        }
+      },
+    });
+  };
+
+  // Modal-driven Prompt for Flashcard Deck Deletion
+  const promptDeleteFlashcard = (deck: { id: string; title: string }) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Flashcard Deck",
+      description: `Are you sure you want to permanently delete flashcard deck "${deck.title}"?`,
+      confirmText: "Delete Deck",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: "trash",
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, isLoading: true }));
+        try {
+          if (deck.id.startsWith("note_")) {
+            const noteId = deck.id.replace("note_", "");
+            const { error } = await supabase.from("notes").delete().eq("id", noteId);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from("flashcard_decks").delete().eq("id", deck.id);
+            if (error) throw error;
+          }
+          toast.success(`Deck "${deck.title}" deleted.`);
+          closeConfirmModal();
+          fetchWholeSystemData();
+        } catch (err: any) {
+          toast.error(err.message || "Failed to delete flashcard deck.");
+          setConfirmModal((p) => ({ ...p, isLoading: false }));
+        }
+      },
+    });
   };
 
   // Handle saving global Gemini API key to Supabase system_settings
@@ -823,7 +1002,7 @@ export function AdminPortal() {
                             <div className="flex items-center justify-end gap-1.5">
                               {user.role === "teacher" && user.approval_status === "pending" && (
                                 <button
-                                  onClick={() => handleVerifyTeacher(user.id, "approved")}
+                                  onClick={() => promptVerifyTeacher(user, "approved")}
                                   className="px-2.5 py-1 rounded bg-foreground text-background text-[11px] font-bold hover:opacity-90 transition-opacity"
                                 >
                                   Approve
@@ -832,7 +1011,7 @@ export function AdminPortal() {
 
                               {/* Ban / Unban User Button */}
                               <button
-                                onClick={() => handleBanUser(user.id, user.approval_status)}
+                                onClick={() => promptBanUser(user)}
                                 className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${
                                   user.approval_status === "banned"
                                     ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
@@ -846,7 +1025,7 @@ export function AdminPortal() {
 
                               {/* Delete User Button */}
                               <button
-                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                onClick={() => promptDeleteUser(user)}
                                 className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors flex items-center gap-1"
                                 title="Delete user permanently"
                               >
@@ -982,7 +1161,7 @@ export function AdminPortal() {
                           <div className="flex items-center justify-end gap-1.5">
                             {user.role === "teacher" && user.approval_status === "pending" && (
                               <button
-                                onClick={() => handleVerifyTeacher(user.id, "approved")}
+                                onClick={() => promptVerifyTeacher(user, "approved")}
                                 className="px-2.5 py-1 rounded bg-foreground text-background text-[11px] font-bold hover:opacity-90 transition-opacity"
                               >
                                 Approve
@@ -991,7 +1170,7 @@ export function AdminPortal() {
 
                             {/* Ban / Unban User Button */}
                             <button
-                              onClick={() => handleBanUser(user.id, user.approval_status)}
+                              onClick={() => promptBanUser(user)}
                               className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${
                                 user.approval_status === "banned"
                                   ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
@@ -1005,7 +1184,7 @@ export function AdminPortal() {
 
                             {/* Delete User Button */}
                             <button
-                              onClick={() => handleDeleteUser(user.id, user.name)}
+                              onClick={() => promptDeleteUser(user)}
                               className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors flex items-center gap-1"
                               title="Delete user permanently"
                             >
@@ -1088,12 +1267,13 @@ export function AdminPortal() {
                     <th className="pb-3 font-semibold">Type</th>
                     <th className="pb-3 font-semibold">Source Kind</th>
                     <th className="pb-3 font-semibold">Uploaded Date</th>
+                    <th className="pb-3 font-semibold text-right">Admin Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {filteredMaterials.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
                         No materials found matching selected filter.
                       </td>
                     </tr>
@@ -1109,6 +1289,16 @@ export function AdminPortal() {
                         </td>
                         <td className="py-3.5 text-muted-foreground">
                           {new Date(mat.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3.5 text-right">
+                          <button
+                            onClick={() => promptDeleteMaterial(mat)}
+                            className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors inline-flex items-center gap-1"
+                            title="Delete material permanently"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1183,12 +1373,13 @@ export function AdminPortal() {
                     <th className="pb-3 font-semibold">Cards Count</th>
                     <th className="pb-3 font-semibold">Created By</th>
                     <th className="pb-3 font-semibold">Created Date</th>
+                    <th className="pb-3 font-semibold text-right">Admin Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {filteredFlashcards.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         No flashcard decks found in system database.
                       </td>
                     </tr>
@@ -1211,6 +1402,16 @@ export function AdminPortal() {
                         </td>
                         <td className="py-3.5 text-muted-foreground font-mono text-[11px]">
                           {new Date(fc.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3.5 text-right">
+                          <button
+                            onClick={() => promptDeleteFlashcard(fc)}
+                            className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors inline-flex items-center gap-1"
+                            title="Delete deck permanently"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1780,6 +1981,95 @@ export function AdminPortal() {
           </div>
         )}
       </div>
+
+      {/* ── CUSTOM CONFIRMATION ACTION MODAL ── */}
+      {confirmModal.isOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !confirmModal.isLoading) {
+              closeConfirmModal();
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !confirmModal.isLoading) {
+              e.preventDefault();
+              void confirmModal.onConfirm();
+            }
+            if (e.key === "Escape" && !confirmModal.isLoading) {
+              e.preventDefault();
+              closeConfirmModal();
+            }
+          }}
+          tabIndex={-1}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-popover text-popover-foreground p-6 shadow-2xl ring-1 ring-border/40">
+            <div className="flex items-start justify-between gap-4">
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
+                  confirmModal.variant === "danger"
+                    ? "border-red-500/30 bg-red-500/10 text-red-500"
+                    : confirmModal.variant === "warning"
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
+                    : "border-primary/30 bg-primary/10 text-primary"
+                }`}
+              >
+                {confirmModal.icon === "trash" && <Trash2 className="h-6 w-6" />}
+                {confirmModal.icon === "ban" && <Ban className="h-6 w-6" />}
+                {confirmModal.icon === "check" && <CheckCircle2 className="h-6 w-6" />}
+                {confirmModal.icon === "alert" && <AlertTriangle className="h-6 w-6" />}
+              </div>
+              <button
+                onClick={closeConfirmModal}
+                disabled={confirmModal.isLoading}
+                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <h3 className="mt-4 text-base font-black uppercase tracking-wider text-foreground">
+              {confirmModal.title}
+            </h3>
+
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {confirmModal.description}
+            </p>
+
+            <p className="mt-2 text-[10px] text-muted-foreground/60 italic">
+              Press Enter to confirm · Esc to cancel
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-border/40 pt-4">
+              <button
+                type="button"
+                onClick={closeConfirmModal}
+                disabled={confirmModal.isLoading}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+              >
+                {confirmModal.cancelText || "Cancel"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void confirmModal.onConfirm()}
+                disabled={confirmModal.isLoading}
+                autoFocus
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${
+                  confirmModal.variant === "danger"
+                    ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
+                    : confirmModal.variant === "warning"
+                    ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20"
+                    : "bg-foreground text-background hover:opacity-90"
+                }`}
+              >
+                {confirmModal.isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
