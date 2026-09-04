@@ -1,11 +1,8 @@
+import { Link } from "@tanstack/react-router";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { Upload, Brain, FileCheck2, Sparkles } from "lucide-react";
 
-export interface HowItWorksProps {
-  onOpenDemo: () => void;
-}
-
-export function HowItWorks({ onOpenDemo }: HowItWorksProps) {
+export function HowItWorks() {
   const steps = [
     {
       step: "01",
@@ -168,13 +165,12 @@ export function HowItWorks({ onOpenDemo }: HowItWorksProps) {
                 Experience institutional gradebooks, multi-student cognitive isolation, and automated curriculum quiz generation with a personalized walk-through.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onOpenDemo}
+            <Link
+              to="/request-demo"
               className="inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
             >
               Request Live Demo
-            </button>
+            </Link>
           </div>
         </ScrollReveal>
       </div>

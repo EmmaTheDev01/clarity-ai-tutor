@@ -10,10 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as RequestDemoRouteImport } from './routes/request-demo'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as GdprRouteImport } from './routes/gdpr'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as ChangelogRouteImport } from './routes/changelog'
@@ -42,6 +44,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RequestDemoRoute = RequestDemoRouteImport.update({
+  id: '/request-demo',
+  path: '/request-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -60,6 +67,11 @@ const GdprRoute = GdprRouteImport.update({
 const FeaturesRoute = FeaturesRouteImport.update({
   id: '/features',
   path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -180,10 +192,12 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof ChangelogRoute
   '/community': typeof CommunityRoute
   '/contact': typeof ContactRoute
+  '/demo': typeof DemoRoute
   '/features': typeof FeaturesRoute
   '/gdpr': typeof GdprRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/request-demo': typeof RequestDemoRoute
   '/terms': typeof TermsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/flashcards': typeof AppFlashcardsRoute
@@ -209,10 +223,12 @@ export interface FileRoutesByTo {
   '/changelog': typeof ChangelogRoute
   '/community': typeof CommunityRoute
   '/contact': typeof ContactRoute
+  '/demo': typeof DemoRoute
   '/features': typeof FeaturesRoute
   '/gdpr': typeof GdprRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/request-demo': typeof RequestDemoRoute
   '/terms': typeof TermsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/flashcards': typeof AppFlashcardsRoute
@@ -239,10 +255,12 @@ export interface FileRoutesById {
   '/changelog': typeof ChangelogRoute
   '/community': typeof CommunityRoute
   '/contact': typeof ContactRoute
+  '/demo': typeof DemoRoute
   '/features': typeof FeaturesRoute
   '/gdpr': typeof GdprRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/request-demo': typeof RequestDemoRoute
   '/terms': typeof TermsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/flashcards': typeof AppFlashcardsRoute
@@ -270,10 +288,12 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/community'
     | '/contact'
+    | '/demo'
     | '/features'
     | '/gdpr'
     | '/pricing'
     | '/privacy'
+    | '/request-demo'
     | '/terms'
     | '/app/analytics'
     | '/app/flashcards'
@@ -299,10 +319,12 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/community'
     | '/contact'
+    | '/demo'
     | '/features'
     | '/gdpr'
     | '/pricing'
     | '/privacy'
+    | '/request-demo'
     | '/terms'
     | '/app/analytics'
     | '/app/flashcards'
@@ -328,10 +350,12 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/community'
     | '/contact'
+    | '/demo'
     | '/features'
     | '/gdpr'
     | '/pricing'
     | '/privacy'
+    | '/request-demo'
     | '/terms'
     | '/app/analytics'
     | '/app/flashcards'
@@ -358,10 +382,12 @@ export interface RootRouteChildren {
   ChangelogRoute: typeof ChangelogRoute
   CommunityRoute: typeof CommunityRoute
   ContactRoute: typeof ContactRoute
+  DemoRoute: typeof DemoRoute
   FeaturesRoute: typeof FeaturesRoute
   GdprRoute: typeof GdprRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  RequestDemoRoute: typeof RequestDemoRoute
   TermsRoute: typeof TermsRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppFlashcardsRoute: typeof AppFlashcardsRoute
@@ -390,6 +416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/request-demo': {
+      id: '/request-demo'
+      path: '/request-demo'
+      fullPath: '/request-demo'
+      preLoaderRoute: typeof RequestDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -416,6 +449,13 @@ declare module '@tanstack/react-router' {
       path: '/features'
       fullPath: '/features'
       preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -582,10 +622,12 @@ const rootRouteChildren: RootRouteChildren = {
   ChangelogRoute: ChangelogRoute,
   CommunityRoute: CommunityRoute,
   ContactRoute: ContactRoute,
+  DemoRoute: DemoRoute,
   FeaturesRoute: FeaturesRoute,
   GdprRoute: GdprRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  RequestDemoRoute: RequestDemoRoute,
   TermsRoute: TermsRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppFlashcardsRoute: AppFlashcardsRoute,

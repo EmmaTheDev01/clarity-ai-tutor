@@ -149,10 +149,10 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Marie Uwase"
+                      placeholder="Your full name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -166,10 +166,10 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
                     <input
                       type="email"
                       required
-                      placeholder="name@university.edu"
+                      placeholder="name@institution.edu"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -202,10 +202,10 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
                     <Building className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="e.g. University of Rwanda"
+                      placeholder="University, school, or organization"
                       value={organization}
                       onChange={(e) => setOrganization(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -239,10 +239,10 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
                     <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="e.g. Next Tuesday at 2 PM"
+                      placeholder="e.g. Next week, or specific day/time"
                       value={preferredDate}
                       onChange={(e) => setPreferredDate(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -256,10 +256,10 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
                   <MessageSquare className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <textarea
                     rows={2}
-                    placeholder="Tell us about your courses, topics, or cognitive preferences..."
+                    placeholder="Briefly describe your courses, curriculum goals, or topics..."
                     value={useCase}
                     onChange={(e) => setUseCase(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                    className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                   />
                 </div>
               </div>

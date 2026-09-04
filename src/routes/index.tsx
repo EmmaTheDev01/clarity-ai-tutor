@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { supabase } from "@/lib/supabase";
 import { useUserCount } from "@/hooks/useUserCount";
-import { DemoRequestModal } from "@/components/DemoRequestModal";
 import { HowItWorks } from "@/components/HowItWorks";
 import {
   Upload,
@@ -31,7 +30,6 @@ const APP = "Purelearn.ai";
 function Landing() {
   const navigate = useNavigate();
   const { label: userCountLabel } = useUserCount();
-  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -43,23 +41,20 @@ function Landing() {
     checkSession();
   }, [navigate]);
 
-  const handleOpenDemo = () => setIsDemoModalOpen(true);
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav />
       <main>
-        <Hero userCountLabel={userCountLabel} onOpenDemo={handleOpenDemo} />
+        <Hero userCountLabel={userCountLabel} />
         <Features />
-        <HowItWorks onOpenDemo={handleOpenDemo} />
+        <HowItWorks />
         <UseCases />
         <AppDownloadCTA />
         <Testimonials />
         <FAQ />
-        <FinalCTA userCountLabel={userCountLabel} onOpenDemo={handleOpenDemo} />
+        <FinalCTA userCountLabel={userCountLabel} />
       </main>
       <Footer />
-      <DemoRequestModal isOpen={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
     </div>
   );
 }
@@ -111,7 +106,7 @@ function Nav() {
   );
 }
 
-function Hero({ userCountLabel, onOpenDemo }: { userCountLabel: string; onOpenDemo: () => void }) {
+function Hero({ userCountLabel }: { userCountLabel: string }) {
   const [heroScroll, setHeroScroll] = useState(0);
 
   useEffect(() => {
@@ -171,13 +166,13 @@ function Hero({ userCountLabel, onOpenDemo }: { userCountLabel: string; onOpenDe
               Start learning — it&apos;s free
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
-            <button
-              type="button"
-              onClick={onOpenDemo}
-              className="inline-flex w-full sm:w-56 h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
+            <Link
+              to="/request-demo"
+              className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
             >
               Get demo
-            </button>
+              <ArrowRight className="h-4 w-4 shrink-0" />
+            </Link>
           </div>
         </ScrollReveal>
 
@@ -606,7 +601,7 @@ function FAQ() {
   );
 }
 
-function FinalCTA({ userCountLabel, onOpenDemo }: { userCountLabel: string; onOpenDemo: () => void }) {
+function FinalCTA({ userCountLabel }: { userCountLabel: string }) {
   return (
     <section className="">
       <div className="mx-auto max-w-6xl px-6 py-24">
@@ -626,13 +621,13 @@ function FinalCTA({ userCountLabel, onOpenDemo }: { userCountLabel: string; onOp
                 Start learning — it&apos;s free
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
-              <button
-                type="button"
-                onClick={onOpenDemo}
-                className="inline-flex w-full sm:w-56 h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
+              <Link
+                to="/request-demo"
+                className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
               >
                 Get demo
-              </button>
+                <ArrowRight className="h-4 w-4 shrink-0" />
+              </Link>
             </div>
           </div>
         </ScrollReveal>
@@ -654,7 +649,7 @@ function Footer() {
               An adaptive Socratic learning engine designed for cognitive diversity, visual preference mapping, and conceptual STEM mastery.
             </p>
           </div>
-          <FooterCol title="Product" links={["Features", "Pricing", "Changelog"]} />
+          <FooterCol title="Product" links={["Features", "Pricing", "Request Demo", "Changelog"]} />
           <FooterCol title="Company" links={["Community", "Blog", "Contact us"]} />
           <FooterCol title="Legal" links={["Terms & conditions", "Privacy policy", "GDPR"]} />
         </div>
@@ -685,6 +680,7 @@ function FooterCol({ title, links }: { title: string; links: string[] }) {
   const routeMap: Record<string, string> = {
     "features": "/features",
     "pricing": "/pricing",
+    "request demo": "/request-demo",
     "changelog": "/changelog",
     "community": "/community",
     "blog": "/blog",
