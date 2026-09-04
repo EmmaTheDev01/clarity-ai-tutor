@@ -80,7 +80,7 @@ function Nav() {
     <header className={`sticky top-0 z-50 bg-background/80 backdrop-blur transition-all duration-200 ${isScrolled ? "border-b border-border shadow-sm" : "border-b border-transparent"}`}>
       {/* Noticeable top scroll progress indicator */}
       <div
-        className="absolute top-0 left-0 h-[2.5px] bg-gradient-to-r from-primary via-indigo-500 to-primary transition-all duration-75 ease-out z-50 pointer-events-none"
+        className="absolute top-0 left-0 h-[2.5px] bg-black transition-all duration-75 ease-out z-50 pointer-events-none"
         style={{ width: `${scrollPercent}%` }}
       />
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6">
@@ -445,14 +445,14 @@ function AppDownloadCTA() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
               href="#"
-              className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
+              className="inline-flex w-56 items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
               <AppleIcon />
               Download for iOS
             </a>
             <a
               href="#"
-              className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
+              className="inline-flex w-56 items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
               <PlayStoreIcon />
               Download for Android
@@ -639,7 +639,7 @@ function FinalCTA({ userCountLabel }: { userCountLabel: string }) {
 function Footer() {
   return (
     <footer className="border-t border-border bg-gradient-to-b from-white via-neutral-50 to-neutral-100/50 relative overflow-hidden">
-      <div className="mx-auto max-w-7xl px-6 py-16">
+      <div className="mx-auto max-w-7xl px-6 py-16 relative z-10">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-5 items-start">
           <div className="col-span-2 space-y-4">
             <div className="flex items-center">
@@ -671,6 +671,13 @@ function Footer() {
             <span className="hover:text-primary transition cursor-pointer">Discord</span>
           </div>
         </div>
+      </div>
+
+      {/* Overflowing bottom background typography displayed directly underneath the bottom texts */}
+      <div className="pointer-events-none select-none absolute inset-x-0 bottom-0 flex justify-center overflow-hidden z-0">
+        <span className="text-[11.5vw] font-black tracking-tighter leading-none whitespace-nowrap bg-gradient-to-b from-neutral-900/[0.14] via-neutral-900/[0.08] to-neutral-900/[0.02] dark:from-white/[0.14] dark:via-white/[0.08] dark:to-white/[0.02] bg-clip-text text-transparent translate-y-[32%] select-none">
+          Purelearn.ai
+        </span>
       </div>
     </footer>
   );
