@@ -2,11 +2,20 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface ScrollRevealProps {
   children: ReactNode;
-  animation?: "fade-up" | "fade-left" | "fade-right" | "scale-in" | "zoom-out" | "crazy-reveal";
+  animation?:
+    | "fade-up"
+    | "fade-down"
+    | "fade-left"
+    | "fade-right"
+    | "scale-in"
+    | "zoom-out"
+    | "crazy-reveal"
+    | "flip-up";
   duration?: number;
   delay?: number;
   threshold?: number;
   className?: string;
+  once?: boolean;
 }
 
 export function ScrollReveal({
@@ -14,8 +23,9 @@ export function ScrollReveal({
   animation = "fade-up",
   duration = 750,
   delay = 0,
-  threshold = 0.1,
+  threshold = 0.15,
   className = "",
+  once = true,
 }: ScrollRevealProps) {
   const elementRef = useRef<HTMLDivElement>(null);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -24,31 +34,28 @@ export function ScrollReveal({
     const el = elementRef.current;
     if (!el) return;
 
-    // Feature detect native CSS scroll-driven animations
-    const supportsSDA =
-      typeof CSS !== "undefined" &&
-      CSS.supports?.("(animation-timeline: view()) and (animation-range: entry)");
-
-    if (supportsSDA) {
-      // Let the CSS engine handle scroll-linked timelines natively
-      setIsRevealed(true);
-      return;
-    }
-
-    // Fallback: IntersectionObserver for browsers without Scroll-Driven Animations support
+    // IntersectionObserver configured with rootMargin so animations trigger
+    // noticeably as the element enters the active viewing area
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsRevealed(true);
-          observer.unobserve(el);
+          if (once) {
+            observer.unobserve(el);
+          }
+        } else if (!once) {
+          setIsRevealed(false);
         }
       },
-      { threshold },
+      {
+        threshold,
+        rootMargin: "0px 0px -60px 0px",
+      },
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [threshold]);
+  }, [threshold, once]);
 
   const style = {
     "--reveal-duration": `${duration}ms`,

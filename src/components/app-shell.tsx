@@ -51,6 +51,7 @@ const nav = [
 
 const adminNav = [
   { to: "/admin", tab: "overview", label: "Overview", icon: LayoutDashboard },
+  { to: "/admin", tab: "demos", label: "Demo Requests", icon: Sparkles },
   { to: "/admin", tab: "users", label: "Users", icon: Users },
   { to: "/admin", tab: "materials", label: "Materials", icon: FileText },
   { to: "/admin", tab: "flashcards", label: "Flashcards", icon: Layers },

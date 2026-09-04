@@ -2,6 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { supabase } from "@/lib/supabase";
+import { useUserCount } from "@/hooks/useUserCount";
+import { DemoRequestModal } from "@/components/DemoRequestModal";
+import { HowItWorks } from "@/components/HowItWorks";
 import {
   Upload,
   MessageSquare,
@@ -15,6 +18,7 @@ import {
   GraduationCap,
   FolderHeart,
   Brain,
+  CheckCircle2,
 } from "lucide-react";
 import appMockup from "@/assets/app-mockup.jpg";
 
@@ -26,6 +30,8 @@ const APP = "Purelearn.ai";
 
 function Landing() {
   const navigate = useNavigate();
+  const { label: userCountLabel } = useUserCount();
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -36,38 +42,52 @@ function Landing() {
     };
     checkSession();
   }, [navigate]);
+
+  const handleOpenDemo = () => setIsDemoModalOpen(true);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav />
       <main>
-        <Hero />
+        <Hero userCountLabel={userCountLabel} onOpenDemo={handleOpenDemo} />
         <Features />
+        <HowItWorks onOpenDemo={handleOpenDemo} />
         <UseCases />
         <AppDownloadCTA />
         <Testimonials />
         <FAQ />
-        <FinalCTA />
+        <FinalCTA userCountLabel={userCountLabel} onOpenDemo={handleOpenDemo} />
       </main>
       <Footer />
+      <DemoRequestModal isOpen={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
     </div>
   );
 }
 
 function Nav() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollPercent, setScrollPercent] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      setIsScrolled(window.scrollY > 20);
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        setScrollPercent((window.scrollY / totalHeight) * 100);
+      }
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
-    // Check initial scroll state
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
     <header className={`sticky top-0 z-50 bg-background/80 backdrop-blur transition-all duration-200 ${isScrolled ? "border-b border-border shadow-sm" : "border-b border-transparent"}`}>
+      {/* Noticeable top scroll progress indicator */}
+      <div
+        className="absolute top-0 left-0 h-[2.5px] bg-gradient-to-r from-primary via-indigo-500 to-primary transition-all duration-75 ease-out z-50 pointer-events-none"
+        style={{ width: `${scrollPercent}%` }}
+      />
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6">
         <Link to="/" className="flex items-center">
           <img src="/logo.png" alt="Purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
@@ -91,7 +111,18 @@ function Nav() {
   );
 }
 
-function Hero() {
+function Hero({ userCountLabel, onOpenDemo }: { userCountLabel: string; onOpenDemo: () => void }) {
+  const [heroScroll, setHeroScroll] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const progress = Math.min(1, Math.max(0, window.scrollY / 500));
+      setHeroScroll(progress);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
   return (
     <section className="">
       <div className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-24 pt-24 text-center sm:pb-32 sm:pt-32 md:pt-40">
@@ -118,7 +149,7 @@ function Hero() {
               alt="User face 4"
             />
           </div>
-          <span className="flex items-center gap-1">Loved by 2,000+ learners</span>
+          <span className="flex items-center gap-1">Loved by {userCountLabel} learners</span>
         </span>
         <ScrollReveal animation="fade-up" duration={800}>
           <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-7xl">
@@ -132,26 +163,34 @@ function Hero() {
           </p>
         </ScrollReveal>
         <ScrollReveal animation="fade-up" duration={800} delay={200}>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row w-full max-w-[224px] sm:max-w-none mx-auto">
             <Link
               to="/auth/sign-up"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+              className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-sm whitespace-nowrap"
             >
               Start learning — it&apos;s free
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
-            <Link
-              to="/app"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
+            <button
+              type="button"
+              onClick={onOpenDemo}
+              className="inline-flex w-full sm:w-56 h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
             >
-              <Play className="h-4 w-4" />
-              See the app
-            </Link>
+              Get demo
+            </button>
           </div>
         </ScrollReveal>
 
-        {/* Video Showcase (shrunk initially, widens on scroll) */}
-        <div className="mt-10 w-full video-scroll-widen sm:mt-16">
+        {/* Interactive 3D Video Showcase that tilts & expands on scroll */}
+        <div
+          className="mt-10 w-full sm:mt-16 transition-all duration-100 ease-out will-change-transform"
+          style={{
+            transform: `perspective(1200px) rotateX(${(1 - heroScroll) * 10}deg) scale(${0.93 + heroScroll * 0.07}) translateY(${(1 - heroScroll) * 20}px)`,
+            maxWidth: `${62 + heroScroll * 18}rem`,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
           <div className="overflow-hidden rounded-lg border border-border bg-elevated shadow-[0_20px_60px_-20px_rgba(0,0,0,0.15)]">
             <div className="flex items-center gap-1.5 border-b border-border bg-background px-4 py-3">
               <span className="h-2.5 w-2.5 rounded-full border border-border" />
@@ -200,14 +239,16 @@ function Features() {
   return (
     <section className="">
       <div className="mx-auto max-w-7xl px-6 py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Save hours. Learn smarter.
-          </h2>
-          <p className="mt-4 text-base text-muted-foreground">
-            Everything you need to turn passive material into active understanding.
-          </p>
-        </div>
+        <ScrollReveal animation="fade-up">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Save hours. Learn smarter.
+            </h2>
+            <p className="mt-4 text-base text-muted-foreground">
+              Everything you need to turn passive material into active understanding.
+            </p>
+          </div>
+        </ScrollReveal>
         <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2 xl:grid-cols-4">
           {features.map((f, i) => (
             <ScrollReveal
@@ -235,11 +276,13 @@ function UseCases() {
   return (
     <section className="bg-elevated/20">
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Built for the way you work.
-          </h2>
-        </div>
+        <ScrollReveal animation="fade-up">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Built for the way you work.
+            </h2>
+          </div>
+        </ScrollReveal>
 
         <div className="mt-16 grid grid-cols-1 gap-8 items-stretch lg:grid-cols-12">
           {/* Left Column: 1 Card (Manage projects) taking 5/12 width */}
@@ -467,11 +510,13 @@ function Testimonials() {
   return (
     <section className="">
       <div className="mx-auto max-w-7xl px-6 py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Trusted by learners everywhere.
-          </h2>
-        </div>
+        <ScrollReveal animation="fade-up">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Trusted by learners everywhere.
+            </h2>
+          </div>
+        </ScrollReveal>
         <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {testimonials.map((t, i) => (
             <ScrollReveal key={t.name} animation="crazy-reveal" delay={(i % 3) * 150} className="flex">
@@ -520,11 +565,13 @@ function FAQ() {
   return (
     <section className="">
       <div className="mx-auto max-w-3xl px-6 py-24">
-        <div className="text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Frequently asked questions.
-          </h2>
-        </div>
+        <ScrollReveal animation="fade-up">
+          <div className="text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Frequently asked questions.
+            </h2>
+          </div>
+        </ScrollReveal>
         <ScrollReveal animation="crazy-reveal">
           <div className="mt-12 border-t border-border">
             {faqs.map((f, i) => {
@@ -559,7 +606,7 @@ function FAQ() {
   );
 }
 
-function FinalCTA() {
+function FinalCTA({ userCountLabel, onOpenDemo }: { userCountLabel: string; onOpenDemo: () => void }) {
   return (
     <section className="">
       <div className="mx-auto max-w-6xl px-6 py-24">
@@ -569,22 +616,23 @@ function FinalCTA() {
               Your smarter study session starts now.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-              Join 2,000+ learners turning static material into interactive understanding.
+              Join {userCountLabel} learners turning static material into interactive understanding.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row w-full max-w-[224px] sm:max-w-none mx-auto">
               <Link
                 to="/auth/sign-up"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-sm whitespace-nowrap"
               >
                 Start learning — it&apos;s free
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
-              <Link
-                to="/app"
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
+              <button
+                type="button"
+                onClick={onOpenDemo}
+                className="inline-flex w-full sm:w-56 h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
               >
-                See the app
-              </Link>
+                Get demo
+              </button>
             </div>
           </div>
         </ScrollReveal>

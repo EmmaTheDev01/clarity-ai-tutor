@@ -32,13 +32,17 @@ import {
   Settings as SettingsIcon,
   X,
   Loader2,
+  Mail,
+  Calendar,
+  Building,
+  MessageSquare,
 } from "lucide-react";
 import {
   saveSystemApiKeyToDb,
   fetchSystemApiKeyFromDb,
 } from "@/lib/gemini";
 
-type AdminMenuTab = "overview" | "users" | "materials" | "flashcards" | "analytics" | "logs" | "settings";
+type AdminMenuTab = "overview" | "demos" | "users" | "materials" | "flashcards" | "analytics" | "logs" | "settings";
 
 type AdminSearch = {
   tab?: AdminMenuTab;
@@ -84,7 +88,7 @@ export function AdminPortal() {
 
   // Reactive URL Search tab synchronization via TanStack Router
   const search = Route.useSearch();
-  const activeTab: AdminMenuTab = search.tab && ["overview", "users", "materials", "flashcards", "analytics", "logs", "settings"].includes(search.tab)
+  const activeTab: AdminMenuTab = search.tab && ["overview", "demos", "users", "materials", "flashcards", "analytics", "logs", "settings"].includes(search.tab)
     ? search.tab
     : "overview";
 
@@ -111,6 +115,17 @@ export function AdminPortal() {
 
   const [userLogs, setUserLogs] = useState<any[]>([]);
   const [logFilter, setLogFilter] = useState<string>("all");
+
+  // Demo Requests States
+  const [demoRequests, setDemoRequests] = useState<any[]>([]);
+  const [demosCount, setDemosCount] = useState<number>(0);
+  const [pendingDemosCount, setPendingDemosCount] = useState<number>(0);
+  const [demoSearchQuery, setDemoSearchQuery] = useState<string>("");
+  const [demoStatusFilter, setDemoStatusFilter] = useState<string>("all");
+  const [demosPage, setDemosPage] = useState<number>(1);
+  const [selectedDemoDetail, setSelectedDemoDetail] = useState<any | null>(null);
+  const [isUpdatingDemoStatus, setIsUpdatingDemoStatus] = useState<string | null>(null);
+  const [adminNotesDraft, setAdminNotesDraft] = useState<string>("");
 
   // Table Pagination States
   const [usersPage, setUsersPage] = useState(1);
@@ -286,7 +301,23 @@ export function AdminPortal() {
 
       if (lData) setUserLogs(lData);
 
-      // 7. Fetch Global System Gemini API Key & App Settings from Supabase system_settings
+      // 7. Fetch Institutional & User Demo Requests
+      try {
+        const { count: dCount, data: dData } = await supabase
+          .from("demo_requests")
+          .select("*", { count: "exact" })
+          .order("created_at", { ascending: false });
+
+        if (dCount !== null) setDemosCount(dCount);
+        if (dData) {
+          setDemoRequests(dData);
+          setPendingDemosCount(dData.filter((d) => d.status === "pending").length);
+        }
+      } catch (dErr) {
+        console.warn("Could not fetch demo requests:", dErr);
+      }
+
+      // 8. Fetch Global System Gemini API Key & App Settings from Supabase system_settings
       const dbKey = await fetchSystemApiKeyFromDb();
       setSystemApiKey(dbKey || import.meta.env.VITE_GEMINI_API_KEY || "");
 
@@ -624,6 +655,94 @@ export function AdminPortal() {
   const totalLogsPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE) || 1;
   const paginatedLogs = filteredLogs.slice((logsPage - 1) * ITEMS_PER_PAGE, logsPage * ITEMS_PER_PAGE);
 
+  // Filtered Demo Requests & Paginated Data
+  const filteredDemos = demoRequests.filter((d) => {
+    if (demoStatusFilter !== "all" && d.status !== demoStatusFilter) return false;
+    if (!demoSearchQuery.trim()) return true;
+    const q = demoSearchQuery.toLowerCase();
+    return (
+      (d.name && d.name.toLowerCase().includes(q)) ||
+      (d.email && d.email.toLowerCase().includes(q)) ||
+      (d.organization && d.organization.toLowerCase().includes(q)) ||
+      (d.role && d.role.toLowerCase().includes(q)) ||
+      (d.use_case && d.use_case.toLowerCase().includes(q))
+    );
+  });
+
+  const totalDemosPages = Math.ceil(filteredDemos.length / ITEMS_PER_PAGE) || 1;
+  const paginatedDemos = filteredDemos.slice((demosPage - 1) * ITEMS_PER_PAGE, demosPage * ITEMS_PER_PAGE);
+
+  // Update Demo Request Status
+  const handleUpdateDemoStatus = async (id: string, newStatus: string) => {
+    setIsUpdatingDemoStatus(id);
+    setDemoRequests((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
+    );
+    try {
+      const { error } = await supabase
+        .from("demo_requests")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success(`Demo marked as "${newStatus}"`);
+      setPendingDemosCount(demoRequests.filter((d) => (d.id === id ? newStatus : d.status) === "pending").length);
+    } catch (e) {
+      toast.error("Failed to update demo status");
+      fetchWholeSystemData();
+    } finally {
+      setIsUpdatingDemoStatus(null);
+    }
+  };
+
+  // Save Admin Notes on Demo Request
+  const handleSaveDemoNotes = async (id: string, notes: string) => {
+    try {
+      const { error } = await supabase
+        .from("demo_requests")
+        .update({ admin_notes: notes, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      setDemoRequests((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, admin_notes: notes } : d))
+      );
+      if (selectedDemoDetail && selectedDemoDetail.id === id) {
+        setSelectedDemoDetail({ ...selectedDemoDetail, admin_notes: notes });
+      }
+      toast.success("Admin notes saved successfully!");
+    } catch (e) {
+      toast.error("Failed to save admin notes");
+    }
+  };
+
+  // Delete Demo Request Prompt
+  const promptDeleteDemo = (demo: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Demo Request",
+      description: `Are you sure you want to delete the demo request from "${demo.name}" (${demo.email})?`,
+      confirmText: "Delete Request",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: "trash",
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, isLoading: true }));
+        setDemoRequests((prev) => prev.filter((d) => d.id !== demo.id));
+        setDemosCount((prev) => Math.max(0, prev - 1));
+        try {
+          const { error } = await supabase.from("demo_requests").delete().eq("id", demo.id);
+          if (error) throw error;
+          toast.success("Demo request deleted.");
+        } catch (e) {
+          toast.error("Failed to delete demo request.");
+          fetchWholeSystemData();
+        } finally {
+          closeConfirmModal();
+        }
+      },
+    });
+  };
+
   // DYNAMIC WEEKLY ACTIVITY STRICTLY DERIVED FROM REAL LIVE USER LOGS (NO MOCK DATA)
   const dayCounts = [0, 0, 0, 0, 0, 0, 0]; // Sun..Sat
   userLogs.forEach((log) => {
@@ -677,6 +796,12 @@ export function AdminPortal() {
         ["Deck ID", "Title", "Subject", "Cards Count", "Author", "Created Date"],
         filteredFlashcards.map((fc) => [fc.id, fc.title, fc.subject, fc.cardsCount, fc.authorName, fc.created_at]),
       );
+    } else if (activeTab === "demos") {
+      exportToCsv(
+        `purelearn_demo_requests_${new Date().toISOString().slice(0, 10)}.csv`,
+        ["Request ID", "Name", "Email", "Role", "Organization", "Learners", "Preferred Date", "Status", "Notes", "Submitted Date"],
+        filteredDemos.map((d) => [d.id, d.name, d.email, d.role, d.organization || "Independent", d.team_size || "", d.preferred_date || "", d.status, d.admin_notes || "", d.created_at]),
+      );
     } else if (activeTab === "logs") {
       exportToCsv(
         `purelearn_audit_logs_${new Date().toISOString().slice(0, 10)}.csv`,
@@ -689,6 +814,8 @@ export function AdminPortal() {
         ["Metric Name", "Value", "Description"],
         [
           ["Total System Users", totalUsers, "All registered user accounts"],
+          ["Demo Requests", demosCount, "Total institutional and user demo requests"],
+          ["Pending Demos", pendingDemosCount, "Demo requests awaiting response"],
           ["Students Count", studentCount, "Enrolled student accounts"],
           ["Teachers Count", teacherCount, "Verified teacher accounts"],
           ["Pending Verification", pendingTeacherCount, "Teacher accounts awaiting admin review"],
@@ -700,7 +827,7 @@ export function AdminPortal() {
         ],
       );
     } else {
-      toast.info("Select Users, Materials, Flashcards, Analytics, or Logs to export CSV data.");
+      toast.info("Select Demos, Users, Materials, Flashcards, Analytics, or Logs to export CSV data.");
     }
   };
 
@@ -713,6 +840,7 @@ export function AdminPortal() {
           <div>
             <h2 className="text-base font-bold tracking-tight text-foreground uppercase">
               {activeTab === "overview" && "System Overview"}
+              {activeTab === "demos" && "Institutional & User Demo Requests"}
               {activeTab === "users" && "User Directory & Management"}
               {activeTab === "materials" && "Platform Study Materials"}
               {activeTab === "flashcards" && "System Flashcard Decks"}
@@ -751,7 +879,7 @@ export function AdminPortal() {
         {activeTab === "overview" && (
           <div className="space-y-6 w-full">
             {/* System Key Metrics Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full">
               <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
@@ -769,6 +897,37 @@ export function AdminPortal() {
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between">
                   <span>Students: {studentCount}</span>
                   <span>Teachers: {teacherCount}</span>
+                </div>
+              </Card>
+
+              {/* Demo Inquiries Card */}
+              <Card
+                className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm hover:border-primary/40 transition-colors cursor-pointer group"
+                onClick={() => navigate({ to: "/admin", search: { tab: "demos" } })}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Demo Requests
+                      </p>
+                      {pendingDemosCount > 0 && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                          {pendingDemosCount} New
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                      {demosCount}
+                    </h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>Pending: {pendingDemosCount}</span>
+                  <span className="font-semibold text-primary group-hover:underline">View Demos →</span>
                 </div>
               </Card>
 
@@ -795,7 +954,7 @@ export function AdminPortal() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      System Flashcard Decks
+                      System Flashcards
                     </p>
                     <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
                       {flashcardDecksList.length}
@@ -1072,7 +1231,217 @@ export function AdminPortal() {
           </div>
         )}
 
-        {/* ── 2. USERS MENU TAB WITH PAGINATION ── */}
+        {/* ── 2. INSTITUTIONAL & USER DEMO REQUESTS TAB ── */}
+        {activeTab === "demos" && (
+          <div className="space-y-6 w-full">
+            {/* Quick Metrics Bar for Demos */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card className="p-4 bg-background border border-border rounded-xl">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Inquiries</p>
+                <p className="text-2xl font-black text-foreground mt-1">{demosCount}</p>
+              </Card>
+              <Card className="p-4 bg-background border border-amber-500/30 rounded-xl bg-amber-500/5">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-amber-600">Pending Review</p>
+                <p className="text-2xl font-black text-amber-600 mt-1">{pendingDemosCount}</p>
+              </Card>
+              <Card className="p-4 bg-background border border-blue-500/30 rounded-xl bg-blue-500/5">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-blue-600">Scheduled</p>
+                <p className="text-2xl font-black text-blue-600 mt-1">
+                  {demoRequests.filter((d) => d.status === "scheduled").length}
+                </p>
+              </Card>
+              <Card className="p-4 bg-background border border-emerald-500/30 rounded-xl bg-emerald-500/5">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-600">Completed</p>
+                <p className="text-2xl font-black text-emerald-600 mt-1">
+                  {demoRequests.filter((d) => d.status === "completed").length}
+                </p>
+              </Card>
+            </div>
+
+            {/* Main Demos Table Card */}
+            <Card className="p-6 bg-background border border-border rounded-xl space-y-4 shadow-sm w-full">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
+                    Institutional Demo Requests ({demoRequests.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Prospective school, university, and student walk-through requests submitted from the landing page.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-48">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={demoSearchQuery}
+                      onChange={(e) => setDemoSearchQuery(e.target.value)}
+                      placeholder="Search requester or org..."
+                      className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                    />
+                  </div>
+
+                  <select
+                    value={demoStatusFilter}
+                    onChange={(e) => setDemoStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-foreground"
+                  >
+                    <option value="all">All Statuses ({demoRequests.length})</option>
+                    <option value="pending">Pending ({pendingDemosCount})</option>
+                    <option value="contacted">Contacted ({demoRequests.filter((d) => d.status === "contacted").length})</option>
+                    <option value="scheduled">Scheduled ({demoRequests.filter((d) => d.status === "scheduled").length})</option>
+                    <option value="completed">Completed ({demoRequests.filter((d) => d.status === "completed").length})</option>
+                    <option value="cancelled">Cancelled ({demoRequests.filter((d) => d.status === "cancelled").length})</option>
+                  </select>
+                </div>
+              </div>
+
+              {filteredDemos.length === 0 ? (
+                <div className="py-16 text-center border border-dashed border-border rounded-xl">
+                  <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
+                  <p className="text-sm font-semibold text-foreground">No demo requests found</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    When prospective educators and students click "Get demo" on the landing page, their walk-through requests will populate here in real-time.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/50 text-[11px] font-mono uppercase text-muted-foreground border-b border-border">
+                      <tr>
+                        <th className="px-4 py-3">Requester</th>
+                        <th className="px-4 py-3">Role & Audience</th>
+                        <th className="px-4 py-3">Organization</th>
+                        <th className="px-4 py-3">Preferred Date</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Submitted</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {paginatedDemos.map((demo) => (
+                        <tr key={demo.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-foreground">{demo.name}</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">{demo.email}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-muted text-foreground border border-border">
+                              {demo.role || "Educator"}
+                            </span>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              {demo.team_size || "1–50"} learners
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-foreground">{demo.organization || "Independent"}</div>
+                            {demo.use_case && (
+                              <button
+                                onClick={() => {
+                                  setSelectedDemoDetail(demo);
+                                  setAdminNotesDraft(demo.admin_notes || "");
+                                }}
+                                className="text-[10px] text-primary hover:underline flex items-center gap-0.5 mt-0.5 text-left line-clamp-1"
+                              >
+                                View note / use case →
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground font-mono text-[11px]">
+                            {demo.preferred_date || "Flexible"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <select
+                              value={demo.status}
+                              disabled={isUpdatingDemoStatus === demo.id}
+                              onChange={(e) => handleUpdateDemoStatus(demo.id, e.target.value)}
+                              className={`text-[10px] font-bold rounded-md px-2 py-1 border transition-colors ${
+                                demo.status === "pending"
+                                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                  : demo.status === "scheduled"
+                                  ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                                  : demo.status === "contacted"
+                                  ? "bg-purple-500/10 text-purple-600 border-purple-500/30"
+                                  : demo.status === "completed"
+                                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                  : "bg-muted text-muted-foreground border-border"
+                              }`}
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="contacted">Contacted</option>
+                              <option value="scheduled">Scheduled</option>
+                              <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground font-mono text-[11px]">
+                            {demo.created_at ? new Date(demo.created_at).toLocaleDateString() : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setSelectedDemoDetail(demo);
+                                  setAdminNotesDraft(demo.admin_notes || "");
+                                }}
+                                className="p-1.5 rounded-lg border border-border hover:bg-muted text-foreground transition-colors"
+                                title="View Details & Notes"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              </button>
+                              <a
+                                href={`mailto:${demo.email}?subject=PureLearn%20Demo%20Walkthrough&body=Hello%20${encodeURIComponent(demo.name)},%0A%0AThank%20you%20for%20requesting%20a%20demo%20of%20PureLearn.ai.%20We%20would%20love%20to%20schedule%20a%20walkthrough...`}
+                                className="p-1.5 rounded-lg border border-border hover:bg-muted text-foreground transition-colors inline-flex items-center"
+                                title="Email requester"
+                              >
+                                <Mail className="h-3.5 w-3.5" />
+                              </a>
+                              <button
+                                onClick={() => promptDeleteDemo(demo)}
+                                className="p-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 text-red-500 transition-colors"
+                                title="Delete request"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Demos Pagination Bar */}
+              {totalDemosPages > 1 && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t border-border">
+                  <span>
+                    Page {demosPage} of {totalDemosPages} ({filteredDemos.length} requests)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDemosPage((p) => Math.max(1, p - 1))}
+                      disabled={demosPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setDemosPage((p) => Math.min(totalDemosPages, p + 1))}
+                      disabled={demosPage >= totalDemosPages}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* ── 3. USERS MENU TAB WITH PAGINATION ── */}
         {activeTab === "users" && (
           <Card className="p-6 bg-background border border-border rounded-xl space-y-4 shadow-sm w-full">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1981,6 +2350,113 @@ export function AdminPortal() {
           </div>
         )}
       </div>
+
+      {/* ── DEMO REQUEST DETAIL & NOTES MODAL ── */}
+      {selectedDemoDetail && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedDemoDetail(null);
+          }}
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card text-card-foreground p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between border-b border-border pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Demo Walkthrough Request
+                </span>
+                <h3 className="text-lg font-bold text-foreground mt-0.5">
+                  {selectedDemoDetail.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedDemoDetail(null)}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
+                <span className="text-[10px] text-muted-foreground block">Email</span>
+                <a href={`mailto:${selectedDemoDetail.email}`} className="font-mono font-semibold text-primary hover:underline truncate block">
+                  {selectedDemoDetail.email}
+                </a>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
+                <span className="text-[10px] text-muted-foreground block">Role</span>
+                <span className="font-semibold text-foreground">{selectedDemoDetail.role || "Educator"}</span>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
+                <span className="text-[10px] text-muted-foreground block">Organization</span>
+                <span className="font-semibold text-foreground">{selectedDemoDetail.organization || "Independent"}</span>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
+                <span className="text-[10px] text-muted-foreground block">Audience Size</span>
+                <span className="font-semibold text-foreground">{selectedDemoDetail.team_size || "1–50 learners"}</span>
+              </div>
+            </div>
+
+            {selectedDemoDetail.preferred_date && (
+              <div className="text-xs rounded-lg bg-muted/30 p-2.5 border border-border">
+                <span className="text-[10px] text-muted-foreground block font-mono uppercase">Preferred Date / Time</span>
+                <span className="font-medium text-foreground">{selectedDemoDetail.preferred_date}</span>
+              </div>
+            )}
+
+            {selectedDemoDetail.use_case && (
+              <div className="text-xs rounded-lg bg-muted/30 p-3 border border-border space-y-1">
+                <span className="text-[10px] text-muted-foreground block font-mono uppercase">Goals & Learning Challenges</span>
+                <p className="text-muted-foreground leading-relaxed italic">
+                  "{selectedDemoDetail.use_case}"
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Internal Admin Notes</span>
+                <span className="text-[10px] font-normal text-muted-foreground">Visible to admins only</span>
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Log outreach notes, call times, follow-up dates..."
+                value={adminNotesDraft}
+                onChange={(e) => setAdminNotesDraft(e.target.value)}
+                className="w-full text-xs p-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <a
+                href={`mailto:${selectedDemoDetail.email}?subject=PureLearn%20Demo%20Walkthrough`}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Email Requester
+              </a>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDemoDetail(null)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted text-foreground"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveDemoNotes(selectedDemoDetail.id, adminNotesDraft)}
+                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:opacity-90"
+                >
+                  Save Notes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── CUSTOM CONFIRMATION ACTION MODAL ── */}
       {confirmModal.isOpen && (
