@@ -84,7 +84,7 @@ function Nav() {
         style={{ width: `${scrollPercent}%` }}
       />
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6">
-        <Link to="/" className="flex items-center">
+        <Link to="/" className="flex items-center" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
           <img src="/logo.png" alt="Purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
         </Link>
         <div className="flex items-center gap-2">
