@@ -115,7 +115,7 @@ function DocumentWorkspace() {
             <FileText className="h-5 w-5" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-2xl font-semibold tracking-tight">
+            <h2 className="break-words whitespace-normal text-2xl font-semibold tracking-tight">
               {material?.title || "Study material"}
             </h2>
             <div className="mt-1 text-xs text-muted-foreground">
@@ -169,8 +169,8 @@ function DocumentWorkspace() {
               ].map((s, i) => (
                 <li key={s}>
                   <button className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-muted-foreground hover:bg-elevated hover:text-foreground">
-                    <span className="truncate">{s}</span>
-                    <span className="text-xs">p. {i * 5 + 2}</span>
+                    <span className="break-words whitespace-normal flex-1 pr-2">{s}</span>
+                    <span className="text-xs shrink-0">p. {i * 5 + 2}</span>
                   </button>
                 </li>
               ))}
@@ -260,10 +260,10 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
       <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5" /> AI-ready summary context
       </div>
-      <h3 className="text-lg font-semibold">{material?.title || "Material overview"}</h3>
+      <h3 className="text-lg font-semibold break-words whitespace-normal">{material?.title || "Material overview"}</h3>
 
       {material?.content ? (
-        <div className="mt-4 border-t border-border/40 pt-4">
+        <div className="mt-4 border-t border-border/40 pt-4 break-words min-w-0 overflow-hidden">
           <MarkdownRenderer content={material.content} cognitiveProfile={cognitiveProfile} />
         </div>
       ) : (
@@ -274,7 +274,7 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
       )}
 
       {material?.url && (
-        <p className="mt-4 text-xs text-muted-foreground truncate">
+        <p className="mt-4 text-xs text-muted-foreground break-all whitespace-normal">
           Source URL:{" "}
           <a
             href={material.url}
@@ -604,7 +604,7 @@ ${material?.content || "No extracted text available yet."}
 
   return (
     <Card className="flex h-[600px] flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-6">
+      <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-6 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden materials-container">
         {messages.map((message, index) => (
           <Message
             key={index}
@@ -700,7 +700,7 @@ function Message({
         {isAi ? <Sparkles className="h-3.5 w-3.5" /> : "AJ"}
       </div>
       <div
-        className={`max-w-[80%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4 group relative`}
+        className={`max-w-[85%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4 group relative min-w-0 break-words overflow-hidden`}
       >
         {isAi && (
           <button

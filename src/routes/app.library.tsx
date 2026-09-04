@@ -288,8 +288,8 @@ function LibraryPage() {
       </div>
 
       {/* Table */}
-      <div className="mt-6 overflow-x-auto rounded-lg border border-border w-full">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 border-b border-border bg-elevated px-4 md:px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border w-full hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden materials-container">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 border-b border-border bg-elevated px-4 md:px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground min-w-0">
           <div>Name</div>
           <div className="hidden md:block">Size</div>
           <div className="hidden md:block">Updated</div>
@@ -298,7 +298,7 @@ function LibraryPage() {
         <ul>
           {visibleItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated min-w-0">
                 <Link
                   to="/app/documents/$id"
                   params={{ id: it.id }}
@@ -308,15 +308,15 @@ function LibraryPage() {
                     <it.icon className="h-4 w-4" strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
-                      <span className="truncate min-w-0 max-w-xs sm:max-w-md md:max-w-lg" title={it.title}>
+                    <div className="flex min-w-0 items-start gap-1.5 text-sm font-medium text-foreground">
+                      <span className="break-words whitespace-normal min-w-0 flex-1 leading-snug" title={it.title}>
                         {it.title}
                       </span>
                       {it.pinned && (
-                        <Pin className="h-3 w-3 text-primary shrink-0" />
+                        <Pin className="h-3 w-3 text-primary shrink-0 mt-0.5" />
                       )}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground md:hidden">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground md:hidden flex-wrap">
                       <Pill>{it.type}</Pill>
                       <span>•</span>
                       <span>{it.updated}</span>

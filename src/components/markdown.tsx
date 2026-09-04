@@ -137,8 +137,8 @@ function CodeBlockContainer({ code, language }: { code: string; language?: strin
       </div>
 
       {/* Code Body */}
-      <div className="p-4 overflow-x-auto select-all leading-relaxed">
-        <div className="table w-full border-collapse font-mono">
+      <div className="p-4 overflow-x-auto select-all leading-relaxed hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="table w-full border-collapse font-mono whitespace-pre-wrap break-words">
           {highlightSyntax(code, lang)}
         </div>
       </div>
@@ -409,7 +409,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           elements.push(
             <div
               key={`mathblock-${bIdx}`}
-              className="my-3 py-2 text-center overflow-x-auto select-all"
+              className="my-3 py-2 text-center overflow-x-auto select-all hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden break-words whitespace-normal"
               dangerouslySetInnerHTML={{ __html: html }}
             />
           );
@@ -417,7 +417,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           elements.push(
             <div
               key={`mathblock-${bIdx}`}
-              className="my-3 py-2 text-center overflow-x-auto font-serif text-[15px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed min-h-[2rem] flex items-center justify-center"
+              className="my-3 py-2 text-center overflow-x-auto font-serif text-[15px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed min-h-[2rem] flex items-center justify-center hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden break-words"
             >
               {trimmedBlock}
             </div>
@@ -442,7 +442,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             const dataRows = tableRows.slice(1);
 
             elements.push(
-              <div key={`table-container-${lineKey}`} className="my-4 overflow-x-auto rounded-xl border border-border bg-elevated/20 shadow-sm">
+              <div key={`table-container-${lineKey}`} className="my-4 overflow-x-auto rounded-xl border border-border bg-elevated/20 shadow-sm hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
                     <tr className="border-b border-border/80 bg-muted/40">
@@ -502,9 +502,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               elements.push(
                 <div
                   key={`diagram-card-${lineKey}`}
-                  className="my-4 rounded-xl border border-border/80 bg-muted/40 p-4 shadow-sm overflow-x-auto select-all"
+                  className="my-4 rounded-xl border border-border/80 bg-muted/40 p-4 shadow-sm overflow-x-auto select-all hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                  <pre className="font-mono text-[11px] leading-relaxed text-foreground whitespace-pre">
+                  <pre className="font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap break-words">
                     <code>{linesToRender.join("\n")}</code>
                   </pre>
                 </div>
@@ -738,7 +738,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   };
 
   return (
-    <div className={`prose prose-sm w-full max-w-full min-w-0 overflow-hidden break-words text-foreground ${className}`}>
+    <div className={`prose prose-sm w-full max-w-full min-w-0 overflow-hidden break-words [overflow-wrap:anywhere] text-foreground ${className}`}>
       {parseMarkdown(cleanedContent)}
     </div>
   );

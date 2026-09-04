@@ -598,7 +598,7 @@ function AnalyticsPage() {
                 <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
               </div>
             ) : materialsList.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden materials-container">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border/60 text-muted-foreground">
@@ -613,9 +613,9 @@ function AnalyticsPage() {
                       const Icon = m.icon || FileText;
                       return (
                         <tr key={m.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="py-2.5 font-medium text-foreground flex items-center gap-2 max-w-[240px] truncate">
+                          <td className="py-2.5 font-medium text-foreground flex items-center gap-2 max-w-[320px] min-w-0">
                             <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="truncate" title={m.title}>{m.title}</span>
+                            <span className="break-words whitespace-normal leading-snug" title={m.title}>{m.title}</span>
                           </td>
                           <td className="py-2.5 text-muted-foreground">{m.type}</td>
                           <td className="py-2.5 text-muted-foreground max-w-[150px] truncate">{m.size}</td>

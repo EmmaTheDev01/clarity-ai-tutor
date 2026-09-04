@@ -631,10 +631,10 @@ function NotesPage() {
             )}
           </div>
         </div>
-        <h3 className="mt-2 text-sm font-semibold text-foreground truncate pr-6">
+        <h3 className="mt-2 text-sm font-semibold text-foreground break-words whitespace-normal pr-6 leading-snug">
           {note.title}
         </h3>
-        <div className="mt-1 text-xs text-muted-foreground line-clamp-2 pointer-events-none notes-sidebar-preview">
+        <div className="mt-1 text-xs text-muted-foreground line-clamp-2 pointer-events-none notes-sidebar-preview break-words">
           <MarkdownRenderer content={note.content} cognitiveProfile={cognitiveProfile} />
         </div>
         <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
@@ -678,6 +678,9 @@ function NotesPage() {
           background: transparent !important;
           border: none !important;
           box-shadow: none !important;
+          word-break: break-word !important;
+          overflow-wrap: break-word !important;
+          white-space: normal !important;
         }
         .notes-sidebar-preview strong {
           font-weight: bold !important;
@@ -938,7 +941,7 @@ function NotesPage() {
           )}
 
           {/* List display */}
-          <div className="space-y-4 flex-1 overflow-y-auto pr-1 pb-4">
+          <div className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden pr-1 pb-4 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden notes-container">
             {/* Pinned Notes section */}
             {pinnedNotes.length > 0 && (
               <div className="space-y-2">
@@ -990,12 +993,22 @@ function NotesPage() {
                       </Pill>
                     )}
                   </div>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={1}
                     value={selectedNote.title}
-                    onChange={(e) => handleEditNoteTitle(e.target.value)}
+                    onChange={(e) => {
+                      handleEditNoteTitle(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        el.style.height = "auto";
+                        el.style.height = `${el.scrollHeight}px`;
+                      }
+                    }}
                     disabled={selectedNote.readOnly}
-                    className="mt-2 text-2xl font-bold text-foreground bg-transparent border-0 focus:ring-0 focus:outline-none w-full"
+                    className="mt-2 text-2xl font-bold text-foreground bg-transparent border-0 focus:ring-0 focus:outline-none w-full resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight"
                     placeholder="Note Title..."
                   />
                 </div>
@@ -1059,9 +1072,9 @@ function NotesPage() {
               )}
 
               {/* Note Content — WYSIWYG Rich Editor with toolbar */}
-              <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto pr-1">
+              <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto overflow-x-hidden pr-1 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden notes-container notes-editor-container">
                 {selectedNote.readOnly ? (
-                  <div className="text-foreground min-h-[300px] flex-1 rounded-2xl border border-border/80 bg-elevated/30 p-6 md:p-8 shadow-sm">
+                  <div className="text-foreground min-h-[300px] flex-1 rounded-2xl border border-border/80 bg-elevated/30 p-6 md:p-8 shadow-sm break-words overflow-x-hidden min-w-0">
                     <MarkdownRenderer content={selectedNote.content} cognitiveProfile={cognitiveProfile} />
                   </div>
                 ) : (

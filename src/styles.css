@@ -103,19 +103,10 @@
   --ring: oklch(0.72 0.09 60);
 }
 
-/* Dynamic theme adaptation for logo elements across light, dark, and low-light modes */
+/* In dark mode, invert the logo so the black logo becomes white */
 .dark img[src*="logo"],
-.dark img[alt*="logo" i],
 .dark img[alt*="Logo" i] {
-  filter: brightness(0) invert(1);
-  transition: filter 0.3s ease;
-}
-
-.low-light img[src*="logo"],
-.low-light img[alt*="logo" i],
-.low-light img[alt*="Logo" i] {
-  filter: brightness(0) invert(0.88) sepia(0.2) saturate(1.5);
-  transition: filter 0.3s ease;
+  filter: invert(1);
 }
 
 @layer base {
@@ -165,14 +156,34 @@
   }
 }
 
-/* Scroll-Driven Animations & Fallbacks */
 @layer utilities {
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
+  .hide-scrollbar::-webkit-scrollbar,
+  .no-horizontal-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .hide-scrollbar,
+  .no-horizontal-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  /* Global horizontal scrollbar suppressor for materials, notes & content */
+  .materials-container,
+  .notes-container,
+  .notes-editor-container,
+  .materials-container *::-webkit-scrollbar:horizontal,
+  .notes-container *::-webkit-scrollbar:horizontal,
+  .notes-editor-container *::-webkit-scrollbar:horizontal {
+    display: none !important;
+    height: 0 !important;
+  }
+  .materials-container,
+  .notes-container,
+  .notes-editor-container {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
   }
 
   /* ==========================================================================

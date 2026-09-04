@@ -1240,19 +1240,19 @@ export function AdminPortal() {
                 <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Inquiries</p>
                 <p className="text-2xl font-black text-foreground mt-1">{demosCount}</p>
               </Card>
-              <Card className="p-4 bg-background border border-amber-500/30 rounded-xl bg-amber-500/5">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-amber-600">Pending Review</p>
-                <p className="text-2xl font-black text-amber-600 mt-1">{pendingDemosCount}</p>
+              <Card className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-primary">Pending Review</p>
+                <p className="text-2xl font-black text-primary mt-1">{pendingDemosCount}</p>
               </Card>
-              <Card className="p-4 bg-background border border-blue-500/30 rounded-xl bg-blue-500/5">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-blue-600">Scheduled</p>
-                <p className="text-2xl font-black text-blue-600 mt-1">
+              <Card className="p-4 bg-muted/40 border border-border rounded-xl">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Scheduled</p>
+                <p className="text-2xl font-black text-foreground mt-1">
                   {demoRequests.filter((d) => d.status === "scheduled").length}
                 </p>
               </Card>
-              <Card className="p-4 bg-background border border-emerald-500/30 rounded-xl bg-emerald-500/5">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-600">Completed</p>
-                <p className="text-2xl font-black text-emerald-600 mt-1">
+              <Card className="p-4 bg-primary/10 border border-primary/30 rounded-xl">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-primary">Completed</p>
+                <p className="text-2xl font-black text-primary mt-1">
                   {demoRequests.filter((d) => d.status === "completed").length}
                 </p>
               </Card>
@@ -1358,13 +1358,13 @@ export function AdminPortal() {
                               onChange={(e) => handleUpdateDemoStatus(demo.id, e.target.value)}
                               className={`text-[10px] font-bold rounded-md px-2 py-1 border transition-colors ${
                                 demo.status === "pending"
-                                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                  ? "bg-primary/10 text-primary border-primary/30"
                                   : demo.status === "scheduled"
-                                  ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                                  ? "bg-primary/5 text-primary border-primary/20"
                                   : demo.status === "contacted"
-                                  ? "bg-purple-500/10 text-purple-600 border-purple-500/30"
+                                  ? "bg-muted text-foreground border-border"
                                   : demo.status === "completed"
-                                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                  ? "bg-primary/15 text-primary border-primary/40"
                                   : "bg-muted text-muted-foreground border-border"
                               }`}
                             >
@@ -1628,7 +1628,7 @@ export function AdminPortal() {
               </div>
             </div>
 
-            <div className="overflow-x-auto pt-2">
+            <div className="overflow-x-auto pt-2 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden materials-container">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground uppercase font-mono text-[10px]">
@@ -1649,7 +1649,7 @@ export function AdminPortal() {
                   ) : (
                     paginatedMaterials.map((mat) => (
                       <tr key={mat.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="py-3.5 font-bold text-foreground">{mat.title}</td>
+                        <td className="py-3.5 font-bold text-foreground break-words whitespace-normal max-w-[280px]">{mat.title}</td>
                         <td className="py-3.5 font-mono uppercase font-bold text-[11px] text-foreground">
                           {mat.type}
                         </td>

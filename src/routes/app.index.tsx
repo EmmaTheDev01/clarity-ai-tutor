@@ -1835,9 +1835,9 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                         className="w-full truncate rounded-md border border-primary/30 bg-background px-2 py-1 text-xs font-semibold text-foreground"
                                       />
                                     ) : (
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="truncate text-xs font-semibold text-foreground">{doc.title}</div>
-                                        {isPinned && <Pin className="h-3 w-3 shrink-0 text-primary" />}
+                                      <div className="flex items-start gap-1.5">
+                                        <div className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug flex-1">{doc.title}</div>
+                                        {isPinned && <Pin className="h-3 w-3 shrink-0 text-primary mt-0.5" />}
                                       </div>
                                     )}
                                     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1916,7 +1916,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                         className="w-full truncate rounded-md border border-primary/30 bg-background px-2 py-1 text-xs font-semibold text-foreground"
                                       />
                                     ) : (
-                                      <div className="truncate text-xs font-semibold text-foreground">{doc.title}</div>
+                                      <div className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug">{doc.title}</div>
                                     )}
                                     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                                       <span>{doc.type}</span>
@@ -1977,10 +1977,10 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                     <Sparkles className="h-3 w-3" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="truncate text-xs font-semibold text-foreground">
+                    <h3 className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug">
                       {activeDoc ? `Working on: ${activeDoc.title}` : "General Library Chat"}
                     </h3>
-                    <p className="text-xs truncate text-muted-foreground">
+                    <p className="text-xs break-words whitespace-normal text-muted-foreground">
                       {activeDoc
                         ? `Grounded in ${activeDoc.type} source`
                         : "Synthesizing across all materials"}

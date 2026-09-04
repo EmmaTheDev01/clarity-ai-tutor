@@ -105,7 +105,7 @@ function formatInlineHtml(text: string): string {
   // 1. Block Math (double dollar signs)
   text = text.replace(
     /\$\$([^$]+)\$\$/g,
-    '<div style="margin:12px 0;text-align:center;font-family:serif;font-size:1.05em;color:var(--color-primary);background:var(--color-elevated);padding:8px;border-radius:8px;border:1px solid var(--color-border);overflow-x:auto;">$1</div>'
+    '<div style="margin:12px 0;text-align:center;font-family:serif;font-size:1.05em;color:var(--color-primary);background:var(--color-elevated);padding:8px;border-radius:8px;border:1px solid var(--color-border);overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;">$1</div>'
   );
 
   // 2. Inline Math (single dollar signs)
@@ -189,7 +189,7 @@ function markdownToHtml(md: string): string {
         const rendered = katex.renderToString(rawMath, { displayMode: true, throwOnError: false });
         html += rendered.replace(/^<span class="katex-display">/, `<span class="katex-display katex-block" data-latex="${rawMath.replace(/"/g, '&quot;')}">`);
       } catch (e) {
-        html += `<div style="margin:12px auto;text-align:center;font-family:serif;font-size:1.05em;overflow-x:auto;max-width:100%;white-space:pre-wrap;line-height:1.6;user-select:all;font-style:italic;">${rawMath}</div>`;
+        html += `<div style="margin:12px auto;text-align:center;font-family:serif;font-size:1.05em;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;max-width:100%;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;line-height:1.6;user-select:all;font-style:italic;">${rawMath}</div>`;
       }
     } else {
       const lines = part.split("\n");
@@ -267,7 +267,7 @@ function highlightSyntaxHtml(code: string, lang: string): string {
         if (inCodeBlock && codeBlockLines.length > 0) {
           const rawCode = codeBlockLines.join("\n");
           const highlightedHtml = highlightSyntaxHtml(rawCode, codeBlockLang);
-          html += `<div style="margin:16px 0;overflow:hidden;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:#0d1117;color:#f8fafc;font-family:monospace;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,0.2);"><div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);padding:6px 12px;font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;"><span>${codeBlockLang}</span></div><div style="padding:14px;overflow-x:auto;"><div style="display:table;width:100%;border-collapse:collapse;font-family:monospace;line-height:1.5;">${highlightedHtml}</div></div></div>`;
+          html += `<div style="margin:16px 0;overflow:hidden;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:#0d1117;color:#f8fafc;font-family:monospace;font-size:0.85em;box-shadow:0 4px 12px rgba(0,0,0,0.2);"><div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);padding:6px 12px;font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;"><span>${codeBlockLang}</span></div><div style="padding:14px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;"><div style="display:table;width:100%;border-collapse:collapse;font-family:monospace;line-height:1.5;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;">${highlightedHtml}</div></div></div>`;
           codeBlockLines = [];
           inCodeBlock = false;
           codeBlockLang = "code";
@@ -349,7 +349,7 @@ function highlightSyntaxHtml(code: string, lang: string): string {
 
         if (isStandaloneMath(line)) {
           closeAll();
-          html += `<div style="margin:8px auto;text-align:left;font-family:serif;font-size:1em;overflow-x:auto;max-width:100%;white-space:pre-wrap;line-height:1.6;user-select:all;font-style:italic;">${trimmed}</div>`;
+          html += `<div style="margin:8px auto;text-align:left;font-family:serif;font-size:1em;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;max-width:100%;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;line-height:1.6;user-select:all;font-style:italic;">${trimmed}</div>`;
           continue;
         }
 
@@ -997,6 +997,8 @@ export const RichEditor: React.FC<RichEditorProps> = ({
           style={{
             wordBreak: "break-word",
             overflowWrap: "break-word",
+            whiteSpace: "pre-wrap",
+            overflowX: "hidden",
           }}
           data-placeholder={placeholder}
         />
