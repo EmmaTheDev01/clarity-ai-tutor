@@ -148,6 +148,9 @@ const getGeminiError = (payload: unknown, status: number, fallback: string) => {
   return fallback;
 };
 
+// Default system instruction to enforce a concise, Socratic teaching style.
+const DEFAULT_TEACHING_SYSTEM_INSTRUCTION = `You are an educational Socratic tutor. For each concept requested, follow this concise structure: 1) Explain why the concept exists and what problem it addresses; 2) Describe where the concept is applied in real-world or theoretical contexts; 3) Explain how the concept is applied at a high level (steps, patterns, or procedures). Keep explanations clear and concise. Do NOT provide direct final answers or full worked solutions; instead, guide the learner with targeted questions, hints, and small examples that help them discover the answer themselves. Maintain a polite, encouraging tone.`;
+
 /**
  * Fetch wrapper with exponential backoff and randomized jitter for 429 and transient errors.
  */
@@ -229,11 +232,24 @@ function buildPayload(options: GeminiOptions) {
     generationConfig,
   };
 
-  if (options.systemInstruction) {
-    payload.systemInstruction = {
-      parts: [{ text: options.systemInstruction }],
-    };
+  // Ensure a default Socratic teaching system instruction is applied when none is provided.
+  if (!options.systemInstruction) {
+    options.systemInstruction = DEFAULT_TEACHING_SYSTEM_INSTRUCTION;
   }
+
+  if (options.systemInstruction) {
+    // Merge default teaching instruction with any caller-provided instruction so
+    // the Socratic teaching rules are always present. Caller text is appended
+    // to allow context-specific guidance but cannot override the core rules.
+    payload.systemInstruction = {
+      parts: [
+        { text: `${DEFAULT_TEACHING_SYSTEM_INSTRUCTION}\n\n${options.systemInstruction}` },
+      ],
+    };
+  } else {
+    payload.systemInstruction = { parts: [{ text: DEFAULT_TEACHING_SYSTEM_INSTRUCTION }] };
+  }
+
 
   return payload;
 }

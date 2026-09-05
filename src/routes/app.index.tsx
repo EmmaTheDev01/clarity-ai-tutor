@@ -174,6 +174,9 @@ function Dashboard() {
   const [isTyping, setIsTyping] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const streamingBufferRef = useRef<string>("");
+  const streamingFlushRafRef = useRef<number | null>(null);
+  const lastFlushTimeRef = useRef<number>(0);
 
   // Cognitive adaptive profiles states
   const { mode: cognitiveProfile } = useCognitiveMode();
@@ -186,6 +189,7 @@ function Dashboard() {
   const [userDisplayName, setUserDisplayName] = useState("You");
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [focusedMsgIndex, setFocusedMsgIndex] = useState<number | null>(null);
+  
 
   const [attachmentMessage, setAttachmentMessage] = useState("");
   const [attachedFilePreview, setAttachedFilePreview] = useState<{ name: string; size: string; type: string } | null>(null);
@@ -694,7 +698,10 @@ function Dashboard() {
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // During active streaming we avoid starting another smooth scroll animation every chunk
+    // to prevent janky, queued animations. Use instant scroll while `isTyping` (streaming),
+    // and smooth scroll once streaming completes.
+    messagesEndRef.current?.scrollIntoView({ behavior: isTyping ? "auto" : "smooth" });
   }, [currentMessages, isTyping]);
 
   const runSimulatedSocraticResponse = (trimmed: string, updatedHistory: Message[]) => {
@@ -1022,6 +1029,8 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
       let generatedText = "";
       let respondingModel = geminiModel;
+      // reset streaming buffer for this request
+      streamingBufferRef.current = "";
 
       const aiPlaceholder: Message = {
         from: "ai",
@@ -1042,20 +1051,54 @@ You write responses that read like **high-quality lecture notes** — rich, thor
             maxOutputTokens: 4096,
           },
           (chunkText) => {
-            generatedText += chunkText;
-            const display = generatedText.split("[NOTE_SUMMARY]")[0].trim();
-            setChatHistories((prev) => {
-              const currentHist = prev[activeDocIdForResponse] || [];
-              if (currentHist.length === 0) return prev;
-              const next = [...currentHist];
-              const lastIdx = next.length - 1;
-              if (lastIdx >= 0 && next[lastIdx].from === "ai") {
-                next[lastIdx] = { ...next[lastIdx], text: display || "Thinking..." };
-              }
-              return { ...prev, [activeDocIdForResponse]: next };
-            });
+            // Buffer chunks and flush at a throttled rate via requestAnimationFrame to
+            // avoid excessive re-renders and queued smooth scroll animations.
+            streamingBufferRef.current += chunkText;
+
+            if (streamingFlushRafRef.current == null) {
+              streamingFlushRafRef.current = requestAnimationFrame(function flush() {
+                const now = Date.now();
+                // Throttle to ~60fps (min interval 16ms) but use 50ms as practical throttle
+                if (now - lastFlushTimeRef.current < 50) {
+                  streamingFlushRafRef.current = requestAnimationFrame(flush);
+                  return;
+                }
+                lastFlushTimeRef.current = now;
+                const display = streamingBufferRef.current.split("[NOTE_SUMMARY]")[0].trim();
+                setChatHistories((prev) => {
+                  const currentHist = prev[activeDocIdForResponse] || [];
+                  if (currentHist.length === 0) return prev;
+                  const next = [...currentHist];
+                  const lastIdx = next.length - 1;
+                  if (lastIdx >= 0 && next[lastIdx].from === "ai") {
+                    next[lastIdx] = { ...next[lastIdx], text: display || "Thinking..." };
+                  }
+                  return { ...prev, [activeDocIdForResponse]: next };
+                });
+                  // keep buffer intact for finalization after stream ends
+                streamingFlushRafRef.current = null;
+              });
+            }
           },
         );
+        // Ensure any buffered chunks are flushed after streaming completes
+        if (streamingFlushRafRef.current != null) {
+          cancelAnimationFrame(streamingFlushRafRef.current);
+          streamingFlushRafRef.current = null;
+        }
+        // Finalize generatedText from buffer (in case some chunks weren't included in generatedText)
+        generatedText = streamingBufferRef.current || generatedText;
+        const finalDisplay = generatedText.split("[NOTE_SUMMARY]")[0].trim();
+        setChatHistories((prev) => {
+          const currentHist = prev[activeDocIdForResponse] || [];
+          if (currentHist.length === 0) return prev;
+          const next = [...currentHist];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0 && next[lastIdx].from === "ai") {
+            next[lastIdx] = { ...next[lastIdx], text: finalDisplay || generatedText || "" };
+          }
+          return { ...prev, [activeDocIdForResponse]: next };
+        });
         respondingModel = streamRes.model;
       } catch (streamErr) {
         console.warn("Streaming fallback to generateGeminiText:", streamErr);
@@ -2383,9 +2426,9 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                           if (lastUserIndex !== -1) {
                             const lastUserMsg = history[lastUserIndex];
                             setInputText(lastUserMsg.text);
-                            setChatHistories(prev => ({
+                            setChatHistories((prev) => ({
                               ...prev,
-                              [activeDocId]: history.slice(0, lastUserIndex)
+                              [activeDocId]: history.slice(0, lastUserIndex),
                             }));
                           }
                         }
@@ -2393,7 +2436,6 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                     }}
                     className="w-full resize-none bg-transparent border-0 focus:ring-0 focus:outline-none text-xs min-h-12 max-h-36 py-2 px-3 text-foreground placeholder:text-muted-foreground"
                   />
-
                   <div className="flex items-center justify-between border-t border-border/40 mt-1 pt-2 px-2">
                     <div className="flex items-center gap-1.5">
                       <input
