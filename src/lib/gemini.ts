@@ -64,7 +64,6 @@ export async function fetchSystemApiKeyFromDb(): Promise<string | null> {
       return cachedDbApiKey;
     }
   } catch (err) {
-    console.warn("Could not fetch system API key from database:", err);
   }
   return null;
 }

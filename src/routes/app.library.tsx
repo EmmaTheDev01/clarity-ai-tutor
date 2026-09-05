@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Search, Filter, MoreHorizontal, Loader2, Trash2, X, Pin, PinOff, PencilLine } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
@@ -18,10 +18,22 @@ export const Route = createFileRoute("/app/library")({
 const filters = ["All", "PDFs", "Videos", "Slides", "Audio", "Images", "Links", "Files"] as const;
 
 function LibraryPage() {
+  const navigate = useNavigate();
   const [active, setActive] = useState<(typeof filters)[number]>("All");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<LearningMaterial[]>([]);
   const [isDropUploading, setIsDropUploading] = useState(false);
+
+  // Auth Guard: redirect to login if unauthenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        navigate({ to: "/auth/sign-in" });
+      }
+    };
+    checkAuth();
+  }, [navigate]);
   const [deleteTarget, setDeleteTarget] = useState<LearningMaterial | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [renameTarget, setRenameTarget] = useState<LearningMaterial | null>(null);
@@ -64,35 +76,72 @@ function LibraryPage() {
       setIsDropUploading(false);
     }
   };
+  const loadMaterials = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      console.warn("[Library] No session found");
+      return;
+    }
 
-  useEffect(() => {
-    const loadMaterials = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
+    const userId = data.session.user.id;
+    console.log("[Library] Session found, userId:", userId);
 
-      const cacheKey = `materials_${userData.user.id}`;
-      const cached = CacheManager.get(cacheKey);
-      if (cached) {
-        setItems(cached);
-        return;
-      }
+    // Debug: log full session and auth user info
+    try {
+      const { data: userInfo } = await supabase.auth.getUser();
+      console.debug("[Library][DEBUG] supabase.auth.getUser():", userInfo);
+    } catch (e) {
+      console.debug("[Library][DEBUG] getUser failed:", e);
+    }
 
-      const { data, error } = await supabase
-        .from("materials")
-        .select("*")
-        .eq("uploaded_by", userData.user.id)
-        .order("created_at", { ascending: false });
-      if (!error && data) {
-        const mapped = data.map(mapMaterialRow);
+    const cacheKey = `materials_${userId}`;
+    const cached = CacheManager.get(cacheKey);
+    if (cached) {
+      setItems(cached);
+      return;
+    }
+
+    const res = await supabase
+      .from("materials")
+      .select("*")
+      .eq("uploaded_by", userId)
+      .order("created_at", { ascending: false });
+
+    console.debug("[Library][DEBUG] materials select result:", res);
+
+    const { data: mats, error } = res as any;
+    if (error) {
+      console.error("[Library] Materials fetch error:", error);
+      return;
+    }
+
+    console.log("[Library] Fetched", mats?.length ?? 0, "materials");
+    if (mats) {
+      try {
+        const mapped = mats.map((m: any) => {
+          try {
+            return mapMaterialRow(m);
+          } catch (mapErr) {
+            console.error("[Library][ERROR] mapMaterialRow failed for item", m, mapErr);
+            throw mapErr;
+          }
+        });
+        console.log("[Library][DEBUG] mapped materials count:", mapped.length, "sample:", mapped[0]);
         setItems(mapped);
         CacheManager.set(cacheKey, mapped, 30000);
-      } else {
-        setItems([]);
+      } catch (err) {
+        console.error("[Library] Failed to map/set materials:", err);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
     loadMaterials();
+    const handler = () => loadMaterials();
+    window.addEventListener("materials:updated", handler);
+    return () => window.removeEventListener("materials:updated", handler);
   }, []);
+
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -127,7 +176,7 @@ function LibraryPage() {
   const visibleItems = useMemo(() => {
     return items
       .filter((item) => {
-        const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
+        const matchesQuery = (item.title || "").toLowerCase().includes(query.toLowerCase().trim());
         if (!matchesQuery) return false;
         if (active === "All") return true;
         if (active === "PDFs") return item.type === "PDF";
@@ -147,6 +196,19 @@ function LibraryPage() {
         return aPinned ? -1 : 1;
       });
   }, [active, items, query]);
+
+  // If filtering accidentally hides all items but we do have items,
+  // fall back to showing the raw items so users always see their library.
+  const displayItems = visibleItems.length > 0 ? visibleItems : items;
+
+  // Debug: log when items/filters change so we can trace display issues
+  useEffect(() => {
+    try {
+      console.log("[Library][DEBUG] items count:", items.length, "visible:", visibleItems.length, "display:", displayItems.length, { active, query });
+    } catch (e) {
+      // ignore
+    }
+  }, [items, visibleItems.length, displayItems.length, active, query]);
 
   return (
     <AppShell title="Library">
@@ -296,7 +358,7 @@ function LibraryPage() {
           <div className="text-right">Actions</div>
         </div>
         <ul>
-          {visibleItems.map((it, i) => (
+          {displayItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
               <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated min-w-0">
                 <Link
@@ -361,7 +423,7 @@ function LibraryPage() {
               </div>
             </li>
           ))}
-          {visibleItems.length === 0 && (
+          {displayItems.length === 0 && (
             <li className="px-5 py-8 text-center text-sm text-muted-foreground">
               No materials match your search yet.
             </li>

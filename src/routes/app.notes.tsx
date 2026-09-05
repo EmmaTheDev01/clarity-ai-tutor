@@ -97,7 +97,7 @@ An era of geopolitical tension between the US-led Western Bloc and the Soviet-le
 function NotesPage() {
   const { mode: cognitiveProfile } = useCognitiveMode();
   const navigate = useNavigate();
-  const [notes, setNotes] = useState<Note[]>(appGuideNotes);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -120,6 +120,30 @@ function NotesPage() {
 
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const noteMenuRef = useRef<HTMLDivElement | null>(null);
+  const [noteMenuPos, setNoteMenuPos] = useState<{ left: number; top: number } | null>(null);
+
+  const computeSafeMenuPos = (requestedLeft: number, requestedTop: number, estWidth = 240, estHeight = 140) => {
+    const margin = 8;
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    let left = requestedLeft;
+    let top = requestedTop;
+    if (left > vw - estWidth) left = Math.max(margin, vw - estWidth - margin);
+    if (top > vh - estHeight) top = Math.max(margin, requestedTop - estHeight - margin);
+    return { left, top };
+  };
+
+  // Auth Guard: redirect to login if unauthenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        navigate({ to: "/auth/sign-in" });
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   // ─── Global Keyboard Shortcuts ──────────────────────────────────────────────
   useEffect(() => {
@@ -157,39 +181,66 @@ function NotesPage() {
 
 
 
-  const fetchSupabaseNotes = async () => {
+  const fetchSupabaseNotes = async (uid?: string) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) {
-        setCurrentUserId(userData.user.id);
-
-        const cacheKey = `notes_data_${userData.user.id}`;
-        const cached = CacheManager.get(cacheKey);
-        if (cached) {
-          setPendingShares(cached.pendingShares);
-          setNotes(cached.notes);
-          if (selectedNote) {
-            const current = cached.notes.find((item: any) => item.id === selectedNote.id);
-            if (current) setSelectedNote(current);
-          } else if (cached.notes.length > 0) {
-            setSelectedNote(cached.notes[0]);
-          }
-          return;
+      // Use provided uid, or try to get it from current session/user
+      let currentUid = uid;
+      if (!currentUid) {
+        // Try getSession first (synchronous localStorage read), then getUser as fallback
+        const { data: sessionData } = await supabase.auth.getSession();
+        currentUid = sessionData?.session?.user?.id;
+        if (!currentUid) {
+          const { data: userData } = await supabase.auth.getUser();
+          currentUid = userData?.user?.id;
         }
+      }
 
-        // Fetch user's own notes AND shared notes (allowed by new RLS policies)
-        const { data: dbNotes } = await supabase
-          .from("notes")
-          .select(`
-            *,
-            profiles:student_id (
-              email,
-              name
-            )
-          `)
-          .order("created_at", { ascending: false });
+      if (!currentUid) {
+        console.warn("[Notes] No authenticated user found, skipping fetch.");
+        setNotes([]);
+        setSelectedNote(null);
+        return;
+      }
+      setCurrentUserId(currentUid);
 
-        // Fetch pending share invitations
+      // Debug: log session and user info
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        console.debug("[Notes][DEBUG] supabase.auth.getUser():", u);
+      } catch (e) {
+        console.debug("[Notes][DEBUG] getUser failed:", e);
+      }
+
+      // 1. Check cache first to avoid flicker/stale UI
+      const cacheKey = `notes_data_${currentUid}`;
+      const cached = CacheManager.get(cacheKey);
+      if (cached && cached.notes) {
+        console.debug("[Notes][DEBUG] Using cached notes for user", currentUid);
+        setNotes(cached.notes);
+        // Keep selected note in sync
+        if (!selectedNote && cached.notes.length > 0) setSelectedNote(cached.notes[0]);
+        return;
+      }
+
+      // Fetch ONLY this user's notes from Supabase
+      const notesRes = await supabase
+        .from("notes")
+        .select("*")
+        .eq("student_id", currentUid)
+        .order("created_at", { ascending: false });
+
+      console.debug("[Notes][DEBUG] notes select result:", notesRes);
+
+      const { data: dbNotes, error: notesError } = notesRes as any;
+
+      if (notesError) {
+        console.error("[Notes] Fetch error:", notesError);
+      }
+
+      console.log(`[Notes] Fetched ${dbNotes?.length ?? 0} notes for user ${currentUid}`);
+
+      // 2. Safely fetch pending share invitations in independent block
+      try {
         const { data: pendingSharesDb } = await supabase
           .from("note_shares")
           .select(`
@@ -203,7 +254,7 @@ function NotesPage() {
               name
             )
           `)
-          .eq("shared_with", userData.user.id)
+          .eq("shared_with", currentUid)
           .eq("status", "pending");
 
         const mappedPending: NoteShareRequest[] = (pendingSharesDb || []).map((s: any) => ({
@@ -214,53 +265,108 @@ function NotesPage() {
           sender_name: s.profiles?.name || "Someone",
         }));
         setPendingShares(mappedPending);
-
-        if (dbNotes) {
-          const mapped = dbNotes.map((n: any) => {
-            const isShared = n.student_id !== userData.user.id;
-            return {
-              id: n.id,
-              title: n.title,
-              subject: n.subject || "General",
-              content: n.content,
-              isAi: n.is_ai_generated,
-              isStarred: n.is_starred,
-              pinned: n.pinned,
-              updated: new Date(n.updated_at).toLocaleDateString(),
-              readOnly: isShared,
-              sharedByEmail: isShared ? n.profiles?.email : undefined,
-              sharedByName: isShared ? n.profiles?.name : undefined,
-              images: n.images || undefined,
-            };
-          });
-
-          // Pinned items sort helper
-          const merged = [...mapped, ...appGuideNotes];
-          setNotes(merged);
-
-          // Keep selection synced
-          if (selectedNote) {
-            const current = merged.find((item) => item.id === selectedNote.id);
-            if (current) setSelectedNote(current);
-          } else if (merged.length > 0) {
-            setSelectedNote(merged[0]);
-          }
-
-          CacheManager.set(cacheKey, {
-            pendingShares: mappedPending,
-            notes: merged
-          }, 30000);
-        }
+      } catch (shareErr) {
+        console.warn("Could not load note shares:", shareErr);
       }
+
+      // 3. Map database notes
+      const mappedDbNotes = (dbNotes || []).map((n: any) => ({
+        id: n.id,
+        title: n.title || "Untitled Note",
+        subject: n.subject || "General",
+        content: n.content || "",
+        isAi: Boolean(n.is_ai_generated),
+        isStarred: Boolean(n.is_starred),
+        pinned: Boolean(n.pinned),
+        updated: n.updated_at
+          ? new Date(n.updated_at).toLocaleDateString()
+          : n.created_at
+          ? new Date(n.created_at).toLocaleDateString()
+          : "Recent",
+        readOnly: false,
+        images: Array.isArray(n.images) ? n.images : undefined,
+      }));
+
+      // 4. Merge with local digital_notebook items if present
+      let localNotes: Note[] = [];
+      try {
+        const stored = typeof window !== "undefined" ? localStorage.getItem("digital_notebook") : null;
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            localNotes = parsed.filter(
+              (ln: any) => !mappedDbNotes.some((dn) => dn.id === ln.id || dn.title === ln.title)
+            );
+          }
+        }
+      } catch {
+        // Best effort local storage read
+      }
+
+      const allUserNotes = [...mappedDbNotes, ...localNotes];
+      setNotes(allUserNotes);
+
+      // Keep selection or select first user note
+      if (allUserNotes.length > 0) {
+        if (selectedNote) {
+          const current = allUserNotes.find((item) => item.id === selectedNote.id);
+          if (current) setSelectedNote(current);
+          else setSelectedNote(allUserNotes[0]);
+        } else {
+          setSelectedNote(allUserNotes[0]);
+        }
+      } else {
+        setSelectedNote(null);
+      }
+
+      CacheManager.set(`notes_data_${currentUid}`, {
+        notes: allUserNotes,
+      }, 30000);
     } catch (err) {
       console.warn("Failed to fetch notes from Supabase:", err);
     }
   };
 
-  // Load from Supabase on mount
+  // Load from Supabase on mount — use onAuthStateChange as primary driver
+  // so we always have a valid session before fetching
   useEffect(() => {
-    fetchSupabaseNotes();
+    let isMounted = true;
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      const uid = session?.user?.id;
+      if (uid) {
+        fetchSupabaseNotes(uid);
+      } else {
+        setNotes([]);
+        setSelectedNote(null);
+      }
+    });
+
+    // Also attempt an immediate fetch using getSession (in case onAuthStateChange
+    // already fired before listener was registered — common with persisted sessions)
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      const uid = data?.session?.user?.id;
+      if (uid) {
+        fetchSupabaseNotes(uid);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
+
+  // Listen for external notifications that notes were updated elsewhere
+  useEffect(() => {
+    const handler = () => {
+      fetchSupabaseNotes(currentUserId || undefined);
+    };
+    window.addEventListener("notes:updated", handler);
+    return () => window.removeEventListener("notes:updated", handler);
+  }, [currentUserId]);
 
   const handleAddNote = async () => {
     try {
@@ -590,10 +696,60 @@ function NotesPage() {
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
+  // Ensure the floating context menu fits in the viewport when opened
+  useEffect(() => {
+    if (!noteMenu) {
+      setNoteMenuPos(null);
+      return;
+    }
+
+    const computePosition = () => {
+      const margin = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const requestedLeft = noteMenu.x;
+      const requestedTop = noteMenu.y;
+
+      let left = requestedLeft;
+      let top = requestedTop;
+
+      const el = noteMenuRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const width = rect.width || 240;
+        const height = rect.height || 140;
+
+        if (left + width + margin > vw) {
+          left = Math.max(margin, vw - width - margin);
+        }
+
+        if (top + height + margin > vh) {
+          // position above the click point if it would overflow
+          top = Math.max(margin, requestedTop - height - margin);
+        }
+      } else {
+        // No measurement yet — provide safe fallbacks
+        if (requestedLeft > vw - 240) left = Math.max(margin, vw - 240 - margin);
+        if (requestedTop > vh - 160) top = Math.max(margin, requestedTop - 160 - margin);
+      }
+
+      setNoteMenuPos({ left, top });
+    };
+
+    // Defer to next paint so ref is attached
+    const raf = requestAnimationFrame(computePosition);
+    const onResize = () => requestAnimationFrame(computePosition);
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [noteMenu]);
+
   const filteredNotes = notes.filter(
     (n) =>
-      n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.subject.toLowerCase().includes(searchQuery.toLowerCase())
+      (n.title || "").toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+      (n.subject || "").toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
   const pinnedNotes = filteredNotes.filter((n) => n.pinned);
@@ -607,9 +763,11 @@ function NotesPage() {
         onClick={() => setSelectedNote(note)}
         onContextMenu={(e: React.MouseEvent) => {
           e.preventDefault();
+          const pos = computeSafeMenuPos(e.clientX, e.clientY);
+          setNoteMenuPos(pos);
           setNoteMenu({ x: e.clientX, y: e.clientY, note });
         }}
-        className={`cursor-pointer p-4 transition text-left border relative group ${isSelected ? "border-foreground ring-1 ring-foreground bg-elevated/40" : "border-border hover:bg-elevated/20"
+        className={`cursor-pointer p-4 transition text-left border relative group ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/10 shadow-sm" : "border-border hover:bg-muted/40"
           }`}
       >
         <div className="flex items-start justify-between gap-2">
@@ -652,8 +810,10 @@ function NotesPage() {
         {/* 3-Dot context trigger */}
         <button
           type="button"
-          onClick={(e) => {
+            onClick={(e) => {
             e.stopPropagation();
+            const pos = computeSafeMenuPos(e.clientX, e.clientY);
+            setNoteMenuPos(pos);
             setNoteMenu({ x: e.clientX, y: e.clientY, note });
           }}
           className="absolute right-2.5 bottom-2.5 rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground transition"
@@ -664,6 +824,9 @@ function NotesPage() {
       </Card>
     );
   };
+
+  // Active note to render in the detail pane. Use selectedNote or fall back to the first note.
+  const activeNote: Note | null = selectedNote ?? (notes && notes.length > 0 ? notes[0] : null);
 
   return (
     <AppShell title="Notes & Summaries">
@@ -698,10 +861,11 @@ function NotesPage() {
       {/* Context Menu */}
       {noteMenu && (
         <div
-          className="fixed z-[60] min-w-32 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
-          style={{ left: noteMenu.x, top: noteMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
+            ref={(el) => (noteMenuRef.current = el)}
+            className="fixed z-[60] min-w-32 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
+            style={{ left: noteMenuPos?.left ?? noteMenu.x, top: noteMenuPos?.top ?? noteMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
           <button
             onClick={() => {
               handleTogglePin(noteMenu.note.id);
@@ -974,20 +1138,20 @@ function NotesPage() {
 
         {/* Right Side: Selected Note Detail */}
         <div className="flex-1 min-w-0 h-[500px] lg:h-full flex flex-col overflow-hidden pb-4">
-          {selectedNote ? (
+          {activeNote ? (
             <Card className="p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {selectedNote.subject}
+                      {activeNote.subject}
                     </span>
-                    {selectedNote.sharedByEmail && (
+                    {activeNote.sharedByEmail && (
                       <Pill className="bg-sky-500/5 border border-sky-500/20 text-sky-600">
-                        Shared by {selectedNote.sharedByEmail}
+                        Shared by {activeNote.sharedByEmail}
                       </Pill>
                     )}
-                    {selectedNote.isAi && (
+                    {activeNote.isAi && (
                       <Pill className="bg-primary/5 border border-primary/20 text-primary flex items-center gap-1">
                         <FileText className="h-3 w-3" /> Note
                       </Pill>
@@ -995,7 +1159,7 @@ function NotesPage() {
                   </div>
                   <textarea
                     rows={1}
-                    value={selectedNote.title}
+                    value={activeNote.title}
                     onChange={(e) => {
                       handleEditNoteTitle(e.target.value);
                       e.target.style.height = "auto";
@@ -1007,14 +1171,14 @@ function NotesPage() {
                         el.style.height = `${el.scrollHeight}px`;
                       }
                     }}
-                    disabled={selectedNote.readOnly}
+                    disabled={activeNote.readOnly}
                     className="mt-2 text-2xl font-bold text-foreground bg-transparent border-0 focus:ring-0 focus:outline-none w-full resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight"
                     placeholder="Note Title..."
                   />
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <button
-                    onClick={() => handleEscalateToTutor(selectedNote)}
+                    onClick={() => handleEscalateToTutor(activeNote)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 text-xs font-bold transition mr-2"
                     title="Escalate note context to Socratic AI Tutor thread"
                   >
@@ -1022,39 +1186,39 @@ function NotesPage() {
                     <span>Ask Tutor</span>
                   </button>
                   <button
-                    onClick={() => handleTogglePin(selectedNote.id)}
+                    onClick={() => handleTogglePin(activeNote.id)}
                     className="text-lg hover:opacity-80"
-                    title={selectedNote.pinned ? "Unpin Note" : "Pin Note"}
+                    title={activeNote.pinned ? "Unpin Note" : "Pin Note"}
                   >
-                    {selectedNote.pinned ? (
+                    {activeNote.pinned ? (
                       <Pin className="h-4 w-4 text-primary" />
                     ) : (
                       <PinOff className="h-4 w-4 text-muted-foreground" />
                     )}
                   </button>
                   <button
-                    onClick={() => handleToggleFavorite(selectedNote.id)}
-                    disabled={selectedNote.readOnly}
+                    onClick={() => handleToggleFavorite(activeNote.id)}
+                    disabled={activeNote.readOnly}
                     className="text-lg hover:opacity-80"
-                    title={selectedNote.isStarred ? "Unfavorite" : "Favorite"}
+                    title={activeNote.isStarred ? "Unfavorite" : "Favorite"}
                   >
-                    {selectedNote.isStarred ? "★" : "☆"}
+                    {activeNote.isStarred ? "★" : "☆"}
                   </button>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>Updated {selectedNote.updated}</span>
+                    <span>Updated {activeNote.updated}</span>
                   </div>
                 </div>
               </div>
 
               {/* Note Images List (if any) */}
-              {selectedNote.images && selectedNote.images.length > 0 && (
+              {activeNote.images && activeNote.images.length > 0 && (
                 <div className="mt-4 flex flex-col gap-1.5 border-b border-border pb-4">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Attached Context Images
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {selectedNote.images.map((img, idx) => (
+                    {activeNote.images.map((img, idx) => (
                       <div
                         key={idx}
                         onClick={() => setActiveLightboxImage(img)}
@@ -1073,27 +1237,27 @@ function NotesPage() {
 
               {/* Note Content — WYSIWYG Rich Editor with toolbar */}
               <div className="mt-6 flex-1 text-sm leading-relaxed text-foreground flex flex-col overflow-y-auto overflow-x-hidden pr-1 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden notes-container notes-editor-container">
-                {selectedNote.readOnly ? (
-                  <div className="text-foreground min-h-[300px] flex-1 rounded-2xl border border-border/80 bg-elevated/30 p-6 md:p-8 shadow-sm break-words overflow-x-hidden min-w-0">
-                    <MarkdownRenderer content={selectedNote.content} cognitiveProfile={cognitiveProfile} />
-                  </div>
+                {activeNote.readOnly ? (
+                    <div className="text-foreground min-h-[300px] flex-1 rounded-2xl border border-border/80 bg-elevated/30 p-6 md:p-8 shadow-sm break-words overflow-x-hidden min-w-0">
+                      <MarkdownRenderer content={activeNote.content} cognitiveProfile={cognitiveProfile} />
+                    </div>
                 ) : (
-                  <RichEditor
-                    key={selectedNote.id}
-                    value={selectedNote.content}
-                    onChange={handleEditNoteContent}
-                    onSave={() => toast.success("Note saved")}
-                    isSaving={isSavingNote}
-                    readOnly={selectedNote.readOnly}
-                    placeholder="Start writing your notes..."
-                  />
+                    <RichEditor
+                      key={activeNote.id}
+                      value={activeNote.content}
+                      onChange={handleEditNoteContent}
+                      onSave={() => toast.success("Note saved")}
+                      isSaving={isSavingNote}
+                      readOnly={activeNote.readOnly}
+                      placeholder="Start writing your notes..."
+                    />
                 )}
-                {selectedNote.readOnly && (
+                  {activeNote.readOnly && (
                   <div className="mt-4 rounded-md border border-border bg-elevated px-3 py-2 text-xs text-muted-foreground">
                     This note is read-only.
                   </div>
                 )}
-                {selectedNote.isAi && !selectedNote.readOnly && (
+                  {activeNote.isAi && !activeNote.readOnly && (
                   <div className="mt-8 rounded-lg border border-border bg-elevated p-4">
                     <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                       <BookOpen className="h-4 w-4" /> Study Guidelines
@@ -1115,8 +1279,20 @@ function NotesPage() {
               </div>
             </Card>
           ) : (
-            <div className="flex min-h-[500px] items-center justify-center rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-              Select or create a study note to view details.
+            <div className="flex min-h-[500px] flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center bg-elevated/20">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+                <FileText className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">No notes yet</h3>
+              <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+                Create your first study note to start writing or review notes generated during your AI tutoring sessions.
+              </p>
+              <button
+                onClick={handleAddNote}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition shadow-sm"
+              >
+                <Plus className="h-4 w-4" /> Create Note
+              </button>
             </div>
           )}
         </div>

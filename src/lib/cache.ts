@@ -21,6 +21,18 @@ export class CacheManager {
         delete this.cache[k];
       }
     });
+    try {
+      if (typeof window !== "undefined") {
+        if (keyPrefix.startsWith("notes") || keyPrefix.includes("notes_data")) {
+          window.dispatchEvent(new Event("notes:updated"));
+        }
+        if (keyPrefix.startsWith("materials") || keyPrefix.includes("materials_")) {
+          window.dispatchEvent(new Event("materials:updated"));
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   static clear() {

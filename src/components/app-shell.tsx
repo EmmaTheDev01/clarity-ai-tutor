@@ -604,7 +604,6 @@ export function AppShell({
           setSelectedSearchIndex(0);
         }
       } catch (err) {
-        console.warn("Error executing header search query:", err);
       } finally {
         if (isCurrent) setIsSearching(false);
       }
@@ -745,7 +744,6 @@ export function AppShell({
               finalTier = sub.plan_tier || "free";
             }
           } catch (e) {
-            console.warn("Could not query subscription details in header:", e);
           }
           setTier(finalTier);
 
@@ -849,7 +847,6 @@ export function AppShell({
               });
             }
           } catch (e) {
-            console.warn("Could not query user_logs for notifications:", e);
           }
 
           // 2. Fetch persistent direct notifications from notifications table
@@ -873,7 +870,6 @@ export function AppShell({
               });
             }
           } catch (e) {
-            console.warn("Could not query DB notifications table:", e);
           }
 
           // 3. Fetch note share invitations
@@ -902,7 +898,6 @@ export function AppShell({
               });
             }
           } catch (e) {
-            console.warn("Could not query note shares for notification:", e);
           }
 
           // 4. Add streak notifications if streak exists
@@ -923,7 +918,6 @@ export function AppShell({
               });
             }
           } catch (e) {
-            console.warn("Could not query XP for notification:", e);
           }
 
           // 5. Fallback welcome notification if empty
@@ -947,7 +941,6 @@ export function AppShell({
           }, 30000);
         }
       } catch (err) {
-        console.warn("Could not load user profile in header:", err);
       }
     };
 
@@ -1018,8 +1011,8 @@ export function AppShell({
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link to="/app" className="flex items-center shrink-0">
-            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-6 w-auto lg:hidden" />
-            <img src="/logo.png" alt="Purelearn.ai Logo" className={`h-8 w-auto hidden ${isCollapsed ? '' : 'lg:block'}`} />
+            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-7 sm:h-8 w-auto lg:hidden" />
+            <img src="/logo.png" alt="Purelearn.ai Logo" className={`h-10 w-auto hidden ${isCollapsed ? '' : 'lg:block'}`} />
           </Link>
           <div className="flex items-center gap-1">
             <button
@@ -1070,12 +1063,12 @@ export function AppShell({
                       isCollapsed ? "lg:justify-center" : "lg:justify-start"
                     } ${
                       active
-                        ? "bg-muted text-foreground font-bold border border-border/80"
+                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                     title={item.label}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
                     <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
                       {item.label}
                     </span>
@@ -1114,12 +1107,12 @@ export function AppShell({
                 onClick={() => setOpen(false)}
                 className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all lg:justify-start ${isCollapsed ? "lg:justify-center" : "lg:justify-start"
                   } ${active
-                    ? "bg-elevated font-medium text-foreground"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 title={item.label}
               >
-                <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
                 <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
                   {item.label}
                 </span>

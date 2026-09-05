@@ -1,5 +1,6 @@
 import { FileText, File, Image, Link, Mic, Presentation, Video, Youtube } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { CacheManager } from "@/lib/cache";
 
 export type MaterialType =
   "PDF" | "Word" | "Image" | "Slides" | "Audio" | "Video" | "YouTube" | "Link" | "Text" | "File";
@@ -195,6 +196,10 @@ export async function createGeneralChatMaterial() {
     .single();
 
   if (error) throw error;
+  // Notify UI that materials changed
+  try {
+    CacheManager.invalidate("materials_");
+  } catch {}
   return mapMaterialRow(data);
 }
 
@@ -217,6 +222,10 @@ export async function createNewChatSession(title?: string) {
     .single();
 
   if (error) throw error;
+  // Notify UI that materials changed
+  try {
+    CacheManager.invalidate("materials_");
+  } catch {}
   return mapMaterialRow(data);
 }
 
@@ -434,7 +443,6 @@ Use clean, beautiful markdown formatting throughout. Be thorough.`;
         extractedContent = result.text;
       }
   } catch (err) {
-    console.warn("AI text extraction failed during upload, proceeding with default content:", err);
   }
 
   // Auto-generate AI Flashcards for every created/uploaded learning material
@@ -452,7 +460,6 @@ ${extractedContent.slice(0, 3000)}`;
         extractedContent = `${extractedContent}\n\n[FLASHCARDS]\n${fcResult.text}`;
       }
     } catch (fcErr) {
-      console.warn("Auto flashcards generation for material failed (best effort):", fcErr);
     }
   }
 
@@ -473,6 +480,11 @@ ${extractedContent.slice(0, 3000)}`;
     .single();
 
   if (error) throw error;
+
+  // Notify UI that materials changed
+  try {
+    CacheManager.invalidate("materials_");
+  } catch {}
 
   // Persist newly created material's AI flashcard deck to localStorage for immediate availability
   if (typeof window !== "undefined" && window.localStorage && extractedContent && extractedContent.includes("Q:")) {
@@ -507,3 +519,9 @@ ${extractedContent.slice(0, 3000)}`;
 
   return mapMaterialRow(data);
 }
+
+export const notifyMaterialsUpdated = () => {
+  try {
+    CacheManager.invalidate("materials_");
+  } catch {}
+};

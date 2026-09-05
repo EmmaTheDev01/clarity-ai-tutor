@@ -56,7 +56,6 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
       ]);
 
       if (error) {
-        console.error("Failed to submit demo request:", error);
         toast.error("Could not submit request. Please check your connection.");
         setIsSubmitting(false);
         return;
@@ -65,7 +64,6 @@ export function DemoRequestModal({ isOpen, onClose }: DemoRequestModalProps) {
       setIsSuccess(true);
       toast.success("Demo request submitted successfully!");
     } catch (err) {
-      console.error(err);
       toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);

@@ -126,6 +126,8 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Ensure a consistent base font size for readable UI (16px) */
+    font-size: 16px;
     scroll-behavior: smooth;
     scroll-padding-top: 5rem;
   }
@@ -133,7 +135,15 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Normal readable font size and comfortable line height */
+    font-size: 1rem;
+    line-height: 1.5;
     overflow-x: hidden;
+  }
+  /* Ensure form controls and interactive elements inherit base font sizing */
+  input, button, textarea, select, a {
+    font-size: inherit;
+    line-height: inherit;
   }
   ::selection {
     background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
@@ -170,9 +180,6 @@
   }
 
   /* Global horizontal scrollbar suppressor for materials, notes & content */
-  .materials-container,
-  .notes-container,
-  .notes-editor-container,
   .materials-container *::-webkit-scrollbar:horizontal,
   .notes-container *::-webkit-scrollbar:horizontal,
   .notes-editor-container *::-webkit-scrollbar:horizontal {

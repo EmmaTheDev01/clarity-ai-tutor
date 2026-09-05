@@ -216,30 +216,32 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
           (n) => n.title.includes(material.title) || n.title === `Summary: ${material.title}`
         );
 
-        if (matchingNote) {
-          // ESCALATE / UPDATE EXISTING NOTE for this material!
-          let updatedContent = matchingNote.content;
-          if (!updatedContent.includes(material.content.slice(0, 40))) {
-            updatedContent += `\n\n---\n\n### Material Summary: ${material.title}\n\n${material.content}`;
+          if (matchingNote) {
+            // ESCALATE / UPDATE EXISTING NOTE for this material!
+            let updatedContent = matchingNote.content;
+            if (!updatedContent.includes(material.content.slice(0, 40))) {
+              updatedContent += `\n\n---\n\n### Material Summary: ${material.title}\n\n${material.content}`;
+            }
+            await supabase
+              .from("notes")
+              .update({ content: updatedContent, updated_at: new Date().toISOString() })
+              .eq("id", matchingNote.id);
+
+            toast.success(`Escalated existing study note for "${material.title}"!`);
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
+          } else {
+            // Create initial note
+            await supabase.from("notes").insert({
+              student_id: userData.user.id,
+              title: `Summary: ${material.title}`,
+              subject: material.type || "General",
+              content: material.content,
+              is_ai_generated: true,
+            });
+
+            toast.success(`Study note created for "${material.title}"!`);
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
           }
-          await supabase
-            .from("notes")
-            .update({ content: updatedContent, updated_at: new Date().toISOString() })
-            .eq("id", matchingNote.id);
-
-          toast.success(`Escalated existing study note for "${material.title}"!`);
-        } else {
-          // Create initial note
-          await supabase.from("notes").insert({
-            student_id: userData.user.id,
-            title: `Summary: ${material.title}`,
-            subject: material.type || "General",
-            content: material.content,
-            is_ai_generated: true,
-          });
-
-          toast.success(`Study note created for "${material.title}"!`);
-        }
 
         await supabase.from("user_logs").insert({
           user_id: userData.user.id,
@@ -488,6 +490,7 @@ ${material?.content || "No extracted text available yet."}
                   .from("notes")
                   .update({ content: updatedContent, updated_at: new Date().toISOString() })
                   .eq("id", matchingNote.id);
+                try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
               } else {
                 const initialContent = `# ${material.title}\n\n${material.content || ""}${qaSection}`;
                 await supabase.from("notes").insert({
@@ -497,6 +500,8 @@ ${material?.content || "No extracted text available yet."}
                   content: initialContent,
                   is_ai_generated: true,
                 });
+                try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
+                try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
               }
             }
           } catch (err) {

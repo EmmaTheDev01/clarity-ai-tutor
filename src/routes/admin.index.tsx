@@ -336,7 +336,6 @@ export function AdminPortal() {
         });
       }
     } catch (err: any) {
-      console.warn("Error loading system-wide admin data:", err);
       toast.error("Failed to load database records.");
     } finally {
       setIsLoading(false);
@@ -378,6 +377,7 @@ export function AdminPortal() {
             await supabase.from("classroom_students").delete().eq("student_id", user.id);
             await supabase.from("quiz_attempts").delete().eq("student_id", user.id);
             await supabase.from("notes").delete().eq("student_id", user.id);
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
             await supabase.from("flashcard_decks").delete().eq("user_id", user.id);
             await supabase.from("materials").delete().eq("uploaded_by", user.id);
             await supabase.from("user_logs").delete().eq("user_id", user.id);
@@ -535,6 +535,7 @@ export function AdminPortal() {
           if (deck.id.startsWith("note_")) {
             const noteId = deck.id.replace("note_", "");
             const { error } = await supabase.from("notes").delete().eq("id", noteId);
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
             if (error) throw error;
           } else {
             const { error } = await supabase.from("flashcard_decks").delete().eq("id", deck.id);

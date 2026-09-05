@@ -262,12 +262,12 @@ function AnalyticsPage() {
         // ── Subject Focus from materials
         const { data: mats } = await supabase
           .from("materials")
-          .select("type, subject")
+          .select("type")
           .eq("uploaded_by", userId);
 
         const typeMap: Record<string, number> = {};
         for (const m of mats || []) {
-          const key = m.subject || m.type || "Other";
+          const key = m.type || "Other";
           typeMap[key] = (typeMap[key] || 0) + 1;
         }
 
@@ -333,7 +333,6 @@ function AnalyticsPage() {
 
         setMilestones(mapped);
       } catch (err) {
-        console.warn("Analytics fetch error:", err);
       } finally {
         setLoading(false);
       }

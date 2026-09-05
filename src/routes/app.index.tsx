@@ -207,6 +207,19 @@ function Dashboard() {
     y: number;
     doc: LearningMaterial;
   } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<{ left: number; top: number } | null>(null);
+
+  const computeSafeContextPos = (requestedLeft: number, requestedTop: number, estWidth = 240, estHeight = 140) => {
+    const margin = 8;
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    let left = requestedLeft;
+    let top = requestedTop;
+    if (left > vw - estWidth) left = Math.max(margin, vw - estWidth - margin);
+    if (top > vh - estHeight) top = Math.max(margin, requestedTop - estHeight - margin);
+    return { left, top };
+  };
   const [renameTarget, setRenameTarget] = useState<{ doc: LearningMaterial; value: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LearningMaterial | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -260,6 +273,52 @@ function Dashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [deleteTarget, contextMenu, renameTarget, showAddMaterialForm, showMaterialsSidebar, searchQuery, activeLightboxImage, inputText]);
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // Ensure the floating context menu fits in the viewport when opened
+  useEffect(() => {
+    if (!contextMenu) {
+      setContextMenuPos(null);
+      return;
+    }
+
+    const computePosition = () => {
+      const margin = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const requestedLeft = contextMenu.x;
+      const requestedTop = contextMenu.y;
+
+      let left = requestedLeft;
+      let top = requestedTop;
+
+      const el = contextMenuRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const width = rect.width || 240;
+        const height = rect.height || 140;
+
+        if (left + width + margin > vw) {
+          left = Math.max(margin, vw - width - margin);
+        }
+        if (top + height + margin > vh) {
+          top = Math.max(margin, requestedTop - height - margin);
+        }
+      } else {
+        if (requestedLeft > vw - 240) left = Math.max(margin, vw - 240 - margin);
+        if (requestedTop > vh - 160) top = Math.max(margin, requestedTop - 160 - margin);
+      }
+
+      setContextMenuPos({ left, top });
+    };
+
+    const raf = requestAnimationFrame(computePosition);
+    const onResize = () => requestAnimationFrame(computePosition);
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [contextMenu]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -491,6 +550,7 @@ function Dashboard() {
               .from("student_profiles")
               .update({ streak: currentStreak })
               .eq("student_id", userId);
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
           } else {
             setStreak(currentStreak || 1);
           }
@@ -500,6 +560,7 @@ function Dashboard() {
         const hasSeenOnboarding = getStoredItem("clarity_onboarding_complete") === "true";
         if (!hasSeenOnboarding) {
           setShowOnboarding(true);
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
         }
       } catch (err) {
         console.warn("Could not load student profile settings from DB:", err);
@@ -1512,8 +1573,9 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
       {contextMenu && (
         <div
+          ref={(el) => (contextMenuRef.current = el)}
           className="fixed z-[60] min-w-30 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
-          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+          style={{ left: `${contextMenuPos?.left ?? contextMenu.x}px`, top: `${contextMenuPos?.top ?? contextMenu.y}px` }}
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -1790,7 +1852,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                           const isPinned = pinnedIds.has(doc.id) || Boolean(doc.pinned);
                           return (
                             <div key={doc.id} className="group relative border-b border-border/60 last:border-b-0">
-                              <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-elevated font-medium text-foreground" : "hover:bg-elevated/40"}`}>
+                              <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-primary/20 font-semibold text-primary" : "hover:bg-muted/60"}`}>
                                 <div
                                   onClick={() => {
                                     if (!isEditing) {
@@ -1800,17 +1862,19 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                   }}
                                   onContextMenu={(event) => {
                                     event.preventDefault();
+                                    const pos = computeSafeContextPos(event.clientX, event.clientY);
+                                    setContextMenuPos(pos);
                                     setContextMenu({ x: event.clientX, y: event.clientY, doc });
                                   }}
                                   className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
                                 >
                                   <div
                                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${isSelected
-                                      ? "border-foreground/30 bg-background"
+                                      ? "border-primary/50 bg-primary/20 text-primary"
                                       : "border-border bg-elevated"
                                       }`}
                                   >
-                                    <doc.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                                    <doc.icon className={`h-4 w-4 ${isSelected ? "text-primary" : "text-foreground"}`} strokeWidth={isSelected ? 2 : 1.75} />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     {isEditing ? (
@@ -1878,7 +1942,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                           const isEditing = renameTarget?.doc.id === doc.id;
                           return (
                             <div key={doc.id} className="group relative border-b border-border/60 last:border-b-0">
-                              <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-elevated font-medium text-foreground" : "hover:bg-elevated/40"}`}>
+                              <div className={`flex items-center gap-2 px-4 py-3 transition ${isSelected ? "bg-primary/20 font-semibold text-primary" : "hover:bg-muted/60"}`}>
                                 <div
                                   onClick={() => {
                                     if (!isEditing) {
@@ -1886,12 +1950,22 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                       setShowMaterialsSidebar(false);
                                     }
                                   }}
-                                  onContextMenu={(event) => {
-                                    event.preventDefault();
-                                    setContextMenu({ x: event.clientX, y: event.clientY, doc });
-                                  }}
+                                    onContextMenu={(event) => {
+                                      event.preventDefault();
+                                      const pos = computeSafeContextPos(event.clientX, event.clientY);
+                                      setContextMenuPos(pos);
+                                      setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                    }}
                                   className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
                                 >
+                                  <div
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${isSelected
+                                      ? "border-primary/50 bg-primary/20 text-primary"
+                                      : "border-border bg-elevated text-muted-foreground"
+                                      }`}
+                                  >
+                                    <doc.icon className={`h-4 w-4 ${isSelected ? "text-primary" : "text-foreground"}`} strokeWidth={isSelected ? 2 : 1.75} />
+                                  </div>
 
                                   <div className="min-w-0 flex-1">
                                     {isEditing ? (
@@ -1929,9 +2003,11 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                                   <button
                                     type="button"
                                     onClick={(event) => {
-                                      event.stopPropagation();
-                                      setContextMenu({ x: event.clientX, y: event.clientY, doc });
-                                    }}
+                                        event.stopPropagation();
+                                        const pos = computeSafeContextPos(event.clientX, event.clientY);
+                                        setContextMenuPos(pos);
+                                        setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                      }}
                                     className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                                     aria-label="More options"
                                   >
@@ -1971,10 +2047,14 @@ You write responses that read like **high-quality lecture notes** — rich, thor
           <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
             <Card className="flex h-full flex-col overflow-hidden transition-all duration-300">
               {/* Chat Context Header */}
-              <div className="flex items-center justify-between border-b border-border bg-elevated/30 px-5 py-3">
+              <div className={`flex items-center justify-between border-b px-5 py-3 transition-colors ${
+                activeDoc ? "bg-primary/10 border-primary/20" : "bg-elevated/30 border-border"
+              }`}>
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
-                    <Sparkles className="h-3 w-3" />
+                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${
+                    activeDoc ? "bg-primary text-primary-foreground shadow-xs" : "bg-primary/10 text-primary"
+                  }`}>
+                    <Sparkles className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug">
@@ -1990,7 +2070,7 @@ You write responses that read like **high-quality lecture notes** — rich, thor
                 {activeDoc && (
                   <button
                     onClick={() => setActiveDoc(null)}
-                    className="rounded border border-border bg-background text-muted-foreground hover:text-foreground px-2 py-0.5 text-xs transition"
+                    className="rounded border border-primary/30 bg-background text-foreground hover:bg-muted px-2.5 py-1 text-xs font-semibold transition"
                   >
                     Clear focus
                   </button>
