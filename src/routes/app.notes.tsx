@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { RichEditor } from "@/components/rich-editor";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
+import { ListSkeleton, TextSkeleton } from "@/components/ui/data-skeleton";
 
 export const Route = createFileRoute("/app/notes")({
   head: () => ({ meta: [{ title: "Notes — tutor.vigilance.rw" }] }),
@@ -102,6 +103,7 @@ function NotesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Sharing states
   const [shareTargetNote, setShareTargetNote] = useState<Note | null>(null);
@@ -182,6 +184,7 @@ function NotesPage() {
 
 
   const fetchSupabaseNotes = async (uid?: string) => {
+    setLoading(true);
     try {
       // Use provided uid, or try to get it from current session/user
       let currentUid = uid;
@@ -325,6 +328,7 @@ function NotesPage() {
     } catch (err) {
       console.warn("Failed to fetch notes from Supabase:", err);
     }
+    setLoading(false);
   };
 
   // Load from Supabase on mount — use onAuthStateChange as primary driver
@@ -1105,9 +1109,12 @@ function NotesPage() {
           )}
 
           {/* List display */}
-          <div className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden pr-1 pb-4 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden notes-container">
-            {/* Pinned Notes section */}
-            {pinnedNotes.length > 0 && (
+            <div className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden pr-1 pb-4 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden notes-container">
+              {loading ? (
+                <ListSkeleton rows={6} />
+              ) : null}
+              {/* Pinned Notes section */}
+              {!loading && pinnedNotes.length > 0 && (
               <div className="space-y-2">
                 <div className="px-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
                   Pinned Notes
@@ -1116,8 +1123,8 @@ function NotesPage() {
               </div>
             )}
 
-            {/* Other Notes section */}
-            {regularNotes.length > 0 && (
+              {/* Other Notes section */}
+              {!loading && regularNotes.length > 0 && (
               <div className="space-y-2">
                 {pinnedNotes.length > 0 && (
                   <div className="px-1 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mt-2">
@@ -1127,18 +1134,21 @@ function NotesPage() {
                 {regularNotes.map(renderNoteCard)}
               </div>
             )}
-
-            {filteredNotes.length === 0 && (
-              <div className="text-center py-8 text-xs text-muted-foreground">
-                No study notes match your search.
-              </div>
-            )}
+              {!loading && filteredNotes.length === 0 && (
+                <div className="text-center py-8 text-xs text-muted-foreground">
+                  No study notes match your search.
+                </div>
+              )}
           </div>
         </div>
 
         {/* Right Side: Selected Note Detail */}
         <div className="flex-1 min-w-0 h-[500px] lg:h-full flex flex-col overflow-hidden pb-4">
-          {activeNote ? (
+            {loading ? (
+              <Card className="p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
+                <TextSkeleton lines={8} />
+              </Card>
+            ) : activeNote ? (
             <Card className="p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
                 <div className="flex-1 min-w-0">

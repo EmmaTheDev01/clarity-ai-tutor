@@ -21,6 +21,7 @@ import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
+import { ListSkeleton } from "@/components/ui/data-skeleton";
 
 const getStoredItem = (key: string, fallback = "") => {
   if (typeof window === "undefined" || !window.localStorage) return fallback;
@@ -226,6 +227,7 @@ function Dashboard() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [teacherBlockStatus, setTeacherBlockStatus] = useState<"pending" | "rejected" | null>(null);
   const [showMaterialsSidebar, setShowMaterialsSidebar] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // ─── Global Keyboard Shortcuts ──────────────────────────────────────────────
   useEffect(() => {
@@ -405,6 +407,7 @@ function Dashboard() {
   // Auth Guard & Dynamic DB loader
   useEffect(() => {
     const checkAuthAndLoad = async () => {
+      setLoading(true);
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         window.location.href = "/auth/sign-in";
@@ -605,6 +608,7 @@ function Dashboard() {
         materials: mappedMats,
         pinnedIds: Array.from(mappedMats.filter((item) => item.pinned).map((item) => item.id))
       }, 30000);
+      setLoading(false);
     };
     checkAuthAndLoad();
   }, []);
@@ -1834,7 +1838,9 @@ You write responses that read like **high-quality lecture notes** — rich, thor
 
               {/* Documents List */}
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden divide-y divide-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {filteredDocs.length > 0 ? (
+                {loading ? (
+                  <div className="p-4"><ListSkeleton rows={8} /></div>
+                ) : filteredDocs.length > 0 ? (
                   (() => {
                     const pinnedDocs = filteredDocs.filter((doc) => pinnedIds.has(doc.id) || Boolean(doc.pinned));
                     const regularDocs = filteredDocs.filter((doc) => !pinnedIds.has(doc.id) && !doc.pinned);

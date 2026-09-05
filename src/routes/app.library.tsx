@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { MaterialUploader } from "@/components/material-uploader";
 import { LearningMaterial, mapMaterialRow, uploadLearningMaterial, togglePinMaterial, renameMaterial } from "@/lib/learning-materials";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
+import { ListSkeleton } from "@/components/ui/data-skeleton";
 import { CacheManager } from "@/lib/cache";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ function LibraryPage() {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<LearningMaterial[]>([]);
   const [isDropUploading, setIsDropUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Auth Guard: redirect to login if unauthenticated
   useEffect(() => {
@@ -77,6 +79,7 @@ function LibraryPage() {
     }
   };
   const loadMaterials = async () => {
+    setLoading(true);
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
       console.warn("[Library] No session found");
@@ -133,6 +136,7 @@ function LibraryPage() {
         console.error("[Library] Failed to map/set materials:", err);
       }
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -351,6 +355,11 @@ function LibraryPage() {
 
       {/* Table */}
       <div className="mt-6 overflow-x-auto rounded-lg border border-border w-full hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden materials-container">
+        {loading ? (
+          <div className="p-4">
+            <ListSkeleton rows={8} />
+          </div>
+        ) : null}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 border-b border-border bg-elevated px-4 md:px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground min-w-0">
           <div>Name</div>
           <div className="hidden md:block">Size</div>
@@ -358,7 +367,7 @@ function LibraryPage() {
           <div className="text-right">Actions</div>
         </div>
         <ul>
-          {displayItems.map((it, i) => (
+          {!loading && displayItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
               <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated min-w-0">
                 <Link
@@ -423,7 +432,7 @@ function LibraryPage() {
               </div>
             </li>
           ))}
-          {displayItems.length === 0 && (
+          {!loading && displayItems.length === 0 && (
             <li className="px-5 py-8 text-center text-sm text-muted-foreground">
               No materials match your search yet.
             </li>
