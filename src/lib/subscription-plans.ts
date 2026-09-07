@@ -183,21 +183,66 @@ export async function saveUserSubscription(params: {
       updated_at: new Date().toISOString(),
     };
 
-    // Upsert into Supabase `subscriptions`
-    const { data, error } = await supabase
+    // Check if subscription record already exists for this user
+    const { data: existingRows } = await supabase
       .from("subscriptions")
-      .upsert(payload, { onConflict: "user_id" })
-      .select()
-      .single();
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1);
 
-    if (error) {
-      // Fallback in case table doesn't have unique constraint on user_id
-      const { error: directErr } = await supabase
+    const existingId = existingRows && existingRows.length > 0 ? existingRows[0].id : null;
+    let savedRecord: any = null;
+
+    if (existingId) {
+      // Record exists: update directly by ID to avoid any conflict resolution issues
+      const { data, error: updateErr } = await supabase
         .from("subscriptions")
-        .update(payload)
-        .eq("user_id", userId);
+        .update({
+          plan_tier: planTier,
+          status: status,
+          current_period_end: periodEnd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingId)
+        .select()
+        .maybeSingle();
 
-      if (directErr) throw error;
+      if (updateErr) throw updateErr;
+      savedRecord = data;
+    } else {
+      // No existing record: insert new subscription row
+      const { data, error: insertErr } = await supabase
+        .from("subscriptions")
+        .insert({
+          user_id: userId,
+          plan_tier: planTier,
+          status: status,
+          current_period_end: periodEnd,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .maybeSingle();
+
+      if (insertErr) {
+        // Fallback in case of concurrent insert: update by user_id
+        const { data: fallbackData, error: fallbackErr } = await supabase
+          .from("subscriptions")
+          .update({
+            plan_tier: planTier,
+            status: status,
+            current_period_end: periodEnd,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId)
+          .select()
+          .maybeSingle();
+
+        if (fallbackErr) throw fallbackErr;
+        savedRecord = fallbackData;
+      } else {
+        savedRecord = data;
+      }
     }
 
     // Record audit entry in `public.user_logs`
@@ -226,7 +271,7 @@ export async function saveUserSubscription(params: {
       console.warn("Audit log for subscription could not be written:", logErr);
     }
 
-    return { success: true, data };
+    return { success: true, data: savedRecord };
   } catch (err: any) {
     console.error("Failed to save subscription:", err);
     return { success: false, error: err.message || "Failed to update subscription" };

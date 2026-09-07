@@ -4,6 +4,7 @@ import { Brain, Check, ArrowRight, Loader2, Lock } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { saveUserSubscription } from "@/lib/subscription-plans";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({ meta: [{ title: "Pricing & Plans — purelearn.ai" }] }),
@@ -57,13 +58,16 @@ function PricingPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.from("subscriptions").upsert({
-        user_id: user.id,
-        plan_tier: plan,
+      const result = await saveUserSubscription({
+        userId: user.id,
+        planTier: plan,
         status: "active",
+        customSeats: plan === "educator" ? studentCount : undefined,
       });
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update subscription");
+      }
 
       toast.success(`Successfully activated your ${plan} subscription!`);
       setCurrentTier(plan);
