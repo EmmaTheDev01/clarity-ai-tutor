@@ -182,7 +182,7 @@ function AnalyticsPage() {
         const dbXp = stdProfData?.xp;
         const loadedXp = typeof dbXp === "number" ? dbXp : Number(getStoredItem("student_xp", "0"));
         const xpValue = Number.isFinite(loadedXp) ? loadedXp : 0;
-        const streakDays = stdProfData?.streak || (xpValue > 0 ? Math.max(1, Math.floor(xpValue / 120)) : 0);
+        const streakDays = Number(stdProfData?.streak || 0);
 
         setStats([
           {

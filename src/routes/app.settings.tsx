@@ -206,27 +206,50 @@ function ProfileSection() {
         const rawBadges = typeof window !== "undefined" ? localStorage.getItem("purelearn_unlocked_badges") : null;
         const parsedBadges: string[] = rawBadges ? JSON.parse(rawBadges) : [];
 
-        const currentStreak = Number(stdProf?.streak || 0);
-        const masteredCount = Number(stdProf?.quizzes_mastered || 0);
-        const answeredCount = Number(stdProf?.quizzes_answered || 0);
-        const completedCount = Math.max(masteredCount, answeredCount);
-        const level = stdProf?.understanding_level || getUnderstandingCategory(completedCount).level;
+        // Query real database quiz attempts for authenticated user
+        let realCompleted = 0;
+        let realMastered = 0;
+        try {
+          const [
+            { count: compCount },
+            { count: mastCount },
+          ] = await Promise.all([
+            supabase
+              .from("quiz_attempts")
+              .select("*", { count: "exact", head: true })
+              .eq("student_id", userData.user.id),
+            supabase
+              .from("quiz_attempts")
+              .select("*", { count: "exact", head: true })
+              .eq("student_id", userData.user.id)
+              .gte("score", 80),
+          ]);
+          realCompleted = compCount || 0;
+          realMastered = mastCount || 0;
+        } catch (dbErr) {
+          console.warn("Error querying real attempts in settings:", dbErr);
+        }
 
+        const currentStreak = Number(stdProf?.streak || 0);
+        const level = getUnderstandingCategory(realMastered).level;
+
+        // Guaranteed minimum default starter badge
+        if (!parsedBadges.includes("novice_explorer")) parsedBadges.push("novice_explorer");
         if (currentStreak >= 5 && !parsedBadges.includes("5_day_streak")) parsedBadges.push("5_day_streak");
         if (currentStreak >= 10 && !parsedBadges.includes("10_day_streak")) parsedBadges.push("10_day_streak");
         if (currentStreak >= 20 && !parsedBadges.includes("20_day_streak")) parsedBadges.push("20_day_streak");
         if (currentStreak >= 30 && !parsedBadges.includes("30_day_streak")) parsedBadges.push("30_day_streak");
-        if (completedCount >= 1 && !parsedBadges.includes("novice_explorer")) parsedBadges.push("novice_explorer");
-        if (completedCount >= 3 && !parsedBadges.includes("active_scholar")) parsedBadges.push("active_scholar");
-        if (completedCount >= 6 && !parsedBadges.includes("conceptual_master")) parsedBadges.push("conceptual_master");
-        if (completedCount >= 10 && !parsedBadges.includes("socratic_polymath")) parsedBadges.push("socratic_polymath");
-        if ((masteredCount >= 1 || completedCount >= 1) && !parsedBadges.includes("quiz_master")) parsedBadges.push("quiz_master");
+        if (realCompleted >= 1 && !parsedBadges.includes("novice_explorer")) parsedBadges.push("novice_explorer");
+        if (realMastered >= 3 && !parsedBadges.includes("active_scholar")) parsedBadges.push("active_scholar");
+        if (realMastered >= 6 && !parsedBadges.includes("conceptual_master")) parsedBadges.push("conceptual_master");
+        if (realMastered >= 10 && !parsedBadges.includes("socratic_polymath")) parsedBadges.push("socratic_polymath");
+        if (realMastered >= 1 && !parsedBadges.includes("quiz_master")) parsedBadges.push("quiz_master");
 
         setUserStats({
           streak: currentStreak,
-          quizzesMastered: completedCount,
+          quizzesMastered: realMastered,
           understandingLevel: level,
-          unlockedBadges: parsedBadges,
+          unlockedBadges: Array.from(new Set(parsedBadges)),
         });
       }
     } catch (err) {
@@ -455,7 +478,7 @@ function ProfileSection() {
       </div>
 
       {/* Achievement Badges & Mastery Vault (App Colors: Black, White, Orange) */}
-      <div className="space-y-4 pt-6 border-t border-border/60">
+      <div id="badges" className="space-y-4 pt-6 border-t border-border/60 scroll-mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h4 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">

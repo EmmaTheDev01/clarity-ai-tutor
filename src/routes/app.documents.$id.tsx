@@ -571,10 +571,24 @@ You write responses that read like **award-winning university lecture notes** â€
             subject: material?.type || "Document Tutor",
             cards,
           };
-          if (typeof window !== "undefined" && window.localStorage) {
-            const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
-            const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
-            localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+          const { data: authData } = await supabase.auth.getUser();
+          const curUid = authData?.user?.id;
+          if (curUid) {
+            supabase
+              .from("flashcard_decks")
+              .insert({
+                title: newDeck.title,
+                subject: newDeck.subject,
+                user_id: curUid,
+                cards: newDeck.cards,
+              })
+              .then(() => {});
+
+            if (typeof window !== "undefined" && window.localStorage) {
+              const rawAiDecks = localStorage.getItem(`purelearn_ai_custom_decks_${curUid}`);
+              const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+              localStorage.setItem(`purelearn_ai_custom_decks_${curUid}`, JSON.stringify([newDeck, ...existing]));
+            }
           }
         } catch {
           // Best effort auto flashcard deck
@@ -987,11 +1001,15 @@ function QuizPanel({ material }: { material: any }) {
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user) {
           const finalScore = score + (selectedOption === (quiz.questions as QuizQuestion[])[activeQuestionIdx].correctIndex ? 1 : 0);
+          const scorePercent = Math.round((finalScore / questions.length) * 100);
           await supabase.from("quiz_attempts").insert({
             student_id: userData.user.id,
             quiz_id: quiz.id,
-            score: finalScore,
-            total_questions: questions.length,
+            score: scorePercent,
+            material_id: material.id,
+            material_title: material.title,
+            passed: scorePercent >= 80,
+            questions_answered: questions.length,
             confidence_level: confidence,
           });
           toast.success("Quiz completed and performance logged!");

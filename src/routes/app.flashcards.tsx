@@ -42,102 +42,6 @@ const sliceText = (text: string, maxLength: number) => {
   return text.length > maxLength ? text.slice(0, maxLength).trim() + "…" : text;
 };
 
-const defaultDecks = [
-  {
-    id: "deck1",
-    title: "Linear Algebra Fundamentals",
-    subject: "Mathematics",
-    cards: [
-      {
-        q: "What is an eigenvector?",
-        a: "A non-zero vector that only rescales by a scalar factor called the eigenvalue when a linear transformation is applied.",
-      },
-      {
-        q: "What is an eigenvalue?",
-        a: "The scalar factor by which an eigenvector is scaled during a linear transformation.",
-      },
-      {
-        q: "What does det(A - λI) = 0 compute?",
-        a: "The characteristic equation used to solve for the eigenvalues of a square matrix.",
-      },
-      {
-        q: "What is a basis of a vector space?",
-        a: "A set of linearly independent vectors that span the entire vector space.",
-      },
-      {
-        q: "When is a square matrix diagonalizable?",
-        a: "When it has n linearly independent eigenvectors, allowing it to be decomposed into P D P⁻¹.",
-      },
-      {
-        q: "What is the rank of a matrix?",
-        a: "The maximum number of linearly independent column vectors or row vectors in the matrix.",
-      },
-      {
-        q: "What is the null space of a matrix?",
-        a: "The set of all vectors that result in the zero vector when multiplied by the matrix.",
-      },
-      {
-        q: "What is the determinant of a matrix?",
-        a: "A scalar value that measures how much a linear transformation scales areas or volumes.",
-      },
-      {
-        q: "When is a matrix invertible?",
-        a: "When its determinant is non-zero, meaning its columns are linearly independent.",
-      },
-      {
-        q: "What is an orthogonal matrix?",
-        a: "A square matrix whose transpose is equal to its inverse, preserving lengths and angles.",
-      },
-    ],
-  },
-  {
-    id: "deck2",
-    title: "Neural Networks & Backprop",
-    subject: "Artificial Intelligence",
-    cards: [
-      {
-        q: "What is backpropagation?",
-        a: "An algorithm that calculates gradients of the loss function with respect to weights using the chain rule backward layer by layer.",
-      },
-      {
-        q: "What is the purpose of an activation function?",
-        a: "To introduce non-linearity into the network, allowing it to learn and model complex, non-linear relationships.",
-      },
-      {
-        q: "What is overfitting in machine learning?",
-        a: "When a model learns the details and noise of the training data too well, resulting in poor generalization to new data.",
-      },
-      {
-        q: "What is gradient descent?",
-        a: "An optimization algorithm used to minimize loss by iteratively moving in the direction of steepest descent.",
-      },
-      {
-        q: "What is a loss function?",
-        a: "A mathematical function that measures how far a model's predictions are from the actual target values.",
-      },
-      {
-        q: "What is the vanishing gradient problem?",
-        a: "When gradients become extremely small during backpropagation, preventing weights in early layers from updating.",
-      },
-      {
-        q: "What is the learning rate?",
-        a: "A hyperparameter that controls the step size taken towards the minimum of a loss function at each iteration.",
-      },
-      {
-        q: "What is the difference between an epoch and a batch?",
-        a: "An epoch is one full pass through the entire dataset, while a batch is a small subset of the dataset processed at once.",
-      },
-      {
-        q: "What is regularization?",
-        a: "A set of techniques like L1 or L2 normalization used to prevent overfitting by penalizing large weights.",
-      },
-      {
-        q: "What is dropout in neural networks?",
-        a: "A regularization technique where randomly selected neurons are ignored during training to reduce co-dependency.",
-      },
-    ],
-  },
-];
 
 function stripMarkdown(text: string): string {
   if (!text) return "";
@@ -221,10 +125,12 @@ function generateCardsFromNoteContent(content: string): Array<{ q: string; a: st
 }
 
 function FlashcardsPage() {
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [dbDecks, setDbDecks] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
   const [aiDecks, setAiDecks] = useState<any[]>([]);
-  const [activeDeckId, setActiveDeckId] = useState<string>("deck1");
+  const [activeDeckId, setActiveDeckId] = useState<string>("");
   const [currentCardIdx, setCurrentCardIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState({ correct: 0, incorrect: 0 });
@@ -233,25 +139,8 @@ function FlashcardsPage() {
   const [unlockedBadgeTitle, setUnlockedBadgeTitle] = useState<string | null>(null);
 
   // Persistence for deleted card keys and hidden deck IDs
-  const [deletedCardKeys, setDeletedCardKeys] = useState<Set<string>>(() => {
-    if (typeof window === "undefined" || !window.localStorage) return new Set();
-    try {
-      const raw = localStorage.getItem("purelearn_deleted_flashcard_keys");
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-
-  const [hiddenDeckIds, setHiddenDeckIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined" || !window.localStorage) return new Set();
-    try {
-      const raw = localStorage.getItem("purelearn_hidden_deck_ids");
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
+  const [deletedCardKeys, setDeletedCardKeys] = useState<Set<string>>(new Set());
+  const [hiddenDeckIds, setHiddenDeckIds] = useState<Set<string>>(new Set());
 
   // AI Generator modal state
   const [showAiModal, setShowAiModal] = useState(false);
@@ -259,70 +148,104 @@ function FlashcardsPage() {
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Sync deleted keys to localStorage
+  // Sync deleted keys to localStorage per user
   useEffect(() => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      localStorage.setItem("purelearn_deleted_flashcard_keys", JSON.stringify(Array.from(deletedCardKeys)));
+    if (currentUserId && typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(`purelearn_deleted_flashcard_keys_${currentUserId}`, JSON.stringify(Array.from(deletedCardKeys)));
     }
-  }, [deletedCardKeys]);
+  }, [deletedCardKeys, currentUserId]);
 
-  // Sync hidden decks to localStorage
+  // Sync hidden decks to localStorage per user
   useEffect(() => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      localStorage.setItem("purelearn_hidden_deck_ids", JSON.stringify(Array.from(hiddenDeckIds)));
+    if (currentUserId && typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(`purelearn_hidden_deck_ids_${currentUserId}`, JSON.stringify(Array.from(hiddenDeckIds)));
     }
-  }, [hiddenDeckIds]);
+  }, [hiddenDeckIds, currentUserId]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
         if (userData?.user) {
-          const { data: dbNotes } = await supabase
+          const uid = userData.user.id;
+          setCurrentUserId(uid);
+
+          // 1. Fetch strictly authenticated user's own notes
+          const { data: userNotes } = await supabase
             .from("notes")
             .select("*")
+            .eq("student_id", uid)
             .order("created_at", { ascending: false });
 
-          const stored = window.localStorage.getItem("digital_notebook");
-          const localNotes = stored ? JSON.parse(stored) : [];
+          const stored = window.localStorage.getItem(`digital_notebook_${uid}`) || window.localStorage.getItem("digital_notebook");
+          let localNotes: any[] = [];
+          try {
+            localNotes = stored ? JSON.parse(stored) : [];
+          } catch {}
 
-          const allNotes = [...(dbNotes || []), ...localNotes];
-          const seen = new Set();
+          const allNotes = [...(userNotes || []), ...localNotes];
+          const seenNotes = new Set();
           const uniqueNotes: any[] = [];
           allNotes.forEach((n) => {
-            if (n.id && !seen.has(n.id)) {
-              seen.add(n.id);
+            if (n.id && !seenNotes.has(n.id)) {
+              seenNotes.add(n.id);
               uniqueNotes.push(n);
             }
           });
           setNotes(uniqueNotes);
 
-          // Fetch materials for dropdown selector (strictly logged-in user's materials)
+          // 2. Fetch strictly authenticated user's own flashcard decks from DB
+          const { data: userDecks } = await supabase
+            .from("flashcard_decks")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false });
+
+          if (userDecks) {
+            setDbDecks(
+              userDecks.map((d) => ({
+                id: d.id,
+                title: d.title,
+                subject: d.subject || "Flashcards",
+                cards: Array.isArray(d.cards) ? d.cards : [],
+              }))
+            );
+          }
+
+          // 3. Load user-scoped AI generated decks
+          if (typeof window !== "undefined" && window.localStorage) {
+            try {
+              const rawAiDecks = localStorage.getItem(`purelearn_ai_custom_decks_${uid}`);
+              if (rawAiDecks) {
+                setAiDecks(JSON.parse(rawAiDecks));
+              }
+              const rawDel = localStorage.getItem(`purelearn_deleted_flashcard_keys_${uid}`);
+              if (rawDel) {
+                setDeletedCardKeys(new Set(JSON.parse(rawDel)));
+              }
+              const rawHidden = localStorage.getItem(`purelearn_hidden_deck_ids_${uid}`);
+              if (rawHidden) {
+                setHiddenDeckIds(new Set(JSON.parse(rawHidden)));
+              }
+            } catch {
+              // ignore parse errors
+            }
+          }
+
+          // 4. Fetch strictly logged-in user's materials for dropdown selector
           const { data: matData } = await supabase
             .from("materials")
             .select("*")
-            .eq("uploaded_by", userData.user.id)
+            .eq("uploaded_by", uid)
             .order("created_at", { ascending: false });
           if (matData) {
             setMaterials(matData.map((m) => mapMaterialRow(m)));
           }
         }
       } catch (err) {
-        console.warn("Failed to load notes or materials for flashcards:", err);
+        console.warn("Failed to load user-isolated flashcards data:", err);
       }
     };
-
-    // Load custom AI generated decks stored in localStorage
-    if (typeof window !== "undefined" && window.localStorage) {
-      try {
-        const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
-        if (rawAiDecks) {
-          setAiDecks(JSON.parse(rawAiDecks));
-        }
-      } catch {
-        // ignore parse error
-      }
-    }
 
     fetchData();
   }, []);
@@ -340,14 +263,38 @@ function FlashcardsPage() {
   }, [notes]);
 
   const allDecks = useMemo(() => {
-    return [...aiDecks, ...noteDecks, ...defaultDecks];
-  }, [aiDecks, noteDecks]);
+    // Only user's own decks: database decks, user's AI decks, and user's study note decks
+    const combined = [...dbDecks, ...aiDecks, ...noteDecks];
+    const seen = new Set();
+    const unique: typeof combined = [];
+    combined.forEach((d) => {
+      if (d.id && !seen.has(d.id)) {
+        seen.add(d.id);
+        unique.push(d);
+      }
+    });
+    return unique;
+  }, [dbDecks, aiDecks, noteDecks]);
 
   const visibleDecks = useMemo(() => {
     return allDecks.filter((d) => !hiddenDeckIds.has(d.id));
   }, [allDecks, hiddenDeckIds]);
 
+  // Keep activeDeckId synchronized with available user decks
+  useEffect(() => {
+    if (visibleDecks.length > 0) {
+      if (!activeDeckId || !visibleDecks.some((d) => d.id === activeDeckId)) {
+        setActiveDeckId(visibleDecks[0].id);
+        setCurrentCardIdx(0);
+        setShowAnswer(false);
+      }
+    } else {
+      setActiveDeckId("");
+    }
+  }, [visibleDecks, activeDeckId]);
+
   const selectedDeck = useMemo(() => {
+    if (visibleDecks.length === 0) return null;
     return visibleDecks.find((d) => d.id === activeDeckId) || visibleDecks[0];
   }, [visibleDecks, activeDeckId]);
 
@@ -397,7 +344,7 @@ function FlashcardsPage() {
     setScore({ correct: 0, incorrect: 0 });
   };
 
-  const handleDeleteDeck = (deckId: string, e: React.MouseEvent) => {
+  const handleDeleteDeck = async (deckId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setHiddenDeckIds((prev) => {
       const next = new Set(prev);
@@ -405,16 +352,28 @@ function FlashcardsPage() {
       return next;
     });
 
-    // If deck was an AI custom deck, purge from aiDecks state and localStorage
-    if (deckId.startsWith("ai_deck_")) {
+    if (currentUserId) {
+      try {
+        await supabase
+          .from("flashcard_decks")
+          .delete()
+          .eq("id", deckId)
+          .eq("user_id", currentUserId);
+      } catch (err) {
+        console.warn("Could not delete deck from DB:", err);
+      }
+
+      const updatedDb = dbDecks.filter((d) => d.id !== deckId);
+      setDbDecks(updatedDb);
+
       const updatedAi = aiDecks.filter((d) => d.id !== deckId);
       setAiDecks(updatedAi);
       if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify(updatedAi));
+        localStorage.setItem(`purelearn_ai_custom_decks_${currentUserId}`, JSON.stringify(updatedAi));
       }
     }
 
-    toast.success("Deck deleted.");
+    toast.success("Deck removed.");
     if (activeDeckId === deckId) {
       const remaining = visibleDecks.filter((d) => d.id !== deckId);
       if (remaining.length > 0) {
@@ -495,20 +454,45 @@ Each question must target a fundamental key concept, definition, or equation. Ea
         responseSchema: flashcardsSchema,
       });
 
+      const cleanedCards = res.data.cards.map((c) => ({
+        q: stripMarkdown(c.q),
+        a: stripMarkdown(c.a),
+      }));
+
       const newDeck = {
         id: `ai_deck_${Date.now()}`,
         title: res.data.title || topic,
         subject: res.data.subject || mat?.type || "AI Mastery Deck",
-        cards: res.data.cards.map((c) => ({
-          q: stripMarkdown(c.q),
-          a: stripMarkdown(c.a),
-        })),
+        cards: cleanedCards,
       };
 
-      const nextAiDecks = [newDeck, ...aiDecks];
-      setAiDecks(nextAiDecks);
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify(nextAiDecks));
+      if (currentUserId) {
+        try {
+          const { data: insertedDeck } = await supabase
+            .from("flashcard_decks")
+            .insert({
+              title: newDeck.title,
+              subject: newDeck.subject,
+              user_id: currentUserId,
+              cards: newDeck.cards,
+            })
+            .select()
+            .single();
+
+          if (insertedDeck) {
+            newDeck.id = insertedDeck.id;
+          }
+        } catch (dbErr) {
+          console.warn("Could not save AI deck to database:", dbErr);
+        }
+
+        const nextAiDecks = [newDeck, ...aiDecks];
+        setAiDecks(nextAiDecks);
+        if (typeof window !== "undefined" && window.localStorage) {
+          localStorage.setItem(`purelearn_ai_custom_decks_${currentUserId}`, JSON.stringify(nextAiDecks));
+        }
+      } else {
+        setAiDecks((prev) => [newDeck, ...prev]);
       }
 
       setActiveDeckId(newDeck.id);
@@ -783,9 +767,9 @@ Each question must target a fundamental key concept, definition, or equation. Ea
           ) : visibleDecks.length === 0 ? (
             <Card className="w-full max-w-2xl p-12 text-center border border-dashed border-border rounded-2xl flex flex-col items-center justify-center min-h-[340px]">
               <Layers className="h-10 w-10 text-muted-foreground mb-4 animate-pulse" />
-              <h3 className="text-base font-bold text-foreground mb-2">No Decks Available</h3>
+              <h3 className="text-base font-bold text-foreground mb-2">No Flashcards Yet</h3>
               <p className="text-xs text-muted-foreground max-w-sm mb-4">
-                All course decks have been removed. Click below to generate precision key-point flashcards using Gemini AI.
+                You don't have any flashcard decks yet. Click below to generate AI flashcards from your study materials or any concept.
               </p>
               <Button
                 onClick={() => setShowAiModal(true)}

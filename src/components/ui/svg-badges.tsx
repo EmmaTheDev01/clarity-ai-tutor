@@ -482,3 +482,57 @@ export function getUnderstandingCategory(quizzesMasteredCount: number): {
     nextThreshold: 3,
   };
 }
+
+export function getBadgeTypeFromName(name: string): string {
+  if (!name) return "novice_explorer";
+  const clean = name.toLowerCase().trim().replace(/-/g, "_").replace(/\s+/g, "_");
+  const found = ALL_PLATFORM_BADGES.find(
+    (b) => b.title.toLowerCase() === name.toLowerCase() || b.id === clean || b.badgeType === clean
+  );
+  if (found) return found.badgeType;
+  if (clean.includes("streak")) {
+    if (clean.includes("5")) return "5_day_streak";
+    if (clean.includes("10")) return "10_day_streak";
+    if (clean.includes("20")) return "20_day_streak";
+    if (clean.includes("30")) return "30_day_streak";
+    return "5_day_streak";
+  }
+  if (clean.includes("novice") || clean.includes("explorer")) return "novice_explorer";
+  if (clean.includes("active") || clean.includes("scholar")) return "active_scholar";
+  if (clean.includes("conceptual") || clean.includes("specialist")) return "conceptual_master";
+  if (clean.includes("polymath") || clean.includes("socratic")) return "socratic_polymath";
+  if (clean.includes("quiz") || clean.includes("concept")) return "quiz_master";
+  if (clean.includes("flashcard") || clean.includes("ace")) return "first_flashcard_mastery";
+  if (clean.includes("vault") || clean.includes("investor") || clean.includes("knowledge")) return "knowledge_investor";
+  if (clean.includes("quick") || clean.includes("mind") || clean.includes("learner")) return "quick_mind";
+  return "novice_explorer";
+}
+
+export function computeUnlockedBadges(params: {
+  streak: number;
+  quizzesCompleted?: number;
+  quizzesMastered?: number;
+  storedBadgeIds?: string[];
+}): PlatformBadgeMeta[] {
+  const ids = new Set<string>(params.storedBadgeIds || []);
+
+  // 1. Guaranteed minimum default starter badge
+  ids.add("novice_explorer");
+
+  // 2. Streaks
+  const s = Number(params.streak || 0);
+  if (s >= 5) ids.add("5_day_streak");
+  if (s >= 10) ids.add("10_day_streak");
+  if (s >= 20) ids.add("20_day_streak");
+  if (s >= 30) ids.add("30_day_streak");
+
+  // 3. Quiz mastery
+  const m = Number(params.quizzesMastered || 0);
+  if (m >= 1) ids.add("quiz_master");
+  if (m >= 3) ids.add("active_scholar");
+  if (m >= 6) ids.add("conceptual_master");
+  if (m >= 10) ids.add("socratic_polymath");
+
+  // Return strictly matching platform badges from ALL_PLATFORM_BADGES (out of 12)
+  return ALL_PLATFORM_BADGES.filter((b) => ids.has(b.id));
+}

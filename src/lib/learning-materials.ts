@@ -509,12 +509,27 @@ ${extractedContent.slice(0, 3000)}`;
           subject: data.type || "Learning Material",
           cards,
         };
-        const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
-        const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
-        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+        const uId = data.uploaded_by;
+        if (uId) {
+          supabase
+            .from("flashcard_decks")
+            .insert({
+              title: newDeck.title,
+              subject: newDeck.subject,
+              user_id: uId,
+              cards: newDeck.cards,
+            })
+            .then(() => {});
+
+          if (typeof window !== "undefined" && window.localStorage) {
+            const rawAiDecks = localStorage.getItem(`purelearn_ai_custom_decks_${uId}`);
+            const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+            localStorage.setItem(`purelearn_ai_custom_decks_${uId}`, JSON.stringify([newDeck, ...existing]));
+          }
+        }
       }
     } catch {
-      // LocalStorage update best-effort
+      // LocalStorage / DB update best-effort
     }
   }
 
@@ -660,12 +675,27 @@ Q: [Question 4] | A: [Answer 4]`;
           subject: "AI Generated Guide",
           cards,
         };
-        const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
-        const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
-        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+        const uId = data.uploaded_by;
+        if (uId) {
+          supabase
+            .from("flashcard_decks")
+            .insert({
+              title: newDeck.title,
+              subject: newDeck.subject,
+              user_id: uId,
+              cards: newDeck.cards,
+            })
+            .then(() => {});
+
+          if (typeof window !== "undefined" && window.localStorage) {
+            const rawAiDecks = localStorage.getItem(`purelearn_ai_custom_decks_${uId}`);
+            const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+            localStorage.setItem(`purelearn_ai_custom_decks_${uId}`, JSON.stringify([newDeck, ...existing]));
+          }
+        }
       }
     } catch {
-      // LocalStorage update best-effort
+      // LocalStorage / DB update best-effort
     }
   }
 

@@ -23,6 +23,7 @@ import {
   Zap,
   HelpCircle,
   BrainCircuit,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,51 +44,6 @@ interface MaterialQuizModalProps {
   onRewardClaimed?: (xp: number, tokens: number) => void;
 }
 
-const FALLBACK_QUESTIONS: QuizQuestion[] = [
-  {
-    question: "What is the primary role of a function or modular procedure in problem solving?",
-    options: [
-      "To repeat identical code over and over manually",
-      "To package a specific reusable activity that executes upon command",
-      "To permanently stop the program from accepting user input",
-      "To convert all variables into static text files",
-    ],
-    correctIndex: 1,
-    empoweringAnalogyHint:
-      "Imagine playing a video game where you have a set of controls: when you press SHIFT + W, your character sprints forward. That button command is just like a function call—it isolates one specific, reusable activity whenever you choose to invoke it!",
-    conceptExplanation:
-      "Functions encapsulate dedicated tasks into named blocks that you can run whenever needed without repeating instructions.",
-  },
-  {
-    question: "How does breaking a complex problem into smaller concepts empower your understanding?",
-    options: [
-      "It reduces cognitive load so each building block is mastered with clarity",
-      "It confuses the core logic by introducing too many files",
-      "It only benefits automated compilers, not human learners",
-      "It prevents anyone else from reading your solution",
-    ],
-    correctIndex: 0,
-    empoweringAnalogyHint:
-      "Think of building a complex LEGO castle or spaceship. Rather than assembling the entire fortress in a single motion, you construct sub-assemblies (towers, gates, walls) step by step. Each component fits together seamlessly!",
-    conceptExplanation:
-      "Decomposition simplifies complex systems into clear, intuitive modules that are easy to reason about and test.",
-  },
-  {
-    question: "When applying a new concept, what is the best way to verify true mastery?",
-    options: [
-      "Memorizing words without understanding their cause-and-effect relationship",
-      "Testing the concept with variations and explaining it through relatable analogies",
-      "Never questioning underlying assumptions or edge cases",
-      "Relying solely on first impressions without hands-on practice",
-    ],
-    correctIndex: 1,
-    empoweringAnalogyHint:
-      "Think of learning to drive or play a musical instrument: you do not simply read sheet music; you play different rhythms and tempos to test your instinct in varied conditions!",
-    conceptExplanation:
-      "True comprehension is achieved when you can apply principles across different contexts and articulate them simply.",
-  },
-];
-
 export function MaterialQuizModal({
   isOpen,
   onClose,
@@ -99,11 +55,15 @@ export function MaterialQuizModal({
   const resolvedTitle = materialTitle || "Learning Material";
   const resolvedContent = materialContent || "";
   const [loading, setLoading] = useState(false);
+  const [emptyNotice, setEmptyNotice] = useState<string | null>(null);
+  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showAnalogy, setShowAnalogy] = useState(false);
   const [answeredCorrectly, setAnsweredCorrectly] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [failedCount, setFailedCount] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [savingReward, setSavingReward] = useState(false);
   const [newUnderstanding, setNewUnderstanding] = useState<{
@@ -112,28 +72,101 @@ export function MaterialQuizModal({
     description: string;
     nextThreshold: number;
   } | null>(null);
-  const [earnedRewards, setEarnedRewards] = useState({ xp: 150, tokens: 5 });
 
-  // Generate or load questions when modal opens
+  function resetState() {
+    setCurrentIndex(0);
+    setSelectedOption(null);
+    setShowAnalogy(false);
+    setAnsweredCorrectly(false);
+    setSubmitted(false);
+    setFailedCount(0);
+    setCompleted(false);
+    setSavingReward(false);
+    setNewUnderstanding(null);
+    setEmptyNotice(null);
+  }
+
+  // Load real quiz from Supabase or generate and persist authentic quiz
   useEffect(() => {
     if (!isOpen) {
       resetState();
       return;
     }
 
-    async function loadQuiz() {
+    async function loadOrGenerateQuiz() {
       setLoading(true);
       resetState();
 
       try {
-        const textSample = (resolvedContent || resolvedTitle).slice(0, 3500);
+        const isValidUuid =
+          materialId &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(materialId);
 
+        // 1. Check if a real quiz already exists in the database
+        if (isValidUuid) {
+          // Check materials.quiz_id
+          const { data: matData } = await supabase
+            .from("materials")
+            .select("id, title, content, quiz_id")
+            .eq("id", materialId)
+            .maybeSingle();
+
+          if (matData?.quiz_id) {
+            const { data: existingQuiz } = await supabase
+              .from("quizzes")
+              .select("*")
+              .eq("id", matData.quiz_id)
+              .maybeSingle();
+
+            if (
+              existingQuiz?.questions &&
+              Array.isArray(existingQuiz.questions) &&
+              existingQuiz.questions.length > 0
+            ) {
+              setQuestions(existingQuiz.questions as QuizQuestion[]);
+              setActiveQuizId(existingQuiz.id);
+              setLoading(false);
+              return;
+            }
+          }
+
+          // Check if quizzes table has material_id linked
+          const { data: existingQuizByMat } = await supabase
+            .from("quizzes")
+            .select("*")
+            .eq("material_id", materialId)
+            .maybeSingle();
+
+          if (
+            existingQuizByMat?.questions &&
+            Array.isArray(existingQuizByMat.questions) &&
+            existingQuizByMat.questions.length > 0
+          ) {
+            setQuestions(existingQuizByMat.questions as QuizQuestion[]);
+            setActiveQuizId(existingQuizByMat.id);
+            // Re-link material if needed
+            if (!matData?.quiz_id) {
+              await supabase
+                .from("materials")
+                .update({ quiz_id: existingQuizByMat.id })
+                .eq("id", materialId);
+            }
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 2. If no existing quiz, check if material content is sufficient for authentic generation
+        const textSample = (resolvedContent || resolvedTitle).slice(0, 3500).trim();
         if (textSample.length < 30) {
-          setQuestions(FALLBACK_QUESTIONS);
+          setEmptyNotice(
+            "This study material does not have sufficient content yet to author an authentic conceptual assessment. Upload notes or add lesson content to generate a real quiz."
+          );
           setLoading(false);
           return;
         }
 
+        // 3. Generate grounded assessment with Gemini
         const schema = {
           type: "object",
           properties: {
@@ -155,7 +188,7 @@ export function MaterialQuizModal({
                   empoweringAnalogyHint: {
                     type: "string",
                     description:
-                      "A vivid, empowering, relatable real-world analogy (e.g. video game controls, cooking recipes, vehicle mechanics, sports plays) that explains the concept intuitively without making the student feel dumb.",
+                      "A vivid, empowering, relatable real-world analogy that explains the concept intuitively without making the student feel dumb.",
                   },
                   conceptExplanation: {
                     type: "string",
@@ -177,40 +210,57 @@ export function MaterialQuizModal({
 
         const result = await generateGeminiStructured<{ questions: QuizQuestion[] }>({
           systemInstruction:
-            "You are an empowering, world-class Socratic educator. Your mission is to build rock-solid conceptual understanding, not penalize mistakes. For every question, write an empoweringAnalogyHint that uses relatable, vivid everyday analogies (e.g. video game controller commands for programming functions: 'Imagine playing a video game and you have a set of commands to perform certain activities, when you hit SHIFT + W you sprint forward, that command call is like a function call, it isolates one particular activity based on the user's choice'; recipes for algorithms; blueprints for classes). Never make the student feel dumb. If they stumble, the analogy must immediately unlock the concept with confidence.",
+            "You are an empowering, world-class Socratic educator. Author high-quality multiple choice questions based strictly on the provided educational material. For every question, write an empoweringAnalogyHint that uses relatable, vivid everyday analogies (e.g. game mechanics, recipes, construction blueprints). Never invent facts not grounded in the topic.",
           prompt: `Create 3 multiple choice questions that test conceptual understanding of this material:\n\nTitle: ${resolvedTitle}\nContent:\n${textSample}`,
           responseSchema: schema,
-          temperature: 0.4,
+          temperature: 0.3,
         });
 
-        if (result.data?.questions && result.data.questions.length > 0) {
-          setQuestions(result.data.questions);
-        } else {
-          setQuestions(FALLBACK_QUESTIONS);
+        const generatedQuestions = result.data?.questions || [];
+        if (generatedQuestions.length === 0) {
+          setEmptyNotice("Could not author questions from this material. Please try again.");
+          setLoading(false);
+          return;
         }
+
+        // 4. Save authentic quiz into Supabase public.quizzes table
+        const { data: authUser } = await supabase.auth.getUser();
+        const currentUserId = authUser?.user?.id;
+
+        if (currentUserId) {
+          const { data: newQuiz, error: insertErr } = await supabase
+            .from("quizzes")
+            .insert({
+              title: `Quiz for ${resolvedTitle}`,
+              teacher_id: currentUserId,
+              material_id: isValidUuid ? materialId : null,
+              questions: generatedQuestions,
+            })
+            .select("*")
+            .maybeSingle();
+
+          if (newQuiz) {
+            setActiveQuizId(newQuiz.id);
+            if (isValidUuid) {
+              await supabase
+                .from("materials")
+                .update({ quiz_id: newQuiz.id })
+                .eq("id", materialId);
+            }
+          }
+        }
+
+        setQuestions(generatedQuestions);
       } catch (err) {
-        console.warn("Using fallback quiz questions due to generation issue:", err);
-        setQuestions(FALLBACK_QUESTIONS);
+        console.warn("Error loading or generating authentic quiz:", err);
+        setEmptyNotice("Failed to author a quiz for this material. Please check connection.");
       } finally {
         setLoading(false);
       }
     }
 
-    loadQuiz();
-  }, [isOpen, resolvedTitle, resolvedContent]);  const [submitted, setSubmitted] = useState(false);
-  const [failedCount, setFailedCount] = useState(0);
-
-  function resetState() {
-    setCurrentIndex(0);
-    setSelectedOption(null);
-    setShowAnalogy(false);
-    setAnsweredCorrectly(false);
-    setSubmitted(false);
-    setFailedCount(0);
-    setCompleted(false);
-    setSavingReward(false);
-    setNewUnderstanding(null);
-  }
+    loadOrGenerateQuiz();
+  }, [isOpen, resolvedTitle, resolvedContent, materialId]);
 
   const currentQ = questions[currentIndex];
 
@@ -242,7 +292,6 @@ export function MaterialQuizModal({
       setAnsweredCorrectly(false);
       setSubmitted(false);
     } else {
-      // Quiz complete!
       await handleCompleteQuiz();
     }
   };
@@ -252,83 +301,97 @@ export function MaterialQuizModal({
     setSavingReward(true);
 
     try {
-      // Trigger rich celebration
       triggerCelebration({ particleCount: 90 });
       unlockBadge("quiz_master");
 
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
 
-      let newCount = 1;
-      let newLevel = "Novice Explorer";
-
       if (userId) {
-        // Fetch current profile stats using correct primary key student_id
-        const { data: profile } = await supabase
-          .from("student_profiles")
-          .select("quizzes_mastered, quizzes_answered, quizzes_failed, understanding_level, daily_bonus_tokens, xp")
-          .eq("student_id", userId)
-          .maybeSingle();
-
-        const currentMastered = (profile?.quizzes_mastered as number) || 0;
-        const currentAnswered = (profile?.quizzes_answered as number) || 0;
-        const currentFailed = (profile?.quizzes_failed as number) || 0;
-
         const isFullyMastered = failedCount === 0;
-        const newMastered = isFullyMastered ? currentMastered + 1 : currentMastered;
-        const newAnswered = currentAnswered + 1;
-        const newFailed = currentFailed + (failedCount > 0 ? 1 : 0);
-
-        const categoryInfo = getUnderstandingCategory(newMastered);
-        newLevel = categoryInfo.level;
-        setNewUnderstanding(categoryInfo);
-
-        const currentBonusTokens = (profile?.daily_bonus_tokens as number) || 0;
-        const currentXp = (profile?.xp as number) || 0;
         const awardedXp = isFullyMastered ? 150 : 75;
         const awardedTokens = isFullyMastered ? 5 : 2;
+        const isValidUuid =
+          materialId &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(materialId);
 
-        // 1. Update student profile in database
-        try {
-          await supabase
-            .from("student_profiles")
-            .update({
-              quizzes_mastered: newMastered,
-              quizzes_answered: newAnswered,
-              quizzes_failed: newFailed,
-              understanding_level: newLevel,
-              daily_bonus_tokens: currentBonusTokens + awardedTokens,
-              xp: currentXp + awardedXp,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("student_id", userId);
-        } catch (updateErr) {
-          console.warn("Failed updating student_profiles:", updateErr);
-        }
+        const scorePercent = Math.max(
+          0,
+          Math.round(
+            ((questions.length - Math.min(questions.length, failedCount)) / questions.length) * 100
+          )
+        );
 
-        // 2. Record quiz attempt with passed/failed and answered count in database
+        // 1. Insert authentic attempt into public.quiz_attempts linked with quiz_id
         try {
-          const isValidUuid = materialId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(materialId);
           await supabase.from("quiz_attempts").insert({
+            quiz_id: activeQuizId,
             student_id: userId,
             material_id: isValidUuid ? materialId : null,
             material_title: resolvedTitle,
-            score: Math.max(0, Math.round(((questions.length - Math.min(questions.length, failedCount)) / questions.length) * 100)),
+            score: scorePercent,
             passed: isFullyMastered,
             questions_answered: questions.length,
             questions_failed: failedCount,
             confidence_level: 5,
           });
         } catch (attemptErr) {
-          console.warn("Failed recording quiz_attempts in db:", attemptErr);
+          console.warn("Failed recording authentic quiz attempt:", attemptErr);
         }
 
-        // 3. Record in user_logs
+        // 2. Query real database counts for completed & mastered quizzes
+        const [
+          { count: realCompletedCount },
+          { count: realMasteredCount },
+          { data: currentProfile },
+        ] = await Promise.all([
+          supabase
+            .from("quiz_attempts")
+            .select("*", { count: "exact", head: true })
+            .eq("student_id", userId),
+          supabase
+            .from("quiz_attempts")
+            .select("*", { count: "exact", head: true })
+            .eq("student_id", userId)
+            .gte("score", 80),
+          supabase
+            .from("student_profiles")
+            .select("daily_bonus_tokens, xp")
+            .eq("student_id", userId)
+            .maybeSingle(),
+        ]);
+
+        const totalCompleted = realCompletedCount || 1;
+        const totalMastered = realMasteredCount || (isFullyMastered ? 1 : 0);
+        const categoryInfo = getUnderstandingCategory(totalMastered);
+        setNewUnderstanding(categoryInfo);
+
+        const currentBonusTokens = Number(currentProfile?.daily_bonus_tokens || 0);
+        const currentXp = Number(currentProfile?.xp || 0);
+
+        // 3. Update student profile with real database stats
+        try {
+          await supabase
+            .from("student_profiles")
+            .update({
+              quizzes_mastered: totalMastered,
+              quizzes_answered: totalCompleted,
+              understanding_level: categoryInfo.level,
+              daily_bonus_tokens: currentBonusTokens + awardedTokens,
+              xp: currentXp + awardedXp,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("student_id", userId);
+        } catch (updateErr) {
+          console.warn("Failed updating student profile with real quiz stats:", updateErr);
+        }
+
+        // 4. Log in user audit logs
         try {
           await supabase.from("user_logs").insert({
             user_id: userId,
             action_type: isFullyMastered ? "quiz_mastered" : "quiz_completed",
-            details: `Quiz for "${resolvedTitle}" finished. Total: ${questions.length}, Failed attempts: ${failedCount}. Status: ${isFullyMastered ? "Mastered" : "Completed"}. Level: ${newLevel}.`,
+            details: `Quiz for "${resolvedTitle}" completed with score ${scorePercent}%. Mastered: ${isFullyMastered}. Real level: ${categoryInfo.level}.`,
           });
         } catch (logErr) {
           console.warn("Failed recording user log:", logErr);
@@ -339,7 +402,9 @@ export function MaterialQuizModal({
         }
 
         if (isFullyMastered) {
-          toast.success(`Understanding Mastered! +${awardedXp} XP & +${awardedTokens} Daily Bonus Tokens recorded.`);
+          toast.success(
+            `Understanding Mastered! +${awardedXp} XP & +${awardedTokens} Daily Bonus Tokens recorded.`
+          );
         } else {
           toast.info(`Quiz completed! +${awardedXp} XP recorded.`);
         }
@@ -361,10 +426,11 @@ export function MaterialQuizModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl bg-card border-border shadow-2xl p-0 overflow-hidden sm:rounded-2xl">
-        {/* Minimal Header (No background, just title and subtitle) */}
+        {/* Header */}
         <div className="px-6 py-5 border-b border-border/60 flex items-start justify-between">
           <div>
-            <DialogTitle className="text-lg font-bold text-foreground tracking-tight">
+            <DialogTitle className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
+              <BrainCircuit className="w-5 h-5 text-primary" />
               Understanding Assessment
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
@@ -388,15 +454,37 @@ export function MaterialQuizModal({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-foreground">
-                  Preparing Assessment Questions...
+                  Loading Assessment Questions...
                 </h4>
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                  Distilling core conceptual principles and real-world analogies from this material.
+                  Fetching authentic conceptual assessment from course materials.
                 </p>
               </div>
             </div>
+          ) : emptyNotice ? (
+            <div className="py-10 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-foreground">
+                Authentic Quiz Unavailable
+              </h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                {emptyNotice}
+              </p>
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClose}
+                  className="text-xs font-semibold px-4 py-2"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           ) : completed ? (
-            /* Mastery Completed Celebration Screen */
+            /* Mastery Celebration Screen */
             <div className="py-6 text-center space-y-6">
               <div className="flex justify-center items-center space-x-6">
                 <SvgBadge type="quiz_master" size={84} />
@@ -411,8 +499,8 @@ export function MaterialQuizModal({
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto">
                   {failedCount === 0
-                    ? "You answered every question right on your first try! Your understanding rank and bonus tokens have been recorded."
-                    : "Great effort applying core principles! Your practice attempt has been recorded in your study profile."}
+                    ? "You answered every question right on your first try! Your understanding rank and bonus tokens have been recorded in the database."
+                    : "Great effort applying core principles! Your authentic quiz attempt has been recorded in your study profile."}
                 </p>
               </div>
 
@@ -423,7 +511,9 @@ export function MaterialQuizModal({
                     <Zap className="w-4 h-4 mr-1 stroke-[2.5]" />
                     <span className="text-[11px] font-semibold text-muted-foreground">XP Gained</span>
                   </div>
-                  <div className="text-lg font-black text-foreground">+{failedCount === 0 ? 150 : 75} XP</div>
+                  <div className="text-lg font-black text-foreground">
+                    +{failedCount === 0 ? 150 : 75} XP
+                  </div>
                 </Card>
 
                 <Card className="p-3 bg-muted/40 border-border text-center rounded-xl">
@@ -431,7 +521,9 @@ export function MaterialQuizModal({
                     <Award className="w-4 h-4 mr-1 stroke-[2.5]" />
                     <span className="text-[11px] font-semibold text-muted-foreground">Daily Tokens</span>
                   </div>
-                  <div className="text-lg font-black text-foreground">+{failedCount === 0 ? 5 : 2} Free</div>
+                  <div className="text-lg font-black text-foreground">
+                    +{failedCount === 0 ? 5 : 2} Free
+                  </div>
                 </Card>
 
                 <Card className="p-3 bg-muted/40 border-border text-center rounded-xl">
@@ -448,104 +540,109 @@ export function MaterialQuizModal({
               <div className="pt-2">
                 <Button
                   onClick={onClose}
-                  className="w-full sm:w-auto px-8 py-2.5 font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+                  className="font-bold px-8 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md text-xs"
                 >
-                  Continue Learning
+                  Return to Learning
                 </Button>
               </div>
             </div>
           ) : currentQ ? (
-            /* Active Multiple Choice Question State */
-            <div className="space-y-5">
-              {/* Question Text */}
-              <div className="space-y-1.5">
-                <h3 className="text-base font-bold text-foreground leading-snug">
+            /* Active Question Screen */
+            <div className="space-y-6">
+              <div className="w-full bg-border/60 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-primary h-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              {/* Question text */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Question {currentIndex + 1}
+                </span>
+                <h3 className="text-base sm:text-lg font-bold text-foreground leading-snug">
                   {currentQ.question}
                 </h3>
               </div>
 
-              {/* Multiple Choice Options List */}
+              {/* Multiple Choice Options */}
               <div className="space-y-2.5">
-                {currentQ.options.map((option, idx) => {
+                {currentQ.options.map((opt, idx) => {
                   const isSelected = selectedOption === idx;
-                  const isCorrect = idx === currentQ.correctIndex;
+                  const isCorrect = currentQ.correctIndex === idx;
 
-                  let cardStyle =
-                    "border-border/80 bg-card hover:border-primary/40 hover:bg-muted/30 cursor-pointer";
+                  let borderStyle = "border-border hover:border-border/80 bg-background";
+                  let textStyle = "text-foreground";
 
                   if (submitted) {
-                    if (isSelected && isCorrect) {
-                      cardStyle = "border-primary bg-primary/10 text-foreground ring-1 ring-primary/50";
+                    if (isCorrect) {
+                      borderStyle = "border-emerald-500 bg-emerald-500/10 dark:bg-emerald-950/20";
+                      textStyle = "text-emerald-700 dark:text-emerald-300 font-semibold";
                     } else if (isSelected && !isCorrect) {
-                      cardStyle = "border-border bg-muted/40 text-muted-foreground";
-                    } else if (answeredCorrectly && isCorrect) {
-                      cardStyle = "border-primary bg-primary/10 text-foreground";
+                      borderStyle = "border-rose-500 bg-rose-500/10 dark:bg-rose-950/20";
+                      textStyle = "text-rose-700 dark:text-rose-300";
                     }
                   } else if (isSelected) {
-                    cardStyle = "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40";
+                    borderStyle = "border-primary bg-primary/10 shadow-xs";
                   }
 
                   return (
-                    <Card
+                    <button
                       key={idx}
+                      type="button"
+                      disabled={submitted && answeredCorrectly}
                       onClick={() => handleSelectOption(idx)}
-                      className={`p-3.5 rounded-xl border transition-all flex items-start space-x-3 text-left ${cardStyle}`}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start space-x-3 cursor-pointer ${borderStyle}`}
                     >
                       <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
-                          submitted && isSelected && isCorrect
-                            ? "bg-primary text-primary-foreground"
-                            : isSelected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground border border-border"
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/40 text-muted-foreground border-border"
                         }`}
                       >
                         {String.fromCharCode(65 + idx)}
                       </div>
-                      <div className="flex-1 text-xs sm:text-sm font-medium leading-relaxed">
-                        {option}
-                      </div>
-                      {submitted && isSelected && isCorrect && (
-                        <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5 stroke-[2.5]" />
-                      )}
-                    </Card>
+                      <span className={`text-xs sm:text-sm leading-relaxed ${textStyle}`}>
+                        {opt}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
 
-              {/* Empowering Analogy Card (Shown when wrong answer is submitted) */}
-              {submitted && !answeredCorrectly && (
-                <div className="p-4 rounded-xl bg-muted/50 border border-border/80 space-y-2 animate-in fade-in duration-200">
-                  <div className="flex items-center space-x-2 text-primary">
-                    <Lightbulb className="w-4 h-4 stroke-[2.5] shrink-0" />
-                    <h5 className="text-xs font-bold tracking-tight">
-                      Empowering Angle & Analogy
-                    </h5>
+              {/* Socratic Hint / Analogy */}
+              {showAnalogy && (
+                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                    <Lightbulb className="w-4 h-4" />
+                    <span>Intuitive Mental Model Hint</span>
                   </div>
-                  <p className="text-xs text-foreground/90 leading-relaxed pl-6 italic">
+                  <p className="text-xs text-foreground/90 leading-relaxed italic">
                     "{currentQ.empoweringAnalogyHint}"
                   </p>
-                  <p className="text-[11px] text-muted-foreground pl-6 font-semibold">
-                    Think about this analogy and select the choice above that best matches it!
+                  <p className="text-[11px] text-muted-foreground font-medium pt-1">
+                    Try choosing the answer that best captures this relationship.
                   </p>
                 </div>
               )}
 
-              {/* Correct Feedback Banner */}
-              {submitted && answeredCorrectly && (
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5 animate-in fade-in duration-200">
-                  <div className="flex items-center space-x-2 text-primary">
-                    <CheckCircle2 className="w-4 h-4 stroke-[2.5] shrink-0" />
-                    <h5 className="text-xs font-bold tracking-tight">Spot on! Pure Understanding</h5>
+              {/* Correct Feedback Explanation */}
+              {answeredCorrectly && (
+                <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Core Principle Understood!</span>
                   </div>
-                  <p className="text-xs text-foreground/90 pl-6">
+                  <p className="text-xs text-foreground leading-relaxed">
                     {currentQ.conceptExplanation}
                   </p>
                 </div>
               )}
 
-              {/* Footer Actions: Cancel and Submit / Next */}
-              <div className="flex items-center justify-between pt-4 border-t border-border/60">
+              {/* Bottom Action Footer */}
+              <div className="pt-3 border-t border-border/60 flex items-center justify-between">
                 <Button
                   type="button"
                   variant="outline"
@@ -594,7 +691,7 @@ export function MaterialQuizModal({
             </div>
           ) : (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              No questions found. Please try again.
+              No questions found.
             </div>
           )}
         </div>

@@ -5,7 +5,7 @@ import { triggerCelebration, unlockBadge } from "@/lib/celebration";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
 import { MaterialQuizModal } from "@/components/MaterialQuizModal";
-import { SvgBadge, getUnderstandingCategory } from "@/components/ui/svg-badges";
+import { SvgBadge, getUnderstandingCategory, getBadgeTypeFromName, computeUnlockedBadges, ALL_PLATFORM_BADGES } from "@/components/ui/svg-badges";
 import { calculateDailyStreak, syncStreakWithDatabase } from "@/lib/streak";
 import { supabase } from "@/lib/supabase";
 import { CacheManager } from "@/lib/cache";
@@ -197,7 +197,7 @@ function Dashboard() {
   const [userDisplayName, setUserDisplayName] = useState("You");
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [focusedMsgIndex, setFocusedMsgIndex] = useState<number | null>(null);
-  
+
 
   const [attachmentMessage, setAttachmentMessage] = useState("");
   const [attachedFilePreview, setAttachedFilePreview] = useState<{ name: string; size: string; type: string } | null>(null);
@@ -496,7 +496,7 @@ function Dashboard() {
           if (profData && (profData as any).approval_status) {
             approvalStatus = (profData as any).approval_status;
           }
-          
+
           loadedBlockStatus = profData.role === "teacher" && (approvalStatus === "pending" || approvalStatus === "rejected") ? approvalStatus : null;
           setTeacherBlockStatus(loadedBlockStatus);
         }
@@ -571,37 +571,77 @@ function Dashboard() {
                 `Milestone Reached! ${streakResult.milestoneReward.days}-Day Streak: +${streakResult.milestoneReward.bonusTokens} Daily Bonus Tokens & +${streakResult.milestoneReward.bonusXp} XP awarded!`
               );
             }
-            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch { };
           }
           finalStreak = streakResult.streak;
 
-          // Student Understanding Category & Quiz Mastery
-          const masteredCount = Number(stdProf.quizzes_mastered || 0);
-          const answeredCount = Number(stdProf.quizzes_answered || 0);
-          setQuizzesMastered(masteredCount);
-
-          let totalCompleted = Math.max(answeredCount, masteredCount);
+          // Student Understanding Category & Authentic Database Quiz Stats
+          let realCompleted = 0;
+          let realMastered = 0;
           try {
-            const { count: attemptsCount } = await supabase
-              .from("quiz_attempts")
-              .select("*", { count: "exact", head: true })
-              .eq("student_id", userId);
-            if (attemptsCount && attemptsCount > totalCompleted) {
-              totalCompleted = attemptsCount;
-            }
-          } catch {}
-          setQuizzesCompleted(totalCompleted);
+            const [
+              { count: compCount },
+              { count: mastCount },
+            ] = await Promise.all([
+              supabase
+                .from("quiz_attempts")
+                .select("*", { count: "exact", head: true })
+                .eq("student_id", userId),
+              supabase
+                .from("quiz_attempts")
+                .select("*", { count: "exact", head: true })
+                .eq("student_id", userId)
+                .gte("score", 80),
+            ]);
+            realCompleted = compCount || 0;
+            realMastered = mastCount || 0;
+          } catch (err) {
+            console.warn("Could not query real quiz attempts from database:", err);
+          }
 
-          const effectiveCount = Math.max(masteredCount, totalCompleted);
-          const cat = getUnderstandingCategory(effectiveCount);
-          setUnderstandingLevel(stdProf.understanding_level || cat.level);
+          setQuizzesMastered(realMastered);
+          setQuizzesCompleted(realCompleted);
+
+          const cat = getUnderstandingCategory(realMastered);
+          setUnderstandingLevel(cat.level);
           setDailyBonusTokens(Number(stdProf.daily_bonus_tokens || 0));
+
+          // Sync verified real counts back to student_profiles if different
+          if (
+            stdProf.quizzes_answered !== realCompleted ||
+            stdProf.quizzes_mastered !== realMastered ||
+            stdProf.understanding_level !== cat.level
+          ) {
+            void supabase
+              .from("student_profiles")
+              .update({
+                quizzes_answered: realCompleted,
+                quizzes_mastered: realMastered,
+                understanding_level: cat.level,
+              })
+              .eq("student_id", userId);
+          }
+
+          // Compute authentic unlocked badges strictly matching platform catalog (12 badges total)
+          const rawBadges = getStoredItem(`purelearn_unlocked_badges_${userId}`, "") || getStoredItem("purelearn_unlocked_badges", "");
+          let storedBadgeIds: string[] = [];
+          try {
+            storedBadgeIds = rawBadges ? JSON.parse(rawBadges) : [];
+          } catch { }
+
+          const computedBadges = computeUnlockedBadges({
+            streak: finalStreak,
+            quizzesCompleted: realCompleted,
+            quizzesMastered: realMastered,
+            storedBadgeIds,
+          });
+          setUnlockedBadges(computedBadges.map((b) => b.title));
         }
 
         const hasSeenOnboarding = getStoredItem("clarity_onboarding_complete") === "true";
         if (!hasSeenOnboarding) {
           setShowOnboarding(true);
-            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
+          try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch { };
         }
       } catch (err) {
         console.warn("Could not load student profile settings from DB:", err);
@@ -706,16 +746,35 @@ function Dashboard() {
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() || "")
       .join("") || "Y";
-  const reminderItems =
-    materials.length > 0
-      ? [
-        "Keep momentum by asking one focused question about the current material.",
-        "Add another lesson or link when you are ready to expand the workspace.",
-      ]
-      : [
-        "Add your first lesson or link to build a study workspace.",
-        "Ask the tutor a question and it will guide you from there.",
-      ];
+  const reminderItems = useMemo(() => {
+    const items: string[] = [];
+
+    // 1. Quizzes & Active material retention reminder
+    if (activeDoc) {
+      items.push(`Test your retention on "${activeDoc.title}" with a grounded material quiz.`);
+    } else if (materials.length > 0) {
+      items.push(`Author or take a conceptual quiz on "${materials[0].title}".`);
+    } else {
+      items.push("Upload your first course document or syllabus to begin personalized learning.");
+    }
+
+    // 2. Daily streak consistency
+    if (streak > 0) {
+      items.push(`Your ${streak}-day study streak is active. Keep momentum going today!`);
+    } else {
+      items.push("Complete an interactive study session today to start your daily streak.");
+    }
+
+    // 3. Level & XP milestone
+    const currentLvl = Math.floor(xp / 300) + 1;
+    const nextRankXp = currentLvl * 300;
+    const remainingToNext = nextRankXp - xp;
+    if (remainingToNext > 0 && remainingToNext <= 300) {
+      items.push(`Only ${remainingToNext} XP needed to reach Scholar Level ${currentLvl + 1}.`);
+    }
+
+    return items;
+  }, [activeDoc, materials, streak, xp]);
   const quickPrompts = activeDoc
     ? [
       `Explain ${activeDoc.title} simply`,
@@ -963,7 +1022,7 @@ function Dashboard() {
             details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
           });
         }
-      } catch {}
+      } catch { }
     })();
 
     // Create session and insert student message immediately in background/sync
@@ -1139,13 +1198,12 @@ You write responses that read like **award-winning, comprehensive university lec
       try {
         const streamRes = await streamGeminiText(
           {
-            systemInstruction: `${systemInstruction}${
-              studyTone === "simplified"
-                ? "\n\nImportant: The student selected Direct & Simple mode. Provide concise, direct, crystal-clear explanations with minimal preamble."
-                : studyTone === "exam_prep"
+            systemInstruction: `${systemInstruction}${studyTone === "simplified"
+              ? "\n\nImportant: The student selected Direct & Simple mode. Provide concise, direct, crystal-clear explanations with minimal preamble."
+              : studyTone === "exam_prep"
                 ? "\n\nImportant: The student selected Exam Revision mode. Highlight key definitions, formulas, and high-yield exam takeaways."
                 : ""
-            }`,
+              }`,
             contents: contentsPayload,
             maxOutputTokens: 4096,
           },
@@ -1174,7 +1232,7 @@ You write responses that read like **award-winning, comprehensive university lec
                   }
                   return { ...prev, [activeDocIdForResponse]: next };
                 });
-                  // keep buffer intact for finalization after stream ends
+                // keep buffer intact for finalization after stream ends
                 streamingFlushRafRef.current = null;
               });
             }
@@ -1293,8 +1351,8 @@ You write responses that read like **award-winning, comprehensive university lec
 
               const matchingNote = activeMatTitle
                 ? existingNotes?.find(
-                    (n) => n.title.includes(activeMatTitle) || n.title === `Summary: ${activeMatTitle}`
-                  )
+                  (n) => n.title.includes(activeMatTitle) || n.title === `Summary: ${activeMatTitle}`
+                )
                 : null;
 
               if (matchingNote) {
@@ -1351,9 +1409,22 @@ You write responses that read like **award-winning, comprehensive university lec
                   subject: cleanSubject,
                   cards,
                 };
-                const rawAiDecks = getStoredItem("purelearn_ai_custom_decks", "[]");
-                const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
-                setStoredItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+                if (userData?.user?.id) {
+                  const studentUid = userData.user.id;
+                  supabase
+                    .from("flashcard_decks")
+                    .insert({
+                      title: newDeck.title,
+                      subject: newDeck.subject,
+                      user_id: studentUid,
+                      cards: newDeck.cards,
+                    })
+                    .then(() => { });
+
+                  const rawAiDecks = getStoredItem(`purelearn_ai_custom_decks_${studentUid}`, "[]");
+                  const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+                  setStoredItem(`purelearn_ai_custom_decks_${studentUid}`, JSON.stringify([newDeck, ...existing]));
+                }
               }
             }
           } catch (err) {
@@ -1903,11 +1974,10 @@ You write responses that read like **award-winning, comprehensive university lec
                     <button
                       type="button"
                       onClick={() => setShowFilters((visible) => !visible)}
-                      className={`inline-flex items-center justify-center rounded-md border p-2 transition ${
-                        showFilters
-                          ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
-                          : "border-border bg-background text-foreground hover:bg-muted"
-                      }`}
+                      className={`inline-flex items-center justify-center rounded-md border p-2 transition ${showFilters
+                        ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                        }`}
                       title="Toggle filters by file type"
                       aria-label="Toggle filters"
                     >
@@ -1916,11 +1986,10 @@ You write responses that read like **award-winning, comprehensive university lec
                     <button
                       type="button"
                       onClick={() => setShowAddMaterialForm((visible) => !visible)}
-                      className={`inline-flex items-center justify-center rounded-md border p-2 transition ${
-                        showAddMaterialForm
-                          ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
-                          : "border-border bg-background text-foreground hover:bg-muted"
-                      }`}
+                      className={`inline-flex items-center justify-center rounded-md border p-2 transition ${showAddMaterialForm
+                        ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                        }`}
                       title="Add learning material"
                       aria-label="Add learning material"
                     >
@@ -1947,11 +2016,10 @@ You write responses that read like **award-winning, comprehensive university lec
                       <button
                         key={f}
                         onClick={() => setActiveFilter(f)}
-                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
-                          activeFilter === f
-                            ? "border-foreground bg-primary text-primary-foreground"
-                            : "border-border bg-background text-foreground hover:bg-muted"
-                        }`}
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${activeFilter === f
+                          ? "border-foreground bg-primary text-primary-foreground"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                          }`}
                       >
                         {f}
                       </button>
@@ -2100,12 +2168,12 @@ You write responses that read like **award-winning, comprehensive university lec
                                       setShowMaterialsSidebar(false);
                                     }
                                   }}
-                                    onContextMenu={(event) => {
-                                      event.preventDefault();
-                                      const pos = computeSafeContextPos(event.clientX, event.clientY);
-                                      setContextMenuPos(pos);
-                                      setContextMenu({ x: event.clientX, y: event.clientY, doc });
-                                    }}
+                                  onContextMenu={(event) => {
+                                    event.preventDefault();
+                                    const pos = computeSafeContextPos(event.clientX, event.clientY);
+                                    setContextMenuPos(pos);
+                                    setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                  }}
                                   className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
                                 >
                                   <div
@@ -2153,11 +2221,11 @@ You write responses that read like **award-winning, comprehensive university lec
                                   <button
                                     type="button"
                                     onClick={(event) => {
-                                        event.stopPropagation();
-                                        const pos = computeSafeContextPos(event.clientX, event.clientY);
-                                        setContextMenuPos(pos);
-                                        setContextMenu({ x: event.clientX, y: event.clientY, doc });
-                                      }}
+                                      event.stopPropagation();
+                                      const pos = computeSafeContextPos(event.clientX, event.clientY);
+                                      setContextMenuPos(pos);
+                                      setContextMenu({ x: event.clientX, y: event.clientY, doc });
+                                    }}
                                     className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                                     aria-label="More options"
                                   >
@@ -2197,13 +2265,11 @@ You write responses that read like **award-winning, comprehensive university lec
           <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
             <Card className="flex h-full flex-col overflow-hidden transition-all duration-300">
               {/* Chat Context Header */}
-              <div className={`flex items-center justify-between border-b px-5 py-3 transition-colors ${
-                activeDoc ? "bg-primary/10 border-primary/20" : "bg-elevated/30 border-border"
-              }`}>
+              <div className={`flex items-center justify-between border-b px-5 py-3 transition-colors ${activeDoc ? "bg-primary/10 border-primary/20" : "bg-elevated/30 border-border"
+                }`}>
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${
-                    activeDoc ? "bg-primary text-primary-foreground shadow-xs" : "bg-primary/10 text-primary"
-                  }`}>
+                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${activeDoc ? "bg-primary text-primary-foreground shadow-xs" : "bg-primary/10 text-primary"
+                    }`}>
                     <BrainCircuit className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
@@ -2251,7 +2317,7 @@ You write responses that read like **award-winning, comprehensive university lec
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-background border border-border/70 hover:border-primary/50 text-foreground hover:bg-muted transition shrink-0"
                 >
                   <Layers className="h-3 w-3 text-amber-500" />
-                  <span>Quick Quiz (3 cards)</span>
+                  <span>Flashcards Practice</span>
                 </Link>
                 <Link
                   to="/app/notes"
@@ -2308,8 +2374,8 @@ You write responses that read like **award-winning, comprehensive university lec
                           className={`min-w-0 max-w-full transition-all ${isAi
                             ? `w-full py-1.5 text-foreground`
                             : `w-auto max-w-[85%] sm:max-w-[80%] rounded-2xl px-3.5 py-2.5 ${cognitiveProfile === "adhd"
-                                  ? "bg-foreground text-background font-semibold"
-                                  : "bg-muted text-foreground"}`
+                              ? "bg-foreground text-background font-semibold"
+                              : "bg-muted text-foreground"}`
                             } ${isFocused ? "scale-[1.01]" : ""}`}
                         >
                           {isAi ? (
@@ -2618,11 +2684,10 @@ You write responses that read like **award-winning, comprehensive university lec
                       </button>
                       <button
                         onClick={() => setShowStudyTools(!showStudyTools)}
-                        className={`rounded-lg p-1.5 transition shrink-0 ${
-                          showStudyTools
-                            ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={`rounded-lg p-1.5 transition shrink-0 ${showStudyTools
+                          ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                          : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          }`}
                         aria-label="Progressive Disclosure: Study Toolkit"
                         title="Study Toolkit & AI Controls"
                       >
@@ -2671,11 +2736,10 @@ You write responses that read like **award-winning, comprehensive university lec
                               setStudyTone(t.id as any);
                               toast.success(`Tutor style: ${t.label}`);
                             }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
-                              studyTone === t.id
-                                ? "bg-primary text-primary-foreground shadow-xs"
-                                : "bg-muted text-muted-foreground hover:text-foreground"
-                            }`}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${studyTone === t.id
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "bg-muted text-muted-foreground hover:text-foreground"
+                              }`}
                           >
                             {t.label}
                           </button>
@@ -2773,7 +2837,7 @@ You write responses that read like **award-winning, comprehensive university lec
               {/* Prominent Student Understanding Collegiate Crest */}
               <div className="mt-3 p-4 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col items-center text-center">
                 <div className="p-2 rounded-2xl bg-card border border-border/80 shadow-md flex items-center justify-center transition-transform hover:scale-105">
-                  <SvgBadge type={getUnderstandingCategory(Math.max(quizzesMastered, quizzesCompleted)).badgeType} size={88} className="drop-shadow-sm" />
+                  <SvgBadge type={getUnderstandingCategory(quizzesMastered).badgeType} size={88} className="drop-shadow-sm" />
                 </div>
                 <div className="mt-3">
                   <div className="text-sm font-black text-foreground tracking-tight">
@@ -2815,21 +2879,57 @@ You write responses that read like **award-winning, comprehensive university lec
                 </div>
               </div>
 
-              {/* Badges */}
+              {/* Earned Badges on 1 Row with Avatar Stacking if > 3 */}
               <div className="mt-4 pt-3 border-t border-border/50">
-                <Label className="text-xs text-muted-foreground uppercase font-bold">
-                  Highlights
-                </Label>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {unlockedBadges.map((badge) => (
-                    <span
-                      key={badge}
-                      className="rounded border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary"
-                    >
-                      {badge}
-                    </span>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground uppercase font-bold">
+                    Earned Badges
+                  </Label>
+                  <Link
+                    to="/app/settings"
+                    hash="badges"
+                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5"
+                    title="View all achievement badges in Profile"
+                  >
+                    <span>{unlockedBadges.length} Badges</span>
+                    <ChevronRight className="h-3 w-3" />
+                  </Link>
                 </div>
+
+                <Link
+                  to="/app/settings"
+                  hash="badges"
+                  className="mt-2 flex items-center justify-between gap-2 p-1 -mx-1 rounded-xl transition-all hover:bg-primary/5 cursor-pointer group/badge-row"
+                  title="Click to view all earned badges in your Profile"
+                >
+                  <div className="flex items-center -space-x-2 overflow-visible">
+                    {(unlockedBadges.length > 3
+                      ? unlockedBadges.slice(0, 3)
+                      : unlockedBadges
+                    ).map((badge) => (
+                      <div
+                        key={badge}
+                        className="relative group/badge inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-background bg-card border border-border/80 shadow-sm transition-transform group-hover/badge-row:scale-105"
+                        title={badge}
+                      >
+                        <SvgBadge type={getBadgeTypeFromName(badge)} size={22} />
+                      </div>
+                    ))}
+
+                    {unlockedBadges.length > 3 && (
+                      <div
+                        className="relative inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-background bg-primary/15 border border-primary/30 text-primary text-[10px] font-black shadow-sm transition-transform group-hover/badge-row:scale-105"
+                        title={unlockedBadges.slice(3).join(", ")}
+                      >
+                        +{unlockedBadges.length - 3}
+                      </div>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] font-semibold text-primary group-hover/badge-row:underline flex items-center gap-0.5 shrink-0">
+                    View profile <ChevronRight className="h-3 w-3" />
+                  </span>
+                </Link>
               </div>
             </Card>
 
@@ -2955,15 +3055,52 @@ You write responses that read like **award-winning, comprehensive university lec
         materialTitle={quizModalMaterial.title}
         materialContent={quizModalMaterial.content}
         materialId={quizModalMaterial.id}
-        onRewardClaimed={(bonusXp, bonusTokens) => {
+        onRewardClaimed={async (bonusXp, bonusTokens) => {
           setXp((prev) => prev + bonusXp);
           setDailyBonusTokens((prev) => prev + bonusTokens);
-          setQuizzesCompleted((prev) => prev + 1);
-          setQuizzesMastered((prev) => {
-            const nextCount = prev + 1;
-            setUnderstandingLevel(getUnderstandingCategory(nextCount).level);
-            return nextCount;
-          });
+
+          try {
+            const { data: authUser } = await supabase.auth.getUser();
+            const currentUid = authUser?.user?.id;
+            if (currentUid) {
+              const [
+                { count: compCount },
+                { count: mastCount },
+              ] = await Promise.all([
+                supabase
+                  .from("quiz_attempts")
+                  .select("*", { count: "exact", head: true })
+                  .eq("student_id", currentUid),
+                supabase
+                  .from("quiz_attempts")
+                  .select("*", { count: "exact", head: true })
+                  .eq("student_id", currentUid)
+                  .gte("score", 80),
+              ]);
+              const realCompleted = compCount || 0;
+              const realMastered = mastCount || 0;
+              setQuizzesCompleted(realCompleted);
+              setQuizzesMastered(realMastered);
+              const cat = getUnderstandingCategory(realMastered);
+              setUnderstandingLevel(cat.level);
+
+              const rawBadges = getStoredItem(`purelearn_unlocked_badges_${currentUid}`, "") || getStoredItem("purelearn_unlocked_badges", "");
+              let storedBadgeIds: string[] = [];
+              try {
+                storedBadgeIds = rawBadges ? JSON.parse(rawBadges) : [];
+              } catch { }
+
+              const computedBadges = computeUnlockedBadges({
+                streak,
+                quizzesCompleted: realCompleted,
+                quizzesMastered: realMastered,
+                storedBadgeIds,
+              });
+              setUnlockedBadges(computedBadges.map((b) => b.title));
+            }
+          } catch (err) {
+            console.warn("Failed re-syncing study progress after quiz completion:", err);
+          }
         }}
       />
     </>
