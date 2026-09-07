@@ -190,7 +190,7 @@ export function AdminPortal() {
     confirmText: "Confirm",
     variant: "danger",
     icon: "alert",
-    onConfirm: () => {},
+    onConfirm: () => { },
     isLoading: false,
   });
 
@@ -418,7 +418,7 @@ export function AdminPortal() {
       isLoading: false,
       onConfirm: async () => {
         setConfirmModal((p) => ({ ...p, isLoading: true }));
-        
+
         // 1. Instant Optimistic UI Update
         setUsersList((prev) => prev.filter((u) => u.id !== user.id));
         setTotalUsers((prev) => Math.max(0, prev - 1));
@@ -436,7 +436,7 @@ export function AdminPortal() {
             await supabase.from("classroom_students").delete().eq("student_id", user.id);
             await supabase.from("quiz_attempts").delete().eq("student_id", user.id);
             await supabase.from("notes").delete().eq("student_id", user.id);
-            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch { };
             await supabase.from("flashcard_decks").delete().eq("user_id", user.id);
             await supabase.from("materials").delete().eq("uploaded_by", user.id);
             await supabase.from("user_logs").delete().eq("user_id", user.id);
@@ -594,7 +594,7 @@ export function AdminPortal() {
           if (deck.id.startsWith("note_")) {
             const noteId = deck.id.replace("note_", "");
             const { error } = await supabase.from("notes").delete().eq("id", noteId);
-            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch {};
+            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch { };
             if (error) throw error;
           } else {
             const { error } = await supabase.from("flashcard_decks").delete().eq("id", deck.id);
@@ -667,10 +667,10 @@ export function AdminPortal() {
       userRoleFilter === "all"
         ? true
         : userRoleFilter === "pending"
-        ? user.role === "teacher" && user.approval_status === "pending"
-        : userRoleFilter === "banned"
-        ? user.approval_status === "banned"
-        : user.role === userRoleFilter;
+          ? user.role === "teacher" && user.approval_status === "pending"
+          : userRoleFilter === "banned"
+            ? user.approval_status === "banned"
+            : user.role === userRoleFilter;
 
     const matchesSearch =
       !userSearchQuery.trim() ||
@@ -1071,24 +1071,6 @@ export function AdminPortal() {
                 </div>
               </Card>
 
-              <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      System Flashcards
-                    </p>
-                    <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
-                      {flashcardDecksList.length}
-                    </h3>
-                  </div>
-                  <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
-                    <Layers className="h-5 w-5" />
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
-                  Whole system flashcard sets
-                </div>
-              </Card>
 
               <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
                 <div className="flex items-start justify-between">
@@ -1288,15 +1270,14 @@ export function AdminPortal() {
                           </td>
                           <td className="py-3">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
-                                user.approval_status === "banned"
-                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
-                                  : user.approval_status === "approved"
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
+                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                                : user.approval_status === "approved"
                                   ? "bg-foreground/10 border-foreground text-foreground"
                                   : user.approval_status === "rejected"
-                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                  : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                              }`}
+                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                }`}
                             >
                               {user.approval_status || "approved"}
                             </span>
@@ -1318,11 +1299,10 @@ export function AdminPortal() {
                               {/* Ban / Unban User Button */}
                               <button
                                 onClick={() => promptBanUser(user)}
-                                className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${
-                                  user.approval_status === "banned"
-                                    ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                                    : "bg-background border-border text-foreground hover:bg-muted"
-                                }`}
+                                className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${user.approval_status === "banned"
+                                  ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                                  : "bg-background border-border text-foreground hover:bg-muted"
+                                  }`}
                                 title={user.approval_status === "banned" ? "Unban user" : "Ban user"}
                               >
                                 <Ban className="h-3 w-3" />
@@ -1503,17 +1483,16 @@ export function AdminPortal() {
                               value={demo.status}
                               disabled={isUpdatingDemoStatus === demo.id}
                               onChange={(e) => handleUpdateDemoStatus(demo.id, e.target.value)}
-                              className={`text-[10px] font-bold rounded-md px-2 py-1 border transition-colors ${
-                                demo.status === "pending"
-                                  ? "bg-primary/10 text-primary border-primary/30"
-                                  : demo.status === "scheduled"
+                              className={`text-[10px] font-bold rounded-md px-2 py-1 border transition-colors ${demo.status === "pending"
+                                ? "bg-primary/10 text-primary border-primary/30"
+                                : demo.status === "scheduled"
                                   ? "bg-primary/5 text-primary border-primary/20"
                                   : demo.status === "contacted"
-                                  ? "bg-muted text-foreground border-border"
-                                  : demo.status === "completed"
-                                  ? "bg-primary/15 text-primary border-primary/40"
-                                  : "bg-muted text-muted-foreground border-border"
-                              }`}
+                                    ? "bg-muted text-foreground border-border"
+                                    : demo.status === "completed"
+                                      ? "bg-primary/15 text-primary border-primary/40"
+                                      : "bg-muted text-muted-foreground border-border"
+                                }`}
                             >
                               <option value="pending">Pending</option>
                               <option value="contacted">Contacted</option>
@@ -1657,15 +1636,14 @@ export function AdminPortal() {
                         </td>
                         <td className="py-3.5">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
-                              user.approval_status === "banned"
-                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
-                                : user.approval_status === "approved"
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
+                              ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                              : user.approval_status === "approved"
                                 ? "bg-foreground/10 border-foreground text-foreground"
                                 : user.approval_status === "rejected"
-                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                            }`}
+                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                  : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                              }`}
                           >
                             {user.approval_status || "approved"}
                           </span>
@@ -1687,11 +1665,10 @@ export function AdminPortal() {
                             {/* Ban / Unban User Button */}
                             <button
                               onClick={() => promptBanUser(user)}
-                              className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${
-                                user.approval_status === "banned"
-                                  ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                                  : "bg-background border-border text-foreground hover:bg-muted"
-                              }`}
+                              className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${user.approval_status === "banned"
+                                ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                                : "bg-background border-border text-foreground hover:bg-muted"
+                                }`}
                               title={user.approval_status === "banned" ? "Unban user" : "Ban user"}
                             >
                               <Ban className="h-3 w-3" />
@@ -1925,28 +1902,26 @@ export function AdminPortal() {
                             </td>
                             <td className="py-3.5">
                               <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                                  planKey === "pro" || planKey === "premium"
-                                    ? "bg-primary/10 border-primary/30 text-primary"
-                                    : planKey === "educator" || planKey === "custom"
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${planKey === "pro" || planKey === "premium"
+                                  ? "bg-primary/10 border-primary/30 text-primary"
+                                  : planKey === "educator" || planKey === "custom"
                                     ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
                                     : "bg-muted border-border text-muted-foreground"
-                                }`}
+                                  }`}
                               >
                                 {planKey === "pro" || planKey === "premium"
                                   ? "Pro Learner ($15)"
                                   : planKey === "educator" || planKey === "custom"
-                                  ? "Educator Hub"
-                                  : "Free Tier ($0)"}
+                                    ? "Educator Hub"
+                                    : "Free Tier ($0)"}
                               </span>
                             </td>
                             <td className="py-3.5">
                               <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  sub.status === "active"
-                                    ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                                    : "bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400"
-                                }`}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${sub.status === "active"
+                                  ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                  : "bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400"
+                                  }`}
                               >
                                 {sub.status || "active"}
                               </span>
@@ -2939,13 +2914,12 @@ export function AdminPortal() {
           <div className="w-full max-w-md rounded-2xl border border-border/80 bg-popover text-popover-foreground p-6 shadow-2xl ring-1 ring-border/40">
             <div className="flex items-start justify-between gap-4">
               <div
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
-                  confirmModal.variant === "danger"
-                    ? "border-red-500/30 bg-red-500/10 text-red-500"
-                    : confirmModal.variant === "warning"
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${confirmModal.variant === "danger"
+                  ? "border-red-500/30 bg-red-500/10 text-red-500"
+                  : confirmModal.variant === "warning"
                     ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
                     : "border-primary/30 bg-primary/10 text-primary"
-                }`}
+                  }`}
               >
                 {confirmModal.icon === "trash" && <Trash2 className="h-6 w-6" />}
                 {confirmModal.icon === "ban" && <Ban className="h-6 w-6" />}
@@ -2988,13 +2962,12 @@ export function AdminPortal() {
                 onClick={() => void confirmModal.onConfirm()}
                 disabled={confirmModal.isLoading}
                 autoFocus
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${
-                  confirmModal.variant === "danger"
-                    ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
-                    : confirmModal.variant === "warning"
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${confirmModal.variant === "danger"
+                  ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
+                  : confirmModal.variant === "warning"
                     ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20"
                     : "bg-foreground text-background hover:opacity-90"
-                }`}
+                  }`}
               >
                 {confirmModal.isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {confirmModal.confirmText}

@@ -337,7 +337,7 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS public.user_logs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-    action_type TEXT NOT NULL, -- 'login', 'onboarding_complete', 'quiz_submission', 'flashcard_export'
+    action_type TEXT NOT NULL, -- 'login', 'onboarding_complete', 'quiz_submission', 'flashcard_export', 'subscription_change'
     details TEXT, -- JSON summary of changes, metadata
     ip_address TEXT,
     device_info TEXT,
@@ -345,6 +345,17 @@ CREATE TABLE IF NOT EXISTS public.user_logs (
 );
 
 ALTER TABLE public.user_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.user_monthly_prompts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    year_month TEXT NOT NULL, -- Format: 'YYYY-MM' e.g. '2026-09'
+    prompt_count INTEGER DEFAULT 0 NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT unique_user_monthly_prompts UNIQUE (user_id, year_month)
+);
+
+ALTER TABLE public.user_monthly_prompts ENABLE ROW LEVEL SECURITY;
 
 
 -- =========================================================================
@@ -649,20 +660,41 @@ CREATE POLICY "Admins full access to demo requests" ON public.demo_requests
 -- --- SUBSCRIPTIONS ---
 DROP POLICY IF EXISTS "Users view own subscriptions" ON public.subscriptions;
 CREATE POLICY "Users view own subscriptions" ON public.subscriptions
-    FOR SELECT USING (user_id = auth.uid());
+    FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Users insert own subscriptions" ON public.subscriptions;
+CREATE POLICY "Users insert own subscriptions" ON public.subscriptions
+    FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Users update own subscriptions" ON public.subscriptions;
+CREATE POLICY "Users update own subscriptions" ON public.subscriptions
+    FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Admins have full access on subscriptions" ON public.subscriptions;
 CREATE POLICY "Admins have full access on subscriptions" ON public.subscriptions
-    FOR ALL USING (public.is_admin());
+    FOR ALL TO authenticated USING (public.is_admin());
 
 -- --- USER LOGS ---
 DROP POLICY IF EXISTS "Users view own logs" ON public.user_logs;
 CREATE POLICY "Users view own logs" ON public.user_logs
-    FOR SELECT USING (user_id = auth.uid());
+    FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Users insert own logs" ON public.user_logs;
+CREATE POLICY "Users insert own logs" ON public.user_logs
+    FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Admins have full access on user_logs" ON public.user_logs;
 CREATE POLICY "Admins have full access on user_logs" ON public.user_logs
-    FOR ALL USING (public.is_admin());
+    FOR ALL TO authenticated USING (public.is_admin());
+
+-- --- USER MONTHLY PROMPTS ---
+DROP POLICY IF EXISTS "Users view own prompt counts" ON public.user_monthly_prompts;
+CREATE POLICY "Users view own prompt counts" ON public.user_monthly_prompts
+    FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Admins view all prompt counts" ON public.user_monthly_prompts;
+CREATE POLICY "Admins view all prompt counts" ON public.user_monthly_prompts
+    FOR ALL TO authenticated USING (public.is_admin());
 
 
 -- =========================================================================
