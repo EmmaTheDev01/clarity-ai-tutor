@@ -219,10 +219,10 @@ export function AdminPortal() {
   const fetchWholeSystemData = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch User Profiles metrics & full directory
+      // 1. Fetch User Profiles metrics & full directory (joined with subscriptions)
       const { count: uCount, data: uData } = await supabase
         .from("profiles")
-        .select("*", { count: "exact" })
+        .select("*, subscriptions(plan_tier, status, current_period_end)", { count: "exact" })
         .order("created_at", { ascending: false });
 
       if (uCount !== null) setTotalUsers(uCount);
@@ -1248,6 +1248,7 @@ export function AdminPortal() {
                       <th className="pb-3 font-semibold">User Name</th>
                       <th className="pb-3 font-semibold">Email Address</th>
                       <th className="pb-3 font-semibold">Role</th>
+                      <th className="pb-3 font-semibold">Subscription Plan</th>
                       <th className="pb-3 font-semibold">Status</th>
                       <th className="pb-3 font-semibold">Registered Date</th>
                       <th className="pb-3 font-semibold text-right">Admin Actions</th>
@@ -1256,35 +1257,57 @@ export function AdminPortal() {
                   <tbody className="divide-y divide-border/60">
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                        <td colSpan={7} className="py-8 text-center text-muted-foreground">
                           No users found matching search query.
                         </td>
                       </tr>
                     ) : (
-                      paginatedUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-muted/40 transition-colors">
-                          <td className="py-3 font-bold text-foreground">{user.name || "User"}</td>
-                          <td className="py-3 text-muted-foreground font-mono">{user.email}</td>
-                          <td className="py-3 font-mono uppercase font-bold text-[11px] text-foreground">
-                            {user.role}
-                          </td>
-                          <td className="py-3">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
-                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
-                                : user.approval_status === "approved"
-                                  ? "bg-foreground/10 border-foreground text-foreground"
-                                  : user.approval_status === "rejected"
-                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                      paginatedUsers.map((user) => {
+                        const userSub = Array.isArray(user.subscriptions)
+                          ? user.subscriptions[0]
+                          : user.subscriptions;
+                        const planKey = (userSub?.plan_tier || "free").toLowerCase();
+                        const isPro = planKey === "pro" || planKey === "premium";
+                        const isEducator = planKey === "educator" || planKey === "custom";
+
+                        return (
+                          <tr key={user.id} className="hover:bg-muted/40 transition-colors">
+                            <td className="py-3 font-bold text-foreground">{user.name || "User"}</td>
+                            <td className="py-3 text-muted-foreground font-mono">{user.email}</td>
+                            <td className="py-3 font-mono uppercase font-bold text-[11px] text-foreground">
+                              {user.role}
+                            </td>
+                            <td className="py-3">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border uppercase ${
+                                  isPro
+                                    ? "bg-primary/15 border-primary text-primary shadow-sm shadow-primary/20 font-black"
+                                    : isEducator
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
+                                    : "bg-muted border-border text-muted-foreground"
                                 }`}
-                            >
-                              {user.approval_status || "approved"}
-                            </span>
-                          </td>
-                          <td className="py-3 text-muted-foreground">
-                            {new Date(user.created_at).toLocaleDateString()}
-                          </td>
+                              >
+                                {isPro && <Sparkles className="h-3 w-3 text-primary" />}
+                                {isPro ? "Pro Learner ($15)" : isEducator ? "Educator Hub" : "Free Tier"}
+                              </span>
+                            </td>
+                            <td className="py-3">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
+                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                                  : user.approval_status === "approved"
+                                    ? "bg-foreground/10 border-foreground text-foreground"
+                                    : user.approval_status === "rejected"
+                                      ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                      : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                  }`}
+                              >
+                                {user.approval_status || "approved"}
+                              </span>
+                            </td>
+                            <td className="py-3 text-muted-foreground">
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </td>
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               {user.role === "teacher" && user.approval_status === "pending" && (
@@ -1321,9 +1344,10 @@ export function AdminPortal() {
                             </div>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
+                      );
+                    })
+                  )}
+                </tbody>
                 </table>
               </div>
 
@@ -1614,6 +1638,7 @@ export function AdminPortal() {
                     <th className="pb-3 font-semibold">User Name</th>
                     <th className="pb-3 font-semibold">Email Address</th>
                     <th className="pb-3 font-semibold">Role</th>
+                    <th className="pb-3 font-semibold">Subscription Plan</th>
                     <th className="pb-3 font-semibold">Status</th>
                     <th className="pb-3 font-semibold">Joined Date</th>
                     <th className="pb-3 font-semibold text-right">Admin Actions</th>
@@ -1622,35 +1647,57 @@ export function AdminPortal() {
                 <tbody className="divide-y divide-border/60">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
                         No user accounts found matching selected criteria.
                       </td>
                     </tr>
                   ) : (
-                    paginatedUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="py-3.5 font-bold text-foreground">{user.name || "User"}</td>
-                        <td className="py-3.5 text-muted-foreground font-mono">{user.email}</td>
-                        <td className="py-3.5 font-mono uppercase font-bold text-[11px] text-foreground">
-                          {user.role}
-                        </td>
-                        <td className="py-3.5">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
-                              ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
-                              : user.approval_status === "approved"
-                                ? "bg-foreground/10 border-foreground text-foreground"
-                                : user.approval_status === "rejected"
-                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                  : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    paginatedUsers.map((user) => {
+                      const userSub = Array.isArray(user.subscriptions)
+                        ? user.subscriptions[0]
+                        : user.subscriptions;
+                      const planKey = (userSub?.plan_tier || "free").toLowerCase();
+                      const isPro = planKey === "pro" || planKey === "premium";
+                      const isEducator = planKey === "educator" || planKey === "custom";
+
+                      return (
+                        <tr key={user.id} className="hover:bg-muted/40 transition-colors">
+                          <td className="py-3.5 font-bold text-foreground">{user.name || "User"}</td>
+                          <td className="py-3.5 text-muted-foreground font-mono">{user.email}</td>
+                          <td className="py-3.5 font-mono uppercase font-bold text-[11px] text-foreground">
+                            {user.role}
+                          </td>
+                          <td className="py-3.5">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border uppercase ${
+                                isPro
+                                  ? "bg-primary/15 border-primary text-primary shadow-sm shadow-primary/20 font-black"
+                                  : isEducator
+                                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
+                                  : "bg-muted border-border text-muted-foreground"
                               }`}
-                          >
-                            {user.approval_status || "approved"}
-                          </span>
-                        </td>
-                        <td className="py-3.5 text-muted-foreground">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </td>
+                            >
+                              {isPro && <Sparkles className="h-3 w-3 text-primary" />}
+                              {isPro ? "Pro Learner ($15)" : isEducator ? "Educator Hub" : "Free Tier"}
+                            </span>
+                          </td>
+                          <td className="py-3.5">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
+                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                                : user.approval_status === "approved"
+                                  ? "bg-foreground/10 border-foreground text-foreground"
+                                  : user.approval_status === "rejected"
+                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                }`}
+                            >
+                              {user.approval_status || "approved"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-muted-foreground">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </td>
                         <td className="py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {user.role === "teacher" && user.approval_status === "pending" && (
@@ -1687,9 +1734,10 @@ export function AdminPortal() {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
+                    );
+                  })
+                )}
+              </tbody>
               </table>
             </div>
 
