@@ -71,6 +71,7 @@ interface SubjectSlice {
   name: string;
   value: number;
   color: string;
+  percent?: number;
 }
 
 interface Milestone {
@@ -88,23 +89,43 @@ export const Route = createFileRoute("/app/analytics")({
 // ─── Custom Tooltips ──────────────────────────────────────────────────────────
 function StudyTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
+  const item = payload[0];
+  const itemPayload = item?.payload || {};
+  const day = itemPayload.day || "Day";
+  const date = itemPayload.date || "";
+  const hours = Number(item?.value ?? itemPayload.hours ?? 0);
+  const queries = Number(itemPayload.queries ?? 0);
+
   return (
     <div className="rounded-xl border border-border bg-elevated/95 backdrop-blur px-3 py-2 shadow-xl text-xs">
-      <p className="font-bold text-foreground">{payload[0].payload.day} · {payload[0].payload.date}</p>
-      <p className="text-muted-foreground mt-0.5">{payload[0].value.toFixed(1)} hrs studied</p>
-      <p className="text-muted-foreground">{payload[0].payload.queries} interactions logged</p>
+      <p className="font-bold text-foreground">{day}{date ? ` · ${date}` : ""}</p>
+      <p className="text-muted-foreground mt-0.5">{isNaN(hours) ? "0.0" : hours.toFixed(1)} hrs studied</p>
+      <p className="text-muted-foreground">{queries} interactions logged</p>
     </div>
   );
 }
 
 function SubjectTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
-  const { name, value, percent } = payload[0];
+  const item = payload[0];
+  const slicePayload = item?.payload || {};
+  const name = item?.name || slicePayload.name || "Subject";
+  const value = Number(item?.value ?? slicePayload.value ?? 0);
+
+  // Safely compute or retrieve percentage
+  let pct: number | null = null;
+  if (typeof slicePayload.percent === "number" && !isNaN(slicePayload.percent)) {
+    pct = slicePayload.percent;
+  } else if (typeof item?.percent === "number" && !isNaN(item.percent)) {
+    pct = Math.round(item.percent * (item.percent <= 1 ? 100 : 1));
+  }
+
   return (
     <div className="rounded-xl border border-border bg-elevated/95 backdrop-blur px-3 py-2 shadow-xl text-xs">
       <p className="font-bold text-foreground">{name}</p>
       <p className="text-muted-foreground mt-0.5">
-        {value} item{value !== 1 ? "s" : ""} · {(percent * 100).toFixed(0)}%
+        {value} item{value !== 1 ? "s" : ""}
+        {pct !== null ? ` · ${pct}%` : ""}
       </p>
     </div>
   );
@@ -275,10 +296,13 @@ function AnalyticsPage() {
           .sort((a, b) => b[1] - a[1])
           .slice(0, 7);
 
+        const totalMaterials = sorted.reduce((sum, [, val]) => sum + val, 0);
+
         setSubjectData(
           sorted.map(([name, value], i) => ({
             name,
             value,
+            percent: totalMaterials > 0 ? Math.round((value / totalMaterials) * 100) : 0,
             color: SUBJECT_COLOURS[i % SUBJECT_COLOURS.length],
           }))
         );
