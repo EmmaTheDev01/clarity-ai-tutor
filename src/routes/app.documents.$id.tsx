@@ -5,13 +5,16 @@ import {
   FileText,
   Send,
   Paperclip,
-  Sparkles,
   Download,
   MoreHorizontal,
   BookOpen,
   Check,
   Loader2,
   ChevronRight,
+  BrainCircuit,
+  Bot,
+  FileCheck2,
+  Wand2,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Pill } from "@/components/ui-kit";
@@ -148,7 +151,12 @@ function DocumentWorkspace() {
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {tab === "Summary" && <SummaryPanel material={material} />}
+          {tab === "Summary" && (
+            <SummaryPanel
+              material={material}
+              onMaterialUpdate={(updated) => setMaterial(updated)}
+            />
+          )}
           {tab === "Chat" && <ChatPanel material={material} />}
           {tab === "Quiz" && material && <QuizPanel material={material} />}
           {tab === "Flashcards" && <FlashcardsPanel />}
@@ -196,9 +204,62 @@ function DocumentWorkspace() {
 
 
 
-function SummaryPanel({ material }: { material: LearningMaterial | null }) {
+function SummaryPanel({
+  material,
+  onMaterialUpdate,
+}: {
+  material: LearningMaterial | null;
+  onMaterialUpdate?: (updated: LearningMaterial) => void;
+}) {
   const { mode: cognitiveProfile } = useCognitiveMode();
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateAutonomousMaterial = async () => {
+    if (!material) return;
+    setIsGenerating(true);
+    try {
+      const prompt = `You are a world-class university professor and curriculum author.
+Autonomously synthesize comprehensive, high-yield university lecture notes and a complete study guide for the topic: "${material.title}" (Discipline: ${material.type || "General"}).
+
+STRUCTURE YOUR LECTURE NOTES AS FOLLOWS:
+# ${material.title}
+
+## 1. Executive Summary & Core Motivation
+Explain why this subject matters, the problems it solves, and its real-world physical, computational, or scientific applications.
+
+## 2. Fundamental Principles & Governing Equations
+Define all core concepts rigorously. Present equations using clean single-line LaTeX blocks ($$ ... $$) and explain every variable and parameter.
+
+## 3. Step-by-Step Worked Examples (Progressive Difficulty)
+Provide at least two comprehensive, concrete worked examples with explicit numbers and interpretations.
+
+## 4. Common Pitfalls & High-Yield Exam Takeaways
+Address subtle traps and frequent student misconceptions.`;
+
+      const res = await generateGeminiText({
+        prompt,
+        maxOutputTokens: 3500,
+      });
+
+      if (res.text) {
+        // Update database
+        await supabase
+          .from("materials")
+          .update({ content: res.text, updated_at: new Date().toISOString() })
+          .eq("id", material.id);
+
+        const updated = { ...material, content: res.text };
+        if (onMaterialUpdate) onMaterialUpdate(updated);
+        toast.success("Autonomously synthesized study material in a split second!");
+      }
+    } catch (err) {
+      console.error("Autonomous AI generation failed:", err);
+      toast.error("Could not generate autonomous material.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const saveToNotebook = async () => {
     if (!material?.content) return;
@@ -260,7 +321,7 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
   return (
     <Card className="p-6">
       <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5" /> AI-ready summary context
+        <FileCheck2 className="h-3.5 w-3.5 text-primary" /> AI-ready summary context
       </div>
       <h3 className="text-lg font-semibold break-words whitespace-normal">{material?.title || "Material overview"}</h3>
 
@@ -269,10 +330,28 @@ function SummaryPanel({ material }: { material: LearningMaterial | null }) {
           <MarkdownRenderer content={material.content} cognitiveProfile={cognitiveProfile} />
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">
-          No study notes extracted yet. Ask about a page, timestamp, image detail, or pasted excerpt
-          for best results.
-        </p>
+        <div className="mt-4 border-t border-border/40 pt-4 flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">
+            No educator materials have been uploaded for this document yet. You can autonomously synthesize comprehensive university-level study notes and a complete lecture guide using AI in a split second.
+          </p>
+          <button
+            onClick={generateAutonomousMaterial}
+            disabled={isGenerating}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60 transition shadow-xs cursor-pointer"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Synthesizing AI study material...</span>
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-3.5 w-3.5" />
+                <span>Autonomously Generate AI Notes (Split Second)</span>
+              </>
+            )}
+          </button>
+        </div>
       )}
 
       {material?.url && (
@@ -377,29 +456,63 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
         .map((msg) => `${msg.from === "user" ? "Student" : "Tutor"}: ${msg.text}`)
         .join("\n\n");
 
-      const systemPrompt = `You are a world-class AI study professor. You write responses that read like **high-quality lecture notes** — rich, thorough, and deeply pedagogical. Ground every answer strictly in the active material below:
+      const hasEducatorMaterial = Boolean(material?.content && material.content.trim().length > 20);
 
-**Material Title:** ${material?.title || "Unknown"}
-**Material Type:** ${material?.type || "Unknown"}
-**Source URL:** ${material?.url || "None"}
-**Extracted Study Content:**
-${material?.content || "No extracted text available yet."}
+      const systemPrompt = `You are a world-class AI study professor and distinguished educator — renowned for pedagogical excellence, intuitive clarity, and rigorous teaching across STEM, humanities, and social sciences.
+
+## TEACHER & TRAINER MATERIAL GROUNDING VS. INSTANT AUTONOMOUS AI SYNTHESIS:
+1. **Teacher / Trainer Materials Active**:
+   ${hasEducatorMaterial ? `EDUCATOR/TRAINER MATERIAL ATTACHED AND ACTIVE:
+   Title: "${material?.title || "Curriculum Document"}"
+   Type: ${material?.type || "Study Material"}
+   Source: ${material?.url || "Direct Upload"}
+   Teacher/Trainer Content:
+   ${material?.content}
+
+   * MANDATE: Autonomously ingest and learn from the teacher's/trainer's provided materials above as the primary authoritative syllabus. Ground all definitions, explanations, formulas, and examples in this educator material.` : `NO SPECIFIC TEACHER/TRAINER MATERIAL PROVIDED:
+   Title Focus: "${material?.title || "Academic Study Subject"}"
+   Type: ${material?.type || "General Study"}
+
+   * MANDATE: When no teacher or trainer materials are provided, you MUST autonomously and instantaneously take full ownership as the master educator.
+   * IN A SPLIT SECOND: Autonomously formulate an authoritative, comprehensive university-level lesson, learning guide, and rich study notes directly from foundational AI intelligence based on "${material?.title || "the subject"}".
+   * STRICT PROHIBITION: DO NOT EVER mention, state, or hint that there are no materials uploaded by a teacher or trainer. Never say "No materials were provided by your educator", "No text has been extracted", or "This document is empty". Simply deliver the complete, authoritative Socratic explanation seamlessly in a split second.`}
 
 ---
 
-## YOUR TEACHING STRUCTURE — ALWAYS FOLLOW THIS ORDER:
+## YOUR TEACHING PHILOSOPHY & LECTURE BLUEPRINT
 
-1. **Theory First** — Begin every answer with a thorough conceptual explanation. Explain the *why* and the *underlying principles* before anything else. Use **bold** for key terms when first introduced, and *italics* for critical emphasis. Use markdown headings to organize the explanation logically.
-2. **Formulas & Definitions Second** — After the theory, present any relevant formulas, equations, or formal definitions. Briefly explain every symbol and its meaning.
-3. **Worked Examples Last** — Close with 1–2 illustrative examples drawn from the material. Walk through them step-by-step — pause mid-example to ask the student what they think the next step should be.
+You write responses that read like **award-winning university lecture notes** — comprehensive, deeply intuitive, mathematically rigorous, and pedagogically structured. You NEVER give superficial summaries or brief one-paragraph brush-offs.
 
-## DEPTH REQUIREMENTS:
-- **Be extensive** — never give a thin, one-paragraph answer to a conceptual question.
-- **Narrative teaching voice** — write as if you are lecturing a curious student, not answering a search query.
-- Use bullet points, numbered lists, and markdown tables where they clarify complex or multi-part ideas.
-- Always connect the concept back to the **big picture**: why does this matter? Where is it used?
-- Ground all citations and examples in the active material title: *${material?.title || "Unknown"}*.
-- End with a Socratic question that guides the student toward deeper thinking.`;
+### MANDATORY 5-STAGE LECTURE ARCHITECTURE (Follow this structure in order):
+
+1. **## 1. Intuitive Foundations & Real-World Motivation**
+   - Begin with the *why* before introducing any mechanics. What physical mystery, engineering roadblock, or human problem gave rise to this concept?
+   - Anchor the idea in an intuitive real-world mental model.
+   - Use **bold** for key terms upon first introduction and *italics* for critical distinctions.
+
+2. **## 2. Theoretical Rigor & First-Principles Mechanics**
+   - Unpack the governing principles from first principles. Explain the underlying *mechanism*: how and why does the concept work?
+   - Define all variables, parameters, and terminology clearly.
+
+3. **## 3. Deep-Dive Teaching by Examples (MANDATORY: Minimum 2 Distinct Worked Examples)**
+   - When teaching or prompted for examples/clarity, provide at least **two fully developed, step-by-step worked examples of increasing complexity**:
+     * **### Example 1: Foundational Concrete Case** — Explicit numbers, step-by-step calculation, and physical interpretation.
+     * **### Example 2: Applied Real-World / Non-Trivial Case** — Dynamic constraints, edge cases, and real-world system behavior.
+
+4. **## 4. Common Pitfalls, Traps & Misconceptions**
+   - Explicitly highlight common student traps, typical misapplications, or confusing subtleties.
+
+5. **## 5. Guided Socratic Discovery & Practice Challenge**
+   - Conclude with an active, thought-provoking Socratic challenge that puts the student in the driver's seat.
+
+### CRITICAL LATEX & MATHEMATICAL FORMATTING COMMANDS (ZERO BROKEN MATH):
+- **Single-Line Block Equations**: ALL standalone display equations MUST be enclosed in \`$$ ... $$\` on a clean, single line or uninterrupted block with NO raw line breaks inside LaTeX macros.
+- **Single-Line Inline Math**: ALL variables, parameters, and inline formulas MUST be enclosed in single \`$ ... $\`.
+- **ABSOLUTE PROHIBITION AGAINST PLAIN-TEXT FRACTIONS**: NEVER output raw multiline text pretending to be fractions (e.g., writing \`d\`, \`y\`, \`/\`, \`d\`, \`x\` on separate vertical lines). Every formula must be syntactically valid KaTeX.
+
+### DEPTH & PEDAGOGICAL REQUIREMENTS:
+- **Comprehensive Exhaustiveness**: Provide a complete, master-level explanation that leaves zero confusion.
+- **Context Integrity**: Ground all citations in the teacher's materials when available, or seamlessly in the primary subject when relying on autonomous AI.`;
 
       const contentsHistory: GeminiContent[] = messages.map((m) => ({
         role: m.from === "user" ? ("user" as const) : ("model" as const),
@@ -702,7 +815,7 @@ function Message({
   return (
     <div className={`flex gap-3 ${isAi ? "" : "flex-row-reverse"}`}>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-elevated text-xs font-medium">
-        {isAi ? <Sparkles className="h-3.5 w-3.5" /> : "AJ"}
+        {isAi ? <Bot className="h-3.5 w-3.5 text-primary" /> : "AJ"}
       </div>
       <div
         className={`max-w-[85%] rounded-lg border border-border ${isAi ? "bg-background" : "bg-elevated"} p-4 group relative min-w-0 break-words overflow-hidden`}

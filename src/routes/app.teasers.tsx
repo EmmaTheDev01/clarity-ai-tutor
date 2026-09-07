@@ -5,7 +5,6 @@ import { Card, Pill } from "@/components/ui-kit";
 import {
   Gamepad2,
   Trophy,
-  Sparkles,
   CheckCircle2,
   ChevronRight,
   HelpCircle,
@@ -20,7 +19,12 @@ import {
   Type,
   TrendingUp,
   Award,
+  BookmarkPlus,
+  Target,
+  AlertCircle,
+  CircleDot,
 } from "lucide-react";
+import { triggerCelebration, unlockBadge } from "@/lib/celebration";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -93,7 +97,7 @@ const mockScrambleWords = [
   { word: "ZEALOUS", hint: "Having or showing zeal; passionate and devoted." }
 ];
 
-const MEMORY_SYMBOLS = ["🧠", "💻", "📐", "🔬", "📚", "🎨"];
+const MEMORY_SYMBOLS = ["Ω", "Δ", "Ψ", "Σ", "π", "λ"];
 const BUBBLE_COLORS = [
   "rgba(244,63,94,0.45)",  // Rose
   "rgba(59,130,246,0.45)",  // Blue
@@ -250,6 +254,8 @@ function BrainTeasersPage() {
     const formattedAns = userInput.trim().toLowerCase();
     if (formattedAns === currentRiddle.answer) {
       setFeedback("correct");
+      triggerCelebration({ particleCount: 65 });
+      unlockBadge("quick_mind");
       if (!isAlreadySolved) {
         setSolvedIds((prev) => [...prev, currentRiddle.id]);
         const reward = streak > 0 ? 30 : 15;
@@ -513,7 +519,7 @@ function BrainTeasersPage() {
           {[
             { id: "riddles", label: "Scholar Riddles", icon: HelpCircle },
             { id: "memory", label: "Memory Cards", icon: Layers },
-            { id: "bubbles", label: "Bubble Wrap", icon: Sparkles },
+            { id: "bubbles", label: "Bubble Wrap", icon: CircleDot },
             { id: "reflex", label: "Click Reflex", icon: MousePointer },
             { id: "scramble", label: "Word Scramble", icon: Type },
             { id: "breathing", label: "Breathing Box", icon: Smile },
@@ -567,7 +573,7 @@ function BrainTeasersPage() {
                         <span>Outstanding! That is correct.</span>
                       </div>
                       <p className="text-[10px] text-emerald-400/90 font-semibold flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 animate-pulse" />
+                        <Zap className="h-3 w-3 text-emerald-400 animate-pulse" />
                         <span>Streak Active! Double Reward (+30 XP)</span>
                       </p>
                     </div>
@@ -596,12 +602,39 @@ function BrainTeasersPage() {
                       </button>
                     </form>
                   ) : (
-                    <button
-                      onClick={handleNext}
-                      className="w-full bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl text-xs hover:opacity-95 transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10"
-                    >
-                      Next Riddle <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <div className="flex gap-2.5">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { data: u } = await supabase.auth.getUser();
+                            if (u?.user) {
+                              await supabase.from("notes").insert({
+                                student_id: u.user.id,
+                                title: `Riddle: ${currentRiddle.answer.toUpperCase()}`,
+                                subject: currentRiddle.subject,
+                                content: `# Concept: ${currentRiddle.answer.toUpperCase()}\n\n**Subject:** ${currentRiddle.subject}\n\n**Riddle Question:**\n> "${currentRiddle.question}"\n\n**Key Formula / Hint:**\n${currentRiddle.hints}\n\n*Saved from PureLearn Brain Teasers.*`,
+                                is_ai_generated: false,
+                              });
+                              unlockBadge("knowledge_investor");
+                              toast.success("Riddle concept saved to Notes! +40 XP");
+                            }
+                          } catch (e) {
+                            toast.error("Could not save to notes.");
+                          }
+                        }}
+                        className="flex-1 min-h-[44px] rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <BookmarkPlus className="h-3.5 w-3.5 text-primary" /> Save to Notes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="flex-1 min-h-[44px] bg-emerald-500 text-white font-extrabold rounded-xl text-xs hover:opacity-95 transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
+                      >
+                        Next Riddle <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
                   )}
 
                   <div className="pt-2">
@@ -659,10 +692,10 @@ function BrainTeasersPage() {
                         >
                           {/* Card Front (Back face-down) */}
                           <div
-                            className="absolute inset-0 bg-elevated border border-border rounded-xl flex items-center justify-center text-lg hover:border-primary/40 transition-colors shadow-inner"
+                            className="absolute inset-0 bg-elevated border border-border rounded-xl flex items-center justify-center text-muted-foreground hover:border-primary/40 transition-colors shadow-inner"
                             style={{ backfaceVisibility: "hidden" }}
                           >
-                            ❓
+                            <HelpCircle className="h-5 w-5 stroke-[2]" />
                           </div>
                           {/* Card Back (Symbol face-up) */}
                           <div
@@ -778,7 +811,7 @@ function BrainTeasersPage() {
                         fontSize: `${targetPos.size / 2.5}px`,
                       }}
                     >
-                      🎯
+                      <Target className="w-6 h-6 text-primary stroke-[2.5]" />
                     </button>
                   </div>
                 ) : (
@@ -827,13 +860,13 @@ function BrainTeasersPage() {
 
                   <div className="max-w-sm mx-auto space-y-4 w-full">
                     {scrambleFeedback === "correct" && (
-                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-bold animate-bounce">
-                        🎉 Correct answer! (+15 XP Scholar score added)
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 animate-bounce">
+                        <CheckCircle2 className="h-4 w-4" /> Correct answer! (+15 XP Scholar score added)
                       </div>
                     )}
                     {scrambleFeedback === "incorrect" && (
-                      <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-xs font-bold">
-                        ❌ Incorrect guess. Check definition and try again!
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                        <AlertCircle className="h-4 w-4" /> That is not quite it. Check definition and try again!
                       </div>
                     )}
 

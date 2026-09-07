@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Card, Pill } from "@/components/ui-kit";
 import {
   FileText,
-  Sparkles,
+  Wand2,
   BookOpen,
   Plus,
   Search,
@@ -16,6 +16,7 @@ import {
   X,
   Check,
   ArrowRight,
+  ArrowLeft,
   UserPlus,
   Loader2,
 } from "lucide-react";
@@ -95,11 +96,30 @@ An era of geopolitical tension between the US-led Western Bloc and the Soviet-le
   },
 ];
 
+function formatSubjectDisplay(subject: string | undefined): string {
+  if (!subject) return "General";
+  const trimmed = subject.trim();
+  try {
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      const parsed = new URL(trimmed);
+      const host = parsed.hostname.toLowerCase();
+      if (host.includes("youtube.com") || host.includes("youtu.be")) {
+        return "YouTube Video";
+      }
+      return parsed.hostname.replace(/^www\./, "");
+    }
+  } catch {
+    // If URL parsing fails, return trimmed original
+  }
+  return trimmed;
+}
+
 function NotesPage() {
   const { mode: cognitiveProfile } = useCognitiveMode();
   const navigate = useNavigate();
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
@@ -298,7 +318,7 @@ function NotesPage() {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
             localNotes = parsed.filter(
-              (ln: any) => !mappedDbNotes.some((dn) => dn.id === ln.id || dn.title === ln.title)
+              (ln: any) => !mappedDbNotes.some((dn: any) => dn.id === ln.id || dn.title === ln.title)
             );
           }
         }
@@ -411,6 +431,7 @@ function NotesPage() {
         images: data.images || undefined,
       };
       setSelectedNote(newMappedNote);
+      setMobileView("detail");
 
       await supabase.from("user_logs").insert({
         user_id: userData.user.id,
@@ -764,19 +785,25 @@ function NotesPage() {
     return (
       <Card
         key={note.id}
-        onClick={() => setSelectedNote(note)}
+        onClick={() => {
+          setSelectedNote(note);
+          setMobileView("detail");
+        }}
         onContextMenu={(e: React.MouseEvent) => {
           e.preventDefault();
           const pos = computeSafeMenuPos(e.clientX, e.clientY);
           setNoteMenuPos(pos);
           setNoteMenu({ x: e.clientX, y: e.clientY, note });
         }}
-        className={`cursor-pointer p-4 transition text-left border relative group ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/10 shadow-sm" : "border-border hover:bg-muted/40"
+        className={`cursor-pointer p-3.5 sm:p-4 transition text-left border relative group ${isSelected ? "border-primary ring-2 ring-primary/40 bg-primary/10 shadow-sm" : "border-border hover:bg-muted/40"
           }`}
       >
         <div className="flex items-start justify-between gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            {note.subject}
+          <span 
+            className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate max-w-[170px] sm:max-w-[190px] inline-block"
+            title={note.subject}
+          >
+            {formatSubjectDisplay(note.subject)}
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
             {note.sharedByEmail && (
@@ -793,7 +820,7 @@ function NotesPage() {
             )}
           </div>
         </div>
-        <h3 className="mt-2 text-sm font-semibold text-foreground break-words whitespace-normal pr-6 leading-snug">
+        <h3 className="mt-2 text-sm font-semibold text-foreground break-words line-clamp-2 pr-6 leading-snug">
           {note.title}
         </h3>
         <div className="mt-1 text-xs text-muted-foreground line-clamp-2 pointer-events-none notes-sidebar-preview break-words">
@@ -865,7 +892,9 @@ function NotesPage() {
       {/* Context Menu */}
       {noteMenu && (
         <div
-            ref={(el) => (noteMenuRef.current = el)}
+            ref={(el) => {
+              noteMenuRef.current = el;
+            }}
             className="fixed z-[60] min-w-32 rounded-xl border border-border bg-background/95 p-1 shadow-2xl backdrop-blur"
             style={{ left: noteMenuPos?.left ?? noteMenu.x, top: noteMenuPos?.top ?? noteMenu.y }}
             onClick={(e) => e.stopPropagation()}
@@ -1049,9 +1078,9 @@ function NotesPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:h-[calc(100vh-120px)] lg:overflow-hidden">
+      <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:h-[calc(100vh-120px)] lg:overflow-hidden">
         {/* Left Side: Notes List */}
-        <div className="w-full lg:w-96 shrink-0 flex flex-col max-h-[320px] lg:max-h-none lg:h-full overflow-hidden space-y-4">
+        <div className={`${mobileView === "detail" ? "hidden lg:flex" : "flex"} w-full lg:w-96 shrink-0 flex-col max-h-none lg:h-full overflow-hidden space-y-4`}>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1143,30 +1172,98 @@ function NotesPage() {
         </div>
 
         {/* Right Side: Selected Note Detail */}
-        <div className="flex-1 min-w-0 h-[500px] lg:h-full flex flex-col overflow-hidden pb-4">
+        <div className={`${mobileView === "list" ? "hidden lg:flex" : "flex"} flex-1 min-w-0 min-h-[500px] lg:h-full flex-col overflow-hidden pb-4`}>
             {loading ? (
-              <Card className="p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
+              <Card className="p-4 sm:p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
                 <TextSkeleton lines={8} />
               </Card>
             ) : activeNote ? (
-            <Card className="p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {activeNote.subject}
+            <Card className="p-4 sm:p-6 md:p-8 flex-1 flex flex-col h-full overflow-hidden">
+              {/* Mobile Back to List Button & Timestamp */}
+              <div className="lg:hidden flex items-center justify-between pb-2.5 border-b border-border/50 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("list")}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition py-1 px-2 -ml-2 rounded-lg hover:bg-muted"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to all notes</span>
+                </button>
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>{activeNote.updated}</span>
+                </div>
+              </div>
+
+              {/* Note Header & Title Editor */}
+              <div className="flex flex-col gap-2.5 sm:gap-3 border-b border-border pb-3.5 sm:pb-4">
+                {/* Meta Bar & Top Actions */}
+                <div className="flex items-center justify-between gap-2 flex-wrap min-w-0">
+                  {/* Left: Subject Tag & Badges */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                    <span
+                      className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground truncate max-w-[150px] sm:max-w-xs md:max-w-sm inline-block"
+                      title={activeNote.subject}
+                    >
+                      {formatSubjectDisplay(activeNote.subject)}
                     </span>
                     {activeNote.sharedByEmail && (
-                      <Pill className="bg-sky-500/5 border border-sky-500/20 text-sky-600">
+                      <Pill className="text-[10px] sm:text-xs bg-sky-500/5 border border-sky-500/20 text-sky-600 truncate max-w-[140px] sm:max-w-[200px]">
                         Shared by {activeNote.sharedByEmail}
                       </Pill>
                     )}
                     {activeNote.isAi && (
-                      <Pill className="bg-primary/5 border border-primary/20 text-primary flex items-center gap-1">
+                      <Pill className="text-[10px] sm:text-xs bg-primary/5 border border-primary/20 text-primary flex items-center gap-1 shrink-0">
                         <FileText className="h-3 w-3" /> Note
                       </Pill>
                     )}
                   </div>
+
+                  {/* Right: Action Buttons */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleEscalateToTutor(activeNote)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold transition shadow-xs"
+                      title="Escalate note context to Socratic AI Tutor thread"
+                    >
+                      <Wand2 className="h-3.5 w-3.5 text-primary" />
+                      <span>Ask Tutor</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePin(activeNote.id)}
+                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition border border-border/40"
+                      title={activeNote.pinned ? "Unpin Note" : "Pin Note"}
+                    >
+                      {activeNote.pinned ? (
+                        <Pin className="h-3.5 w-3.5 text-primary" />
+                      ) : (
+                        <PinOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFavorite(activeNote.id)}
+                      disabled={activeNote.readOnly}
+                      className="p-1.5 rounded-lg hover:bg-muted text-sm leading-none transition border border-border/40"
+                      title={activeNote.isStarred ? "Unfavorite" : "Favorite"}
+                    >
+                      {activeNote.isStarred ? (
+                        <span className="text-yellow-500 font-bold">★</span>
+                      ) : (
+                        <span className="text-muted-foreground">☆</span>
+                      )}
+                    </button>
+                    <div className="hidden sm:flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground ml-1">
+                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate max-w-[120px] md:max-w-none">Updated {activeNote.updated}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Note Title (Takes 100% full width, beautiful typography, no word-splitting) */}
+                <div className="w-full min-w-0">
                   <textarea
                     rows={1}
                     value={activeNote.title}
@@ -1182,42 +1279,9 @@ function NotesPage() {
                       }
                     }}
                     disabled={activeNote.readOnly}
-                    className="mt-2 text-2xl font-bold text-foreground bg-transparent border-0 focus:ring-0 focus:outline-none w-full resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight"
+                    className="w-full text-xl sm:text-2xl md:text-3xl font-extrabold text-foreground bg-transparent border-0 focus:ring-0 focus:outline-none resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight tracking-tight p-0 placeholder:text-muted-foreground/40"
                     placeholder="Note Title..."
                   />
-                </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <button
-                    onClick={() => handleEscalateToTutor(activeNote)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 text-xs font-bold transition mr-2"
-                    title="Escalate note context to Socratic AI Tutor thread"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                    <span>Ask Tutor</span>
-                  </button>
-                  <button
-                    onClick={() => handleTogglePin(activeNote.id)}
-                    className="text-lg hover:opacity-80"
-                    title={activeNote.pinned ? "Unpin Note" : "Pin Note"}
-                  >
-                    {activeNote.pinned ? (
-                      <Pin className="h-4 w-4 text-primary" />
-                    ) : (
-                      <PinOff className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleToggleFavorite(activeNote.id)}
-                    disabled={activeNote.readOnly}
-                    className="text-lg hover:opacity-80"
-                    title={activeNote.isStarred ? "Unfavorite" : "Favorite"}
-                  >
-                    {activeNote.isStarred ? "★" : "☆"}
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Updated {activeNote.updated}</span>
-                  </div>
                 </div>
               </div>
 

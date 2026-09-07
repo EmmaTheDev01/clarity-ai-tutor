@@ -177,6 +177,7 @@ export async function createGeneralChatMaterial() {
     .from("materials")
     .select("*")
     .eq("title", "General Chat")
+    .eq("uploaded_by", authData.user.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -525,3 +526,149 @@ export const notifyMaterialsUpdated = () => {
     CacheManager.invalidate("materials_");
   } catch {}
 };
+
+/**
+/**
+ * Fetches only materials uploaded by the logged-in user to avoid misleading data.
+ */
+export async function fetchStudentAccessibleMaterials(userId: string): Promise<LearningMaterial[]> {
+  const cacheKey = `materials_user_strict_${userId}`;
+  const cached = CacheManager.get(cacheKey);
+  if (cached && Array.isArray(cached)) {
+    return cached;
+  }
+
+  try {
+    const { data: ownMats, error } = await supabase
+      .from("materials")
+      .select("*")
+      .eq("uploaded_by", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const pinnedIds = new Set(getPinnedMaterialIds());
+    const sorted = (ownMats || []).sort((a: any, b: any) => {
+      const aPinned = pinnedIds.has(a.id) || a.pinned;
+      const bPinned = pinnedIds.has(b.id) || b.pinned;
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bTime - aTime;
+    });
+
+    const mapped = sorted.map(mapMaterialRow);
+    CacheManager.set(cacheKey, mapped, 15000);
+    return mapped;
+  } catch (err) {
+    console.warn("[learning-materials] Error fetching user materials:", err);
+    return [];
+  }
+}
+
+/**
+ * When no relevant teacher materials exist, AI automatically synthesizes a high-accuracy,
+ * syllabus-grade learning material and inserts it directly into the database.
+ */
+export async function generateAiLearningMaterial(params: {
+  topic: string;
+  studentId: string;
+  academicFocus?: string;
+}): Promise<LearningMaterial> {
+  const { topic, studentId, academicFocus } = params;
+  const cleanTopic = topic.trim().slice(0, 100);
+
+  const prompt = `You are generating an official, comprehensive, university-grade study document for a student.
+Topic: "${cleanTopic}"
+Academic Context: ${academicFocus || "General Academics"}
+
+CRITICAL REQUIREMENTS:
+- Provide an in-depth, structured, authoritative guide with zero fluff.
+- Include exact definitions, mental models, mathematical formulas or code examples if relevant.
+- Structure clearly with headers (#, ##, ###), bullet points, and practical applications.
+- At the very end of the document, provide exactly 4 structured flashcard Q&A items in this exact syntax:
+Q: [Concise high-yield concept question] | A: [Accurate, complete explanation]
+
+Format:
+# ${cleanTopic} - Comprehensive Study Guide
+## 1. Core Foundations & First Principles
+[Detailed explanation of why this concept exists and fundamental laws]
+
+## 2. Key Mechanisms & Real-World Intuition
+[How it works, step-by-step procedure, mental analogies]
+
+## 3. Practical Implementations & Worked Examples
+[Formulas, algorithms, or concrete real-world problem walked through]
+
+## 4. Common Pitfalls & Edge Cases
+[Subtle misconceptions and how to avoid them]
+
+## 5. Review Flashcards & High-Yield Checkpoints
+Q: [Question 1] | A: [Answer 1]
+Q: [Question 2] | A: [Answer 2]
+Q: [Question 3] | A: [Answer 3]
+Q: [Question 4] | A: [Answer 4]`;
+
+  const { text } = await generateGeminiText({
+    prompt,
+    temperature: 0.3,
+    maxOutputTokens: 3500,
+  });
+
+  const generatedContent = text.trim();
+  const title = cleanTopic.length > 50 ? `${cleanTopic.slice(0, 47)}...` : cleanTopic;
+
+  const { data, error } = await supabase
+    .from("materials")
+    .insert({
+      title: `${title} (AI Master Guide)`,
+      type: "Text",
+      content: generatedContent,
+      source_kind: "text",
+      uploaded_by: studentId,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  // Invalidate caches
+  CacheManager.invalidate("materials_");
+
+  // Save flashcard deck into localStorage for immediate flashcards practice
+  if (typeof window !== "undefined" && window.localStorage && generatedContent.includes("Q:")) {
+    try {
+      const cards: Array<{ q: string; a: string }> = [];
+      const lines = generatedContent.split("\n");
+      lines.forEach((line) => {
+        const match = line.match(/^Q:\s*([^|]+)\|\s*A:\s*(.+)$/i);
+        if (match) {
+          cards.push({
+            q: match[1].trim().replace(/\*\*/g, ""),
+            a: match[2].trim().replace(/\*\*/g, ""),
+          });
+        }
+      });
+
+      if (cards.length > 0) {
+        const newDeck = {
+          id: `ai_deck_mat_${data.id}`,
+          title: data.title,
+          subject: "AI Generated Guide",
+          cards,
+        };
+        const rawAiDecks = localStorage.getItem("purelearn_ai_custom_decks");
+        const existing = rawAiDecks ? JSON.parse(rawAiDecks) : [];
+        localStorage.setItem("purelearn_ai_custom_decks", JSON.stringify([newDeck, ...existing]));
+      }
+    } catch {
+      // LocalStorage update best-effort
+    }
+  }
+
+  return mapMaterialRow(data);
+}
+

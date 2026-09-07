@@ -13,7 +13,8 @@ import {
   Cpu,
   RefreshCw,
   Search,
-  Sparkles,
+  Building,
+  Presentation,
   Download,
   Layers,
   Ban,
@@ -34,7 +35,6 @@ import {
   Loader2,
   Mail,
   Calendar,
-  Building,
   MessageSquare,
 } from "lucide-react";
 import {
@@ -923,7 +923,7 @@ export function AdminPortal() {
                     </h3>
                   </div>
                   <div className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform">
-                    <Sparkles className="h-5 w-5" />
+                    <Presentation className="h-5 w-5" />
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
@@ -1300,7 +1300,7 @@ export function AdminPortal() {
 
               {filteredDemos.length === 0 ? (
                 <div className="py-16 text-center border border-dashed border-border rounded-xl">
-                  <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
+                  <Building className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
                   <p className="text-sm font-semibold text-foreground">No demo requests found</p>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                     When prospective educators and students click "Get demo" on the landing page, their walk-through requests will populate here in real-time.

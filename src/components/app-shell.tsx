@@ -6,7 +6,6 @@ import {
   LayoutGrid,
   Library,
   Settings,
-  Sparkles,
   Search,
   Bell,
   Menu,
@@ -23,6 +22,9 @@ import {
   ShieldCheck,
   BookOpen,
   Check,
+  Presentation,
+  BrainCircuit,
+  Crown,
   LayoutDashboard,
   Users,
   Activity,
@@ -39,6 +41,7 @@ import {
 import { Kbd } from "./ui-kit";
 import { toast } from "sonner";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
+import { useDailyReminders } from "@/hooks/use-daily-reminders";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, exact: true },
@@ -52,7 +55,7 @@ const nav = [
 
 const adminNav = [
   { to: "/admin", tab: "overview", label: "Overview", icon: LayoutDashboard },
-  { to: "/admin", tab: "demos", label: "Demo Requests", icon: Sparkles },
+  { to: "/admin", tab: "demos", label: "Demo Requests", icon: Presentation },
   { to: "/admin", tab: "users", label: "Users", icon: Users },
   { to: "/admin", tab: "materials", label: "Materials", icon: FileText },
   { to: "/admin", tab: "flashcards", label: "Flashcards", icon: Layers },
@@ -77,6 +80,9 @@ export function AppShell({
   const currentAdminTab = (location.search as Record<string, string>)?.tab || "overview";
   const [profile, setProfile] = useState<{ name: string; avatarUrl: string | null } | null>(null);
   const [userRole, setUserRole] = useState<string>("student");
+
+  // Hook Cycle Trigger: Scheduled Daily Push Notifications & Study Alarms
+  useDailyReminders();
 
   useEffect(() => {
     try {
@@ -224,7 +230,7 @@ export function AppShell({
               title: "Open AI Study Workspace",
               subtitle: "Interactive tutoring and automated synthesis",
               badge: "AI Tutor",
-              icon: Sparkles,
+              icon: BrainCircuit,
               onSelect: () => { navigate({ to: "/app" }); setIsSearchOpen(false); },
             },
             {
@@ -246,7 +252,7 @@ export function AppShell({
               title: "AI Cognitive Study Workspace",
               subtitle: "Ask questions, review documents, and explore concepts",
               badge: "AI Tutor",
-              icon: Sparkles,
+              icon: BrainCircuit,
               onSelect: () => { navigate({ to: "/app" }); setIsSearchOpen(false); },
             },
             {
@@ -550,12 +556,17 @@ export function AppShell({
             });
           }
 
-          // 3. Search Library Materials
-          const { data: mats } = await supabase
+          // 3. Search Library Materials (strictly user's own materials)
+          const { data: authUser } = await supabase.auth.getUser();
+          const currentUid = authUser?.user?.id;
+          let matsQuery = supabase
             .from("materials")
             .select("id, title, type, content")
-            .or(`title.ilike.%${cleanQ}%,content.ilike.%${cleanQ}%`)
-            .limit(5);
+            .or(`title.ilike.%${cleanQ}%,content.ilike.%${cleanQ}%`);
+          if (currentUid) {
+            matsQuery = matsQuery.eq("uploaded_by", currentUid);
+          }
+          const { data: mats } = await matsQuery.limit(5);
 
           if (mats) {
             mats.forEach((m) => {
@@ -1130,7 +1141,7 @@ export function AppShell({
               className="flex h-10 w-full items-center justify-center rounded-md border border-border bg-elevated hover:bg-muted text-primary"
               title="Upgrade plan"
             >
-              <Sparkles className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`} />
+              <Crown className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`} />
             </Link>
           </div>
 
@@ -1138,7 +1149,7 @@ export function AppShell({
           <div className={`block ${isCollapsed ? "lg:hidden" : "lg:block"}`}>
             <div className="rounded-md border border-border bg-elevated p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <Sparkles className={`h-3.5 w-3.5 ${tier !== "free" ? "text-amber-500 fill-current" : ""}`} />
+                <Crown className={`h-3.5 w-3.5 ${tier !== "free" ? "text-amber-500 fill-current" : ""}`} />
                 <span className="capitalize">{tier} Plan</span>
               </div>
               {tier !== "free" ? (
@@ -1401,7 +1412,7 @@ export function AppShell({
                             const getNotificationIcon = (type: string) => {
                               switch (type) {
                                 case "ai_tutor":
-                                  return <Sparkles className="h-3.5 w-3.5 text-primary" />;
+                                  return <BrainCircuit className="h-3.5 w-3.5 text-primary" />;
                                 case "quiz":
                                   return <FileText className="h-3.5 w-3.5 text-blue-500" />;
                                 case "flashcard":
@@ -1601,8 +1612,40 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-hidden px-6 py-6">{children}</main>
+        <main className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-6 pb-24 lg:pb-6">{children}</main>
       </div>
+
+      {/* Fitts's Law: Mobile Bottom Navigation Dock (Natural thumb reach on mobile) */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="fixed bottom-0 inset-x-0 z-30 flex lg:hidden items-center justify-around border-t border-border/80 bg-background/95 backdrop-blur-xl px-2 py-1.5 shadow-[0_-4px_25px_rgba(0,0,0,0.12)] pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)]"
+      >
+        {[
+          { to: "/app", label: "Dashboard", icon: LayoutGrid, exact: true },
+          { to: "/app/library", label: "Library", icon: Library, exact: false },
+          { to: "/app/notes", label: "Notes", icon: FileText, exact: false },
+          { to: "/app/flashcards", label: "Cards", icon: Layers, exact: false },
+          { to: "/app/settings", label: "Settings", icon: Settings, exact: false },
+        ].map((item) => {
+          const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2 py-1 rounded-xl transition-all duration-150 ${
+                active
+                  ? "text-primary font-bold scale-105"
+                  : "text-muted-foreground hover:text-foreground active:scale-95"
+              }`}
+            >
+              <item.icon className={`h-5 w-5 ${active ? "stroke-[2.5]" : "stroke-[1.75]"}`} />
+              <span className="text-[10px] mt-0.5 tracking-tight font-medium">
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
 
       {shortcutModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">

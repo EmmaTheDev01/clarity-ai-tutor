@@ -13,7 +13,6 @@ import {
   Check,
   Loader2,
   Upload,
-  Sparkles,
   ShieldAlert,
   X,
   Trash2,
@@ -21,7 +20,14 @@ import {
   Palette,
   Bell,
   Blocks,
+  Clock,
+  BellRing,
+  Save,
+  Award,
+  Lock,
 } from "lucide-react";
+import { useDailyReminders } from "@/hooks/use-daily-reminders";
+import { SvgBadge, ALL_PLATFORM_BADGES, getUnderstandingCategory } from "@/components/ui/svg-badges";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — tutor.vigilance.rw" }] }),
@@ -125,6 +131,12 @@ function ProfileSection() {
     gradeLevel: "2nd Year",
     cognitiveProfile: "standard",
   });
+  const [userStats, setUserStats] = useState({
+    streak: 0,
+    quizzesMastered: 0,
+    understandingLevel: "Novice Explorer",
+    unlockedBadges: [] as string[],
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -189,6 +201,32 @@ function ProfileSection() {
           educationLevel: stdProf?.education_level || "Undergraduate",
           gradeLevel: stdProf?.grade_level || "2nd Year",
           cognitiveProfile: stdProf?.cognitive_profile || "standard",
+        });
+
+        const rawBadges = typeof window !== "undefined" ? localStorage.getItem("purelearn_unlocked_badges") : null;
+        const parsedBadges: string[] = rawBadges ? JSON.parse(rawBadges) : [];
+
+        const currentStreak = Number(stdProf?.streak || 0);
+        const masteredCount = Number(stdProf?.quizzes_mastered || 0);
+        const answeredCount = Number(stdProf?.quizzes_answered || 0);
+        const completedCount = Math.max(masteredCount, answeredCount);
+        const level = stdProf?.understanding_level || getUnderstandingCategory(completedCount).level;
+
+        if (currentStreak >= 5 && !parsedBadges.includes("5_day_streak")) parsedBadges.push("5_day_streak");
+        if (currentStreak >= 10 && !parsedBadges.includes("10_day_streak")) parsedBadges.push("10_day_streak");
+        if (currentStreak >= 20 && !parsedBadges.includes("20_day_streak")) parsedBadges.push("20_day_streak");
+        if (currentStreak >= 30 && !parsedBadges.includes("30_day_streak")) parsedBadges.push("30_day_streak");
+        if (completedCount >= 1 && !parsedBadges.includes("novice_explorer")) parsedBadges.push("novice_explorer");
+        if (completedCount >= 3 && !parsedBadges.includes("active_scholar")) parsedBadges.push("active_scholar");
+        if (completedCount >= 6 && !parsedBadges.includes("conceptual_master")) parsedBadges.push("conceptual_master");
+        if (completedCount >= 10 && !parsedBadges.includes("socratic_polymath")) parsedBadges.push("socratic_polymath");
+        if ((masteredCount >= 1 || completedCount >= 1) && !parsedBadges.includes("quiz_master")) parsedBadges.push("quiz_master");
+
+        setUserStats({
+          streak: currentStreak,
+          quizzesMastered: completedCount,
+          understandingLevel: level,
+          unlockedBadges: parsedBadges,
         });
       }
     } catch (err) {
@@ -416,7 +454,75 @@ function ProfileSection() {
         </div>
       </div>
 
-      <div className="flex justify-end items-center gap-3 pt-2">
+      {/* Achievement Badges & Mastery Vault (App Colors: Black, White, Orange) */}
+      <div className="space-y-4 pt-6 border-t border-border/60">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h4 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+              <Award className="h-4 w-4 text-orange-500" />
+              <span>Achievement Badges & Mastery Vault</span>
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              Earn badges through consecutive study streaks, quiz mastery, and knowledge investments.
+            </p>
+          </div>
+          <div className="shrink-0">
+            <span className="text-xs font-bold text-orange-500 bg-orange-500/10 border border-orange-500/30 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+              <span>{userStats.unlockedBadges.length} of {ALL_PLATFORM_BADGES.length} Unlocked</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {ALL_PLATFORM_BADGES.map((badge) => {
+            const isUnlocked = userStats.unlockedBadges.includes(badge.id);
+            return (
+              <div
+                key={badge.id}
+                className={`p-4 rounded-xl border transition-all flex items-start space-x-3.5 ${
+                  isUnlocked
+                    ? "bg-card border-orange-500/40 shadow-xs hover:border-orange-500/60 dark:bg-[#121214] dark:border-orange-500/40"
+                    : "bg-muted/15 border-border/60 opacity-60"
+                }`}
+              >
+                <div className="shrink-0 pt-0.5">
+                  <div className={`p-1.5 rounded-xl transition-all ${
+                    isUnlocked
+                      ? "bg-muted/40 dark:bg-zinc-950 border border-border/60 dark:border-orange-500/20 shadow-xs"
+                      : "bg-muted/20 border border-border/40"
+                  }`}>
+                    <SvgBadge type={badge.badgeType} size={44} disabled={!isUnlocked} />
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <h5 className={`text-xs font-bold truncate ${isUnlocked ? "text-foreground" : "text-muted-foreground"}`}>
+                      {badge.title}
+                    </h5>
+                    {isUnlocked ? (
+                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-orange-500 text-white shrink-0">
+                        Unlocked
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-semibold text-muted-foreground flex items-center gap-1 shrink-0">
+                        <Lock className="w-2.5 h-2.5" /> Locked
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-tight line-clamp-2">
+                    {badge.description}
+                  </p>
+                  <p className={`text-[10px] font-medium leading-tight ${isUnlocked ? "text-orange-600 dark:text-orange-400 font-semibold" : "text-muted-foreground/80 italic"}`}>
+                    {badge.unlockCriteria}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex justify-end items-center gap-3 pt-4">
         {saveSuccess && (
           <span className="text-xs font-bold text-emerald-500 flex items-center gap-1 animate-fade-in">
             <Check className="h-3.5 w-3.5" /> Profile saved successfully!
@@ -568,7 +674,7 @@ function GeminiApiKeyCard() {
             onClick={handleSave}
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 shrink-0"
           >
-            {isSaved ? <Check className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {isSaved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
             Save Key
           </button>
         </div>
@@ -1089,22 +1195,132 @@ function AppearanceSection() {
 }
 
 function NotificationsSection() {
+  const { config, updateConfig, permission, requestPermission, triggerTestNotification } = useDailyReminders();
+
   return (
-    <Section title="Notifications" description="Manage how you receive alerts and study reminders.">
-      <div className="space-y-6">
-        {[
-          { k: "Weekly Study Digest", v: "Receive an email summary of your learning progress every Sunday." },
-          { k: "Study Reminders", v: "Get push notifications to keep your streak alive." },
-          { k: "New Feature Announcements", v: "Occasional emails about new AI models and features." },
-        ].map((p, i) => (
-          <div key={p.k} className={`flex items-center justify-between gap-6 py-1 ${i > 0 ? "border-t border-border/30 pt-5" : ""}`}>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-foreground">{p.k}</div>
-              <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{p.v}</div>
+    <Section title="Notifications & Study Triggers" description="Schedule precise daily push notifications for micro-learning sessions to keep your streak alive.">
+      <div className="space-y-8">
+        {/* Micro-learning daily push scheduler (Hook Cycle Trigger) */}
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+                <BellRing className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  Daily Micro-Learning Push Notifications
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-primary/20 text-primary">
+                    Hook Cycle
+                  </span>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Triggers timely browser push notifications directly to your device so you never miss your daily learning habit.
+                </p>
+              </div>
             </div>
-            <Toggle defaultOn={i !== 2} />
+
+            <button
+              onClick={() => updateConfig({ enabled: !config.enabled })}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                config.enabled ? "bg-primary" : "bg-muted"
+              }`}
+              role="switch"
+              aria-checked={config.enabled}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
+                  config.enabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
           </div>
-        ))}
+
+          {config.enabled && (
+            <div className="pt-4 border-t border-border/40 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Scheduled Time Picker */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-primary" /> Daily Alert Time
+                </label>
+                <input
+                  type="time"
+                  value={config.time}
+                  onChange={(e) => updateConfig({ time: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none"
+                />
+                <p className="text-[10px] text-muted-foreground">Alerts you at {config.time} every day.</p>
+              </div>
+
+              {/* Session Duration Target */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Session Target
+                </label>
+                <div className="flex gap-1.5">
+                  {[5, 10, 15].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => updateConfig({ durationMinutes: mins })}
+                      className={`flex-1 py-2 text-xs rounded-lg font-bold border transition ${
+                        config.durationMinutes === mins
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {mins}m
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Micro-learning duration goal.</p>
+              </div>
+
+              {/* Push Permission & Test Trigger */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Browser Permission
+                </label>
+                <div className="flex gap-2">
+                  {permission !== "granted" ? (
+                    <Button
+                      onClick={requestPermission}
+                      className="w-full text-xs font-bold py-2 bg-primary text-primary-foreground rounded-lg"
+                    >
+                      Enable Browser Push
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={triggerTestNotification}
+                      className="w-full text-xs font-bold py-2 bg-muted hover:bg-muted/80 text-foreground border border-border/80 rounded-lg"
+                    >
+                      Test Push Alert
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Status: <span className="font-semibold capitalize text-foreground">{permission}</span>
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* General Alert Preferences */}
+        <div className="space-y-6 pt-2">
+          {[
+            { k: "Weekly Study Digest", v: "Receive an email summary of your learning progress every Sunday." },
+            { k: "Milestone Celebration Sound", v: "Play a subtle celebration chime when badges are unlocked or quizzes are completed." },
+            { k: "New Feature Announcements", v: "Occasional updates regarding new Socratic AI tools." },
+          ].map((p, i) => (
+            <div key={p.k} className={`flex items-center justify-between gap-6 py-1 ${i > 0 ? "border-t border-border/30 pt-5" : ""}`}>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-foreground">{p.k}</div>
+                <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{p.v}</div>
+              </div>
+              <Toggle defaultOn={i !== 2} />
+            </div>
+          ))}
+        </div>
       </div>
     </Section>
   );

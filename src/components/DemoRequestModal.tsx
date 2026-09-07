@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Sparkles, CheckCircle2, ArrowRight, Loader2, Building, Mail, User, Users, Calendar, MessageSquare } from "lucide-react";
+import { X, CheckCircle2, ArrowRight, Loader2, Building, Mail, User, Users, Calendar, MessageSquare } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 

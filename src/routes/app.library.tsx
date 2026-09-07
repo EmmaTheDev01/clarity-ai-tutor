@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Search, Filter, MoreHorizontal, Loader2, Trash2, X, Pin, PinOff, PencilLine } from "lucide-react";
+import { FileText, Search, Filter, MoreHorizontal, Loader2, Trash2, X, Pin, PinOff, PencilLine, Layers, HelpCircle } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { MaterialQuizModal } from "@/components/MaterialQuizModal";
 import { Input, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { MaterialUploader } from "@/components/material-uploader";
-import { LearningMaterial, mapMaterialRow, uploadLearningMaterial, togglePinMaterial, renameMaterial } from "@/lib/learning-materials";
+import { LearningMaterial, mapMaterialRow, uploadLearningMaterial, togglePinMaterial, renameMaterial, fetchStudentAccessibleMaterials } from "@/lib/learning-materials";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { ListSkeleton } from "@/components/ui/data-skeleton";
 import { CacheManager } from "@/lib/cache";
@@ -25,6 +26,8 @@ function LibraryPage() {
   const [items, setItems] = useState<LearningMaterial[]>([]);
   const [isDropUploading, setIsDropUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [quizMaterial, setQuizMaterial] = useState<LearningMaterial | null>(null);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
 
   // Auth Guard: redirect to login if unauthenticated
   useEffect(() => {
@@ -97,44 +100,11 @@ function LibraryPage() {
       console.debug("[Library][DEBUG] getUser failed:", e);
     }
 
-    const cacheKey = `materials_${userId}`;
-    const cached = CacheManager.get(cacheKey);
-    if (cached) {
-      setItems(cached);
-      return;
-    }
-
-    const res = await supabase
-      .from("materials")
-      .select("*")
-      .eq("uploaded_by", userId)
-      .order("created_at", { ascending: false });
-
-    console.debug("[Library][DEBUG] materials select result:", res);
-
-    const { data: mats, error } = res as any;
-    if (error) {
-      console.error("[Library] Materials fetch error:", error);
-      return;
-    }
-
-    console.log("[Library] Fetched", mats?.length ?? 0, "materials");
-    if (mats) {
-      try {
-        const mapped = mats.map((m: any) => {
-          try {
-            return mapMaterialRow(m);
-          } catch (mapErr) {
-            console.error("[Library][ERROR] mapMaterialRow failed for item", m, mapErr);
-            throw mapErr;
-          }
-        });
-        console.log("[Library][DEBUG] mapped materials count:", mapped.length, "sample:", mapped[0]);
-        setItems(mapped);
-        CacheManager.set(cacheKey, mapped, 30000);
-      } catch (err) {
-        console.error("[Library] Failed to map/set materials:", err);
-      }
+    try {
+      const mapped = await fetchStudentAccessibleMaterials(userId);
+      setItems(mapped);
+    } catch (err) {
+      console.error("[Library] Failed to load student accessible materials:", err);
     }
     setLoading(false);
   };
@@ -327,11 +297,10 @@ function LibraryPage() {
             <button
               key={f}
               onClick={() => setActive(f)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                active === f
-                  ? "border-foreground bg-primary text-primary-foreground"
-                  : "border-border bg-background text-foreground hover:bg-muted"
-              }`}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${active === f
+                ? "border-foreground bg-primary text-primary-foreground"
+                : "border-border bg-background text-foreground hover:bg-muted"
+                }`}
             >
               {f}
             </button>
@@ -360,7 +329,7 @@ function LibraryPage() {
             <ListSkeleton rows={8} />
           </div>
         ) : null}
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 border-b border-border bg-elevated px-4 md:px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground min-w-0">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_100px_110px_220px] items-center gap-4 border-b border-border bg-elevated px-4 md:px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground min-w-0">
           <div>Name</div>
           <div className="hidden md:block">Size</div>
           <div className="hidden md:block">Updated</div>
@@ -369,7 +338,7 @@ function LibraryPage() {
         <ul>
           {!loading && displayItems.map((it, i) => (
             <li key={it.id} className={i > 0 ? "border-t border-border" : ""}>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_120px_120px_100px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated min-w-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_100px_110px_220px] items-center gap-4 px-4 md:px-5 py-3.5 transition hover:bg-elevated min-w-0">
                 <Link
                   to="/app/documents/$id"
                   params={{ id: it.id }}
@@ -396,14 +365,25 @@ function LibraryPage() {
                 </Link>
                 <div className="hidden text-sm text-muted-foreground md:block">{it.size}</div>
                 <div className="hidden text-sm text-muted-foreground md:block">{it.updated}</div>
-                <div className="flex items-center justify-end gap-0.5 md:gap-1">
+                <div className="flex items-center justify-end gap-1">
+
+                  <button
+                    onClick={() => {
+                      setQuizMaterial(it);
+                      setIsQuizOpen(true);
+                    }}
+                    className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 text-[11px] font-bold text-primary transition cursor-pointer"
+                    title={`Test Understanding with Quiz for "${it.title}"`}
+                  >
+                    <HelpCircle className="h-3 w-3 text-primary" />
+                    <span>Quiz</span>
+                  </button>
                   <button
                     onClick={() => handlePinToggle(it, !it.pinned)}
-                    className={`rounded-md p-1.5 transition ${
-                      it.pinned
-                        ? "text-primary hover:bg-primary/10"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
+                    className={`rounded-md p-1.5 transition ${it.pinned
+                      ? "text-primary hover:bg-primary/10"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
                     aria-label={it.pinned ? "Unpin material" : "Pin material"}
                     title={it.pinned ? "Unpin" : "Pin"}
                   >
@@ -439,6 +419,15 @@ function LibraryPage() {
           )}
         </ul>
       </div>
+
+      {/* Material Understanding Quiz Modal */}
+      <MaterialQuizModal
+        isOpen={isQuizOpen}
+        onClose={() => setIsQuizOpen(false)}
+        materialTitle={quizMaterial?.title}
+        materialContent={quizMaterial?.content}
+        materialId={quizMaterial?.id}
+      />
     </AppShell>
   );
 }

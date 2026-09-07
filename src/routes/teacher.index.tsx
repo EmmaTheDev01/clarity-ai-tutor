@@ -19,7 +19,6 @@ import {
   RefreshCw,
   Clock,
   Layers,
-  Sparkles,
   ShieldAlert,
 } from "lucide-react";
 import { uploadLearningMaterial } from "@/lib/learning-materials";

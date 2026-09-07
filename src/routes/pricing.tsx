@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Brain, Check, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { Brain, Check, ArrowRight, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";

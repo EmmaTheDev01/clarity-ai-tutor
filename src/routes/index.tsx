@@ -8,7 +8,7 @@ import {
   Upload,
   MessageSquare,
   FileCheck2,
-  Sparkles,
+  BrainCircuit,
   Plus,
   Minus,
   ArrowRight,
@@ -214,7 +214,7 @@ const features = [
     body: "Drop in PDFs, long YouTube videos, slide decks, or lecture recordings.",
   },
   {
-    icon: Sparkles,
+    icon: BrainCircuit,
     title: "Understand key points",
     body: "Get clear summaries and quick takeaways from any source in seconds.",
   },

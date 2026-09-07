@@ -9,7 +9,7 @@ import {
   Brain,
   History,
   BookOpen,
-  Sparkles,
+  Star,
   TrendingUp,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -294,7 +294,7 @@ function AnalyticsPage() {
         const milestoneMap: Record<string, { icon: typeof FileText; title: string }> = {
           chat_query_submitted: { icon: MessageSquare, title: "Chat query sent" },
           note_created: { icon: BookOpen, title: "Note created" },
-          note_starred: { icon: Sparkles, title: "Note starred" },
+          note_starred: { icon: Star, title: "Note starred" },
           user_login: { icon: TrendingUp, title: "Signed in" },
           study_session_start: { icon: Brain, title: "Study session started" },
           study_session_end: { icon: History, title: "Study session ended" },

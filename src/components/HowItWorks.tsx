@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import { Upload, Brain, FileCheck2, Sparkles } from "lucide-react";
+import { Upload, Brain, FileCheck2, BrainCircuit } from "lucide-react";
 
 export function HowItWorks() {
   const steps = [
@@ -104,7 +104,7 @@ export function HowItWorks() {
         <div className="mx-auto max-w-3xl text-center">
           <ScrollReveal animation="fade-up">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
-              <Sparkles className="h-3.5 w-3.5" />
+              <BrainCircuit className="h-3.5 w-3.5" />
               The PureLearn Architecture
             </span>
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">

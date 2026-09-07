@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Brain, Sparkles, BookOpen, Layers, Zap } from "lucide-react";
+import { Brain, BrainCircuit, BookOpen, Layers, Zap } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/features")({
@@ -60,7 +60,7 @@ function FeaturesPage() {
 
           <Card className="p-8 flex flex-col bg-elevated/15 border border-border/50 rounded-2xl">
             <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-6">
-              <Sparkles className="h-5 w-5" />
+              <BrainCircuit className="h-5 w-5" />
             </div>
             <h3 className="text-lg font-bold text-foreground">Premium LaTeX & Code Rendering</h3>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">

@@ -206,12 +206,19 @@ function deMangleSingleCharLines(text: string): string {
   if (!text) return text;
   const lines = text.split("\n");
   const result: string[] = [];
-  let singleCharBuffer: string[] = [];
+  let buffer: string[] = [];
+
+  const isFragment = (str: string) => {
+    if (!str) return false;
+    if (str.length === 1 && !/^[#*\-+]$/.test(str)) return true;
+    if (/^(?:dx|dy|dt|dh|lim|Delta|to|partial|times|sin|cos|tan|\+|-|=|\/|\\Delta|\\to|\\lim|\\partial|\\frac)$/i.test(str)) return true;
+    return false;
+  };
 
   const flush = () => {
-    if (singleCharBuffer.length > 0) {
-      result.push(singleCharBuffer.join(""));
-      singleCharBuffer = [];
+    if (buffer.length > 0) {
+      result.push(buffer.join(" "));
+      buffer = [];
     }
   };
 
@@ -219,10 +226,8 @@ function deMangleSingleCharLines(text: string): string {
     const line = lines[i];
     const trimmed = line.trim();
 
-    const isSingleChar = trimmed.length === 1 && !/^[#*\-+]$/.test(trimmed);
-
-    if (isSingleChar) {
-      singleCharBuffer.push(trimmed);
+    if (isFragment(trimmed)) {
+      buffer.push(trimmed);
     } else {
       flush();
       result.push(line);

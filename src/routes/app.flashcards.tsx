@@ -3,7 +3,6 @@ import { AppShell } from "@/components/app-shell";
 import { Card, Pill, Button, Input, Textarea, Label } from "@/components/ui-kit";
 import {
   Layers,
-  Sparkles,
   Check,
   X,
   RefreshCw,
@@ -15,7 +14,17 @@ import {
   Plus,
   Loader2,
   FileText,
+  Flame,
+  Trophy,
+  RotateCcw,
+  BookmarkPlus,
+  ArrowRight,
+  BrainCircuit,
+  BookmarkCheck,
+  Zap,
 } from "lucide-react";
+import { triggerCelebration, unlockBadge } from "@/lib/celebration";
+import { SvgBadge } from "@/components/ui/svg-badges";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { CacheManager } from "@/lib/cache";
@@ -219,6 +228,9 @@ function FlashcardsPage() {
   const [currentCardIdx, setCurrentCardIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState({ correct: 0, incorrect: 0 });
+  const [sessionCompleted, setSessionCompleted] = useState(false);
+  const [earnedXp, setEarnedXp] = useState(0);
+  const [unlockedBadgeTitle, setUnlockedBadgeTitle] = useState<string | null>(null);
 
   // Persistence for deleted card keys and hidden deck IDs
   const [deletedCardKeys, setDeletedCardKeys] = useState<Set<string>>(() => {
@@ -285,8 +297,12 @@ function FlashcardsPage() {
           });
           setNotes(uniqueNotes);
 
-          // Fetch materials for dropdown selector
-          const { data: matData } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
+          // Fetch materials for dropdown selector (strictly logged-in user's materials)
+          const { data: matData } = await supabase
+            .from("materials")
+            .select("*")
+            .eq("uploaded_by", userData.user.id)
+            .order("created_at", { ascending: false });
           if (matData) {
             setMaterials(matData.map((m) => mapMaterialRow(m)));
           }
@@ -346,10 +362,25 @@ function FlashcardsPage() {
   const currentCard = activeDeckCards[currentCardIdx] || { q: "No active cards", a: "No active cards" };
   const progressPercent = activeDeckCards.length > 0 ? Math.round((currentCardIdx / activeDeckCards.length) * 100) : 0;
 
+  const completeSession = () => {
+    setSessionCompleted(true);
+    triggerCelebration({ particleCount: 85 });
+    const badge = unlockBadge("first_flashcard_mastery");
+    if (badge) {
+      setUnlockedBadgeTitle(badge.title);
+    }
+    const bonus = 30 + (score.correct * 5);
+    setEarnedXp(bonus);
+  };
+
   const handleNext = () => {
     if (activeDeckCards.length === 0) return;
+    if (currentCardIdx >= activeDeckCards.length - 1) {
+      completeSession();
+      return;
+    }
     setShowAnswer(false);
-    setCurrentCardIdx((prev) => (prev + 1) % activeDeckCards.length);
+    setCurrentCardIdx((prev) => prev + 1);
   };
 
   const handlePrev = () => {
@@ -362,6 +393,7 @@ function FlashcardsPage() {
     setActiveDeckId(deck.id);
     setCurrentCardIdx(0);
     setShowAnswer(false);
+    setSessionCompleted(false);
     setScore({ correct: 0, incorrect: 0 });
   };
 
@@ -602,7 +634,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
               onClick={() => setShowAiModal(true)}
               className="text-xs font-bold gap-1 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
             >
-              <Sparkles className="h-3.5 w-3.5" /> Create AI Deck
+              <BrainCircuit className="h-3.5 w-3.5" /> Create AI Deck
             </Button>
           </div>
 
@@ -657,7 +689,98 @@ Each question must target a fundamental key concept, definition, or equation. Ea
 
         {/* Right column: Flashcard Workspace */}
         <div className="flex-1 min-w-0 flex flex-col items-center">
-          {visibleDecks.length === 0 ? (
+          {sessionCompleted ? (
+            <Card className="w-full max-w-2xl p-8 md:p-10 text-center border border-primary/30 bg-elevated/80 shadow-2xl rounded-2xl flex flex-col items-center justify-center animate-fade-in">
+              <div className="relative mb-4">
+                <SvgBadge type="Flashcard Ace" size={64} />
+              </div>
+
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                Session Mastery Accomplished
+              </span>
+              <h2 className="mt-1 text-2xl font-black text-foreground">
+                Deck Review Complete!
+              </h2>
+              <p className="mt-2 text-xs text-muted-foreground max-w-md leading-relaxed">
+                You've successfully reviewed all {activeDeckCards.length} flashcards in <span className="font-semibold text-foreground">"{selectedDeck?.title}"</span>.
+              </p>
+
+              {/* Variable Rewards Card */}
+              <div className="my-6 grid grid-cols-3 gap-3 w-full max-w-md">
+                <div className="p-3 rounded-xl border border-border/80 bg-background flex flex-col items-center">
+                  <span className="text-emerald-500 text-lg font-black">
+                    {score.correct}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">Understood</span>
+                </div>
+                <div className="p-3 rounded-xl border border-border/80 bg-background flex flex-col items-center">
+                  <span className="text-red-500 text-lg font-black">
+                    {score.incorrect}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">Need Review</span>
+                </div>
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 flex flex-col items-center">
+                  <div className="flex items-center gap-1 text-amber-500 text-lg font-black">
+                    <Flame className="h-4 w-4 fill-current" /> +{earnedXp}
+                  </div>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">XP Bonus</span>
+                </div>
+              </div>
+
+              {unlockedBadgeTitle && (
+                <div className="mb-6 px-4 py-2.5 rounded-xl border border-primary/20 bg-primary/10 text-primary flex items-center gap-2 text-xs font-bold animate-pulse">
+                  <Trophy className="h-4 w-4" />
+                  <span>Badge Unlocked: {unlockedBadgeTitle}!</span>
+                </div>
+              )}
+
+              {/* Investment Prompt (Hook Cycle) */}
+              <div className="w-full max-w-md pt-5 border-t border-border/60 space-y-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-center gap-1">
+                  <BookmarkCheck className="h-3.5 w-3.5 text-amber-500" /> Invest in Your Knowledge Vault:
+                </span>
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const { data: userData } = await supabase.auth.getUser();
+                        if (userData?.user && selectedDeck) {
+                          const summaryContent = `# Flashcard Study Review: ${selectedDeck.title}\n\n**Subject:** ${selectedDeck.subject}\n**Completed:** ${new Date().toLocaleDateString()}\n**Performance:** ${score.correct} understood, ${score.incorrect} reviewed.\n\n### Key Concepts Covered:\n${activeDeckCards.map((c: any, i: number) => `${i + 1}. **${c.q}**\n   - *${c.a}*`).join("\n\n")}`;
+                          
+                          await supabase.from("notes").insert({
+                            student_id: userData.user.id,
+                            title: `${selectedDeck.title} — Review Summary`,
+                            subject: selectedDeck.subject,
+                            content: summaryContent,
+                            is_ai_generated: false,
+                          });
+                          unlockBadge("knowledge_investor");
+                          toast.success("Deck summary saved into Notes! +40 XP");
+                        }
+                      } catch (err) {
+                        toast.error("Could not save to notes.");
+                      }
+                    }}
+                    className="flex-1 min-h-[44px] rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 gap-1.5 cursor-pointer"
+                  >
+                    <BookmarkPlus className="h-3.5 w-3.5" /> Save Summary to Notes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCurrentCardIdx(0);
+                      setShowAnswer(false);
+                      setSessionCompleted(false);
+                      setScore({ correct: 0, incorrect: 0 });
+                    }}
+                    className="min-h-[44px] rounded-xl text-xs font-bold border-border bg-background hover:bg-muted text-foreground gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Practice Again
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ) : visibleDecks.length === 0 ? (
             <Card className="w-full max-w-2xl p-12 text-center border border-dashed border-border rounded-2xl flex flex-col items-center justify-center min-h-[340px]">
               <Layers className="h-10 w-10 text-muted-foreground mb-4 animate-pulse" />
               <h3 className="text-base font-bold text-foreground mb-2">No Decks Available</h3>
@@ -668,7 +791,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                 onClick={() => setShowAiModal(true)}
                 className="gap-2 text-xs font-bold px-4 py-2 rounded-xl bg-primary text-primary-foreground"
               >
-                <Sparkles className="h-4 w-4" /> Create AI Flashcards
+                <BrainCircuit className="h-4 w-4" /> Create AI Flashcards
               </Button>
             </Card>
           ) : (
@@ -686,10 +809,10 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                 </div>
                 <div className="flex gap-3 shrink-0">
                   <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                    ✓ {score.correct} Understood
+                    {score.correct} Understood
                   </span>
                   <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2.5 py-0.5 rounded-full">
-                    ✗ {score.incorrect} Review
+                    {score.incorrect} Review
                   </span>
                 </div>
               </div>
@@ -781,19 +904,29 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                   <div className="flex gap-2 animate-fade-in">
                     <Button
                       onClick={() => {
-                        setScore((s) => ({ ...s, incorrect: s.incorrect + 1 }));
-                        handleNext();
+                        const newIncorrect = score.incorrect + 1;
+                        setScore((s) => ({ ...s, incorrect: newIncorrect }));
+                        if (currentCardIdx >= activeDeckCards.length - 1) {
+                          completeSession();
+                        } else {
+                          handleNext();
+                        }
                       }}
-                      className="rounded-xl inline-flex items-center gap-1.5 px-4 py-2 border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-extrabold"
+                      className="rounded-xl min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-extrabold cursor-pointer"
                     >
                       <X className="h-3.5 w-3.5" /> Review
                     </Button>
                     <Button
                       onClick={() => {
-                        setScore((s) => ({ ...s, correct: s.correct + 1 }));
-                        handleNext();
+                        const newCorrect = score.correct + 1;
+                        setScore((s) => ({ ...s, correct: newCorrect }));
+                        if (currentCardIdx >= activeDeckCards.length - 1) {
+                          completeSession();
+                        } else {
+                          handleNext();
+                        }
                       }}
-                      className="rounded-xl inline-flex items-center gap-1.5 px-4 py-2 border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-xs font-extrabold"
+                      className="rounded-xl min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-xs font-extrabold cursor-pointer"
                     >
                       <Check className="h-3.5 w-3.5" /> Understood
                     </Button>
@@ -812,7 +945,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <Sparkles className="h-5 w-5" />
+                  <BrainCircuit className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Create AI Flashcard Deck</h3>
@@ -876,7 +1009,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4" /> Generate Deck
+                    <Zap className="h-4 w-4" /> Generate Deck
                   </>
                 )}
               </Button>
