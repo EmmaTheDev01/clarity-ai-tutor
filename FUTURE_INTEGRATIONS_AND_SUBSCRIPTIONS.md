@@ -304,19 +304,30 @@ journey
 
 ---
 
-## 7. Implementation Checklist for Future Engineering
+## 7. Status & Integration Checklist
 
-- [ ] **Step 1: Run Database Migration**: Execute the SQL in Section 3 in Supabase to create `subscriptions`, `user_monthly_prompts`, and the `check_and_consume_prompt()` function.
+### Current Completed State (Mock Mode with Real DB Persistence)
+- [x] **Database `public.subscriptions` Table**: Live and operational in Supabase (`user_id`, `plan_tier`, `status`, `current_period_end`, `created_at`, `updated_at`).
+- [x] **User Profile Subscription Management**: Implemented in `/app/settings` with plan details, 1-month renewal calculation, and live Supabase persistence.
+- [x] **Educator Dynamic Seat Calculator**: Interactive seat slider calculating $9 base + volume student pricing ($0.12, $0.10, $0.08 / seat).
+- [x] **System Admin Subscriptions & Revenue Portal**: Implemented in `/admin` with real-time MRR calculation, active subscriber count, plan distribution, and subscriber management.
+- [x] **Audit Logging**: Subscription upgrades and downgrades recorded to `public.user_logs`.
+- [x] **Non-Blocking Prompt Policy**: Prompts are **NOT blocked in code yet** during mock mode to ensure unrestricted testing prior to Stripe API credentials provisioning.
+
+---
+
+## 8. Next Steps Once Stripe API Keys Are Available
+
+- [ ] **Step 1: Stripe Secret & Webhook Keys**:
+  - Add `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SIGNING_SECRET` to Supabase project secrets and `.env`.
 - [ ] **Step 2: Deploy Stripe Edge Functions**:
   - `create-checkout-session`: Configured with price ID `price_pro_monthly_15usd` and `trial_period_days: 7`.
   - `create-portal-session`: Generates customer self-service billing link.
   - `stripe-webhook`: Verifies Stripe signatures and syncs subscription state.
-- [ ] **Step 3: Connect Frontend Quota Guard**:
+- [ ] **Step 3: Enforce 5 Prompts/Month Quota & Teacher Feature Limits**:
+  - Run the `user_monthly_prompts` and `check_and_consume_prompt()` function from Section 3.
   - Add `usePromptQuota()` hook in `src/hooks/usePromptQuota.ts`.
   - Intercept the message send button in `src/routes/app.index.tsx` to call `checkQuota()` before dispatching to Gemini.
-- [ ] **Step 4: Connect Pricing Page Checkout**:
-  - In `src/routes/pricing.tsx`, connect the `"Upgrade Now"` button ($15/mo) to call `create-checkout-session`.
-  - Connect the Educator seat slider (`$9 base + volume seats`) to create an enterprise inquiry or Stripe seat checkout.
-- [ ] **Step 5: Add In-App Quota Banner & Upgrade Modal**:
-  - Show remaining free prompts count pill (`X / 5 left this month`).
-  - Render upgrade modal when free quota is reached.
+  - Show remaining free prompts pill indicator (`X / 5 left this month`).
+  - Open `<UpgradeModal />` paywall when free quota is reached.
+  - Restrict teacher classroom creation and prompt tuning to accounts with `plan_tier = 'educator'`.

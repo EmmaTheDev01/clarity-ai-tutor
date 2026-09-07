@@ -25,9 +25,24 @@ import {
   Save,
   Award,
   Lock,
+  Sparkles,
+  Zap,
+  Calendar,
+  ShieldCheck,
+  ArrowRight,
+  GraduationCap,
+  Users,
 } from "lucide-react";
 import { useDailyReminders } from "@/hooks/use-daily-reminders";
 import { SvgBadge, ALL_PLATFORM_BADGES, getUnderstandingCategory } from "@/components/ui/svg-badges";
+import {
+  SUBSCRIPTION_TIERS,
+  calculateEducatorCustomPrice,
+  formatPeriodEnd,
+  saveUserSubscription,
+  getUserSubscription,
+  type UserSubscriptionRecord,
+} from "@/lib/subscription-plans";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — tutor.vigilance.rw" }] }),
@@ -721,46 +736,124 @@ function GeminiApiKeyCard() {
 }
 
 function PlanSection() {
-  const [tier, setTier] = useState<string>("free");
+  const [subscription, setSubscription] = useState<UserSubscriptionRecord | null>(null);
+  const [activeTier, setActiveTier] = useState<string>("free");
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [userRole, setUserRole] = useState<string>("student");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
-  useEffect(() => {
-    const loadSubscription = async () => {
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
-          const { data: sub } = await supabase
-            .from("subscriptions")
-            .select("plan_tier")
-            .eq("user_id", userData.user.id)
-            .maybeSingle();
-          if (sub) {
-            setTier(sub.plan_tier || "free");
-          }
-        }
-      } catch (err) {
-        console.warn("Could not load subscription details:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSubscription();
-  }, []);
+  // Custom Educator interactive seats state
+  const [customSeats, setCustomSeats] = useState(100);
 
-  const handleUpgrade = async () => {
+  const loadUserSubscription = async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) {
-        // Upsert standard subscription record
-        await supabase.from("subscriptions").upsert({
-          user_id: userData.user.id,
-          plan_tier: "premium",
-          status: "active",
-        });
-        setTier("premium");
+      if (!userData?.user) return;
+      setCurrentUserId(userData.user.id);
+
+      // Check role
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      if (profileData?.role) {
+        setUserRole(profileData.role);
+      }
+
+      // Fetch active subscription
+      const sub = await getUserSubscription(userData.user.id);
+      if (sub) {
+        setSubscription(sub);
+        setActiveTier(sub.plan_tier || "free");
+      } else {
+        // Default free state
+        setActiveTier("free");
       }
     } catch (err) {
-      console.warn("Upgrade error:", err);
+      console.warn("Could not load subscription details:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUserSubscription();
+  }, []);
+
+  const handleSelectPlan = async (planKey: "free" | "pro" | "educator") => {
+    if (!currentUserId) {
+      toast.error("Please sign in to update your subscription.");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const result = await saveUserSubscription({
+        userId: currentUserId,
+        planTier: planKey,
+        status: planKey === "free" ? "active" : "active",
+        customSeats: planKey === "educator" ? customSeats : undefined,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update subscription");
+      }
+
+      setActiveTier(planKey);
+      await loadUserSubscription();
+
+      const planName = SUBSCRIPTION_TIERS[planKey]?.name || planKey;
+      toast.success(`Successfully activated your ${planName} subscription!`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to switch plan.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCancelPlan = async () => {
+    if (!currentUserId) return;
+    setIsUpdating(true);
+    try {
+      const result = await saveUserSubscription({
+        userId: currentUserId,
+        planTier: activeTier,
+        status: "canceled",
+      });
+
+      if (!result.success) throw new Error(result.error);
+
+      await loadUserSubscription();
+      toast.info("Subscription will not renew at the end of the current period.");
+    } catch (err: any) {
+      toast.error(err.message || "Could not cancel subscription.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleExtendMonth = async () => {
+    if (!currentUserId) return;
+    setIsUpdating(true);
+    try {
+      const result = await saveUserSubscription({
+        userId: currentUserId,
+        planTier: activeTier === "free" ? "pro" : activeTier,
+        status: "active",
+        extendMonths: 1,
+        customSeats: activeTier === "educator" ? customSeats : undefined,
+      });
+
+      if (!result.success) throw new Error(result.error);
+
+      await loadUserSubscription();
+      toast.success("Subscription extended by 1 month!");
+    } catch (err: any) {
+      toast.error(err.message || "Could not extend subscription.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -772,78 +865,314 @@ function PlanSection() {
     );
   }
 
-  const isPremium = tier === "premium" || tier === "pro";
+  const periodInfo = formatPeriodEnd(subscription?.current_period_end);
+  const isEducatorOrTeacher = userRole === "teacher" || activeTier === "educator";
 
   return (
-    <Section title="Subscription Plan Management" description="Inspect current tier access limits.">
-      <p className="text-xs text-muted-foreground leading-relaxed -mt-2">
-        Choose the study plan that fits your academic workload. The Scholar Basic tier provides robust daily AI tutor feedback and note summaries, while the Premium tier unlocks unlimited inquiries, high-resolution study cards, and full study-set library exports.
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
-        {/* Basic Plan */}
-        <div
-          className={`rounded-md border p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 h-full ${
-            !isPremium
-              ? "border-primary bg-primary/5"
-              : "border-border/60 bg-background/40"
-          }`}
-        >
-          <div>
-            {!isPremium && (
-              <span className="absolute top-3 right-3 text-[9px] font-extrabold uppercase tracking-widest bg-primary/20 border border-primary/30 text-primary px-2.5 py-0.5 rounded-full">
-                Active
+    <Section
+      title="Subscription & Billing Hub"
+      description="Manage your learning tier, review billing intervals, and inspect unlocked AI tutor features."
+    >
+      {/* ── Active Subscription Summary Card ── */}
+      <div className="p-6 md:p-7 rounded-xl border border-border bg-gradient-to-br from-card via-card/90 to-primary/5 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+                Current Plan
               </span>
-            )}
-            <div className="text-xs font-bold uppercase tracking-wider text-foreground">Scholar Basic</div>
-            <p className="mt-3 text-xs text-muted-foreground leading-relaxed space-y-1">
-              <span className="block">• 50 daily Socratic responses</span>
-              <span className="block">• 5 uploads / day limit</span>
-              <span className="block">• Basic AI note taking</span>
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                  subscription?.status === "canceled"
+                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                    : activeTier !== "free"
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "bg-muted text-muted-foreground border-border"
+                }`}
+              >
+                <Zap className="h-3 w-3" />
+                {subscription?.status === "canceled" ? "Cancels at period end" : "Active"}
+              </span>
+            </div>
+            <h4 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+              {SUBSCRIPTION_TIERS[activeTier]?.name || "Free Tier"}
+              {activeTier !== "free" && (
+                <span className="text-sm font-bold text-primary font-mono">
+                  {activeTier === "educator"
+                    ? `$${calculateEducatorCustomPrice(customSeats)}/mo`
+                    : "$15/mo"}
+                </span>
+              )}
+            </h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {SUBSCRIPTION_TIERS[activeTier]?.tagline}
             </p>
           </div>
-          <div className="text-2xl font-black text-foreground mt-5">$0</div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2 md:pt-0">
+            {activeTier !== "free" && (
+              <div className="text-left md:text-right">
+                <div className="text-[11px] text-muted-foreground flex items-center md:justify-end gap-1 font-mono">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Renewal: {periodInfo.formattedDate}
+                </div>
+                <div className="text-xs font-semibold text-foreground mt-0.5">
+                  {periodInfo.daysRemaining} days left in cycle
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 shrink-0">
+              {activeTier !== "free" && subscription?.status !== "canceled" && (
+                <button
+                  onClick={handleCancelPlan}
+                  disabled={isUpdating}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                >
+                  Cancel Plan
+                </button>
+              )}
+              {activeTier !== "free" && (
+                <button
+                  onClick={handleExtendMonth}
+                  disabled={isUpdating}
+                  className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  +1 Month
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Premium Plan */}
-        <div
-          className={`rounded-md border p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 h-full ${
-            isPremium
-              ? "border-primary bg-primary/5"
-              : "border-border/60 bg-background/40 hover:border-primary/40 hover:scale-[1.01]"
-          }`}
-        >
-          <div>
-            {isPremium && (
-              <span className="absolute top-3 right-3 text-[9px] font-extrabold uppercase tracking-widest bg-primary/20 border border-primary/30 text-primary px-2.5 py-0.5 rounded-full">
-                Active
+        {/* Database Sync Notice */}
+        <div className="mt-5 pt-4 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+            Mock Subscriptions synced directly with Supabase database (1 calendar month renewal)
+          </span>
+          <span className="font-mono text-[10px]">Stripe API Mode: Mock</span>
+        </div>
+      </div>
+
+      {/* ── Tier Cards Grid ── */}
+      <div className="mt-8">
+        <h4 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4">
+          Available Subscription Plans
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          {/* 1. Free Tier */}
+          <div
+            className={`p-6 rounded-xl border flex flex-col justify-between transition-all duration-300 relative ${
+              activeTier === "free"
+                ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                : "border-border bg-card hover:border-primary/40"
+            }`}
+          >
+            {activeTier === "free" && (
+              <span className="absolute top-4 right-4 text-[9px] font-extrabold uppercase tracking-widest bg-primary/20 border border-primary/30 text-primary px-2.5 py-0.5 rounded-full">
+                Active Plan
               </span>
             )}
-            <div className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Scholar Premium
+            <div>
+              <div className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+                Free Tier
+              </div>
+              <h5 className="text-lg font-black text-foreground mt-1">Scholar Explorer</h5>
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                Test-drive Socratic AI feedback and essential study tools.
+              </p>
+
+              <div className="my-5">
+                <span className="text-3xl font-black text-foreground">$0</span>
+                <span className="text-xs text-muted-foreground ml-1">/ lifetime</span>
+              </div>
+
+              <div className="space-y-2.5 text-xs text-muted-foreground border-t border-border/60 pt-4">
+                {SUBSCRIPTION_TIERS.free.features.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-foreground/90">{f.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground leading-relaxed space-y-1">
-              <span className="block">• Unlimited AI responses</span>
-              <span className="block">• Unlimited study file uploads</span>
-              <span className="block">• Advanced flashcards canvas exports</span>
-            </p>
-          </div>
-          <div className="mt-5 flex items-center justify-between">
-            <div className="text-2xl font-black text-foreground">
-              $15<span className="text-xs font-normal text-muted-foreground">/mo</span>
-            </div>
-            {!isPremium && (
+
+            <div className="mt-6 pt-4 border-t border-border/60">
               <Button
-                onClick={handleUpgrade}
-                size="sm"
-                className="text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 rounded-md shadow-md transition-all px-4 py-2 hover:scale-[1.02]"
+                variant="outline"
+                disabled={activeTier === "free" || isUpdating}
+                onClick={() => handleSelectPlan("free")}
+                className="w-full text-xs font-bold py-2 rounded-lg"
               >
-                Upgrade
+                {activeTier === "free" ? "Current Plan" : "Downgrade to Free"}
               </Button>
+            </div>
+          </div>
+
+          {/* 2. Pro Learner */}
+          <div
+            className={`p-6 rounded-xl border-2 flex flex-col justify-between transition-all duration-300 relative ${
+              activeTier === "pro"
+                ? "border-primary bg-primary/10 shadow-lg shadow-primary/10"
+                : "border-primary/40 bg-card hover:border-primary hover:scale-[1.01]"
+            }`}
+          >
+            <div className="absolute top-4 right-4 bg-primary/20 text-primary border border-primary/30 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full">
+              Recommended
+            </div>
+            <div>
+              <div className="text-xs font-mono font-semibold uppercase tracking-wider text-primary">
+                Pro Learner
+              </div>
+              <h5 className="text-lg font-black text-foreground mt-1">Socratic Master</h5>
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                Unlimited AI tutoring, LaTeX rendering, and OCR extraction.
+              </p>
+
+              <div className="my-5">
+                <span className="text-3xl font-black text-foreground">$15</span>
+                <span className="text-xs text-muted-foreground ml-1">/ month</span>
+              </div>
+
+              <div className="space-y-2.5 text-xs text-muted-foreground border-t border-border/60 pt-4">
+                {SUBSCRIPTION_TIERS.pro.features.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className={f.highlight ? "font-bold text-foreground" : "text-foreground/90"}>
+                      {f.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-border/60">
+              <Button
+                disabled={activeTier === "pro" || isUpdating}
+                onClick={() => handleSelectPlan("pro")}
+                className="w-full text-xs font-bold py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-all flex items-center justify-center gap-1.5"
+              >
+                {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {activeTier === "pro" ? "Active Subscription" : "Upgrade to Pro ($15/mo)"}
+                {activeTier !== "pro" && <ArrowRight className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* 3. Educator / Custom Seats */}
+          <div
+            className={`p-6 rounded-xl border flex flex-col justify-between transition-all duration-300 relative ${
+              activeTier === "educator"
+                ? "border-primary bg-primary/5 shadow-md shadow-primary/5"
+                : "border-border bg-card hover:border-primary/40"
+            }`}
+          >
+            {activeTier === "educator" && (
+              <span className="absolute top-4 right-4 text-[9px] font-extrabold uppercase tracking-widest bg-primary/20 border border-primary/30 text-primary px-2.5 py-0.5 rounded-full">
+                Active Plan
+              </span>
             )}
+            <div>
+              <div className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+                Educator / Custom
+              </div>
+              <h5 className="text-lg font-black text-foreground mt-1">Classroom Hub</h5>
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                Manage student seats, tune Socratic prompt sandboxes & heatmaps.
+              </p>
+
+              {/* Dynamic Seat Slider */}
+              <div className="my-4 p-3 rounded-lg bg-muted/40 border border-border/60">
+                <div className="flex justify-between items-center text-xs font-semibold mb-2">
+                  <span className="text-muted-foreground">Student Seats</span>
+                  <span className="text-primary font-mono text-xs bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
+                    {customSeats} seats
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="1000"
+                  step="10"
+                  value={customSeats}
+                  onChange={(e) => setCustomSeats(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-lg bg-border appearance-none cursor-pointer accent-primary mb-2"
+                />
+                <div className="flex items-baseline justify-between text-xs pt-1">
+                  <span className="text-muted-foreground text-[10px]">$9 base + volume</span>
+                  <span className="text-base font-black text-foreground">
+                    ${calculateEducatorCustomPrice(customSeats)}
+                    <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 text-xs text-muted-foreground border-t border-border/60 pt-4">
+                {SUBSCRIPTION_TIERS.educator.features.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span className={f.highlight ? "font-bold text-foreground" : "text-foreground/90"}>
+                      {f.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-border/60">
+              <Button
+                variant="outline"
+                disabled={activeTier === "educator" || isUpdating}
+                onClick={() => handleSelectPlan("educator")}
+                className="w-full text-xs font-bold py-2 rounded-lg"
+              >
+                {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {activeTier === "educator"
+                  ? "Active Plan"
+                  : `Activate Educator ($${calculateEducatorCustomPrice(customSeats)}/mo)`}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ── Teacher Features Comparison Matrix ── */}
+      {isEducatorOrTeacher && (
+        <div className="mt-10 p-6 rounded-xl border border-border bg-background shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <GraduationCap className="h-5 w-5 text-primary" />
+            <h4 className="text-sm font-bold uppercase tracking-wider text-foreground">
+              Educator & Teaching Privileges Under Current Plan
+            </h4>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+            Teachers subscribed to the Educator tier unlock dedicated prompt tuning sandboxes, classroom telemetry, and student quota controls.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="p-3 rounded-lg border border-border/70 bg-card">
+              <div className="text-xs font-bold text-foreground">Socratic Sandbox</div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Fine-tune AI prompt strictness and guiding hints for your classroom syllabus.
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/70 bg-card">
+              <div className="text-xs font-bold text-foreground">Classroom Quota Manager</div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Monitor and allocate AI prompt allowances across your enrolled students.
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/70 bg-card">
+              <div className="text-xs font-bold text-foreground">Struggle Heatmap</div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Spot concepts where students repeatedly struggle across quiz attempts in real time.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }

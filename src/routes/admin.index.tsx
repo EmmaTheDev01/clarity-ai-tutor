@@ -36,13 +36,24 @@ import {
   Mail,
   Calendar,
   MessageSquare,
+  CreditCard,
+  DollarSign,
+  TrendingUp,
+  Sparkles,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   saveSystemApiKeyToDb,
   fetchSystemApiKeyFromDb,
 } from "@/lib/gemini";
+import {
+  SUBSCRIPTION_TIERS,
+  calculateEducatorCustomPrice,
+  formatPeriodEnd,
+  saveUserSubscription,
+} from "@/lib/subscription-plans";
 
-type AdminMenuTab = "overview" | "demos" | "users" | "materials" | "flashcards" | "analytics" | "logs" | "settings";
+type AdminMenuTab = "overview" | "demos" | "users" | "subscriptions" | "materials" | "flashcards" | "analytics" | "logs" | "settings";
 
 type AdminSearch = {
   tab?: AdminMenuTab;
@@ -88,7 +99,7 @@ export function AdminPortal() {
 
   // Reactive URL Search tab synchronization via TanStack Router
   const search = Route.useSearch();
-  const activeTab: AdminMenuTab = search.tab && ["overview", "demos", "users", "materials", "flashcards", "analytics", "logs", "settings"].includes(search.tab)
+  const activeTab: AdminMenuTab = search.tab && ["overview", "demos", "users", "subscriptions", "materials", "flashcards", "analytics", "logs", "settings"].includes(search.tab)
     ? search.tab
     : "overview";
 
@@ -101,6 +112,17 @@ export function AdminPortal() {
   const [quizzesCount, setQuizzesCount] = useState<number>(0);
   const [quizAttemptsCount, setQuizAttemptsCount] = useState<number>(0);
   const [pendingTeacherCount, setPendingTeacherCount] = useState<number>(0);
+
+  // Subscriptions & Revenue States
+  const [subscriptionsList, setSubscriptionsList] = useState<any[]>([]);
+  const [mrrTotal, setMrrTotal] = useState<number>(0);
+  const [activeProCount, setActiveProCount] = useState<number>(0);
+  const [activeEducatorCount, setActiveEducatorCount] = useState<number>(0);
+  const [subSearchQuery, setSubSearchQuery] = useState<string>("");
+  const [subPlanFilter, setSubPlanFilter] = useState<string>("all");
+  const [subStatusFilter, setSubStatusFilter] = useState<string>("all");
+  const [subscriptionsPage, setSubscriptionsPage] = useState<number>(1);
+  const [isSubActionWorking, setIsSubActionWorking] = useState<boolean>(false);
 
   // Live Database lists
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -317,7 +339,44 @@ export function AdminPortal() {
         console.warn("Could not fetch demo requests:", dErr);
       }
 
-      // 8. Fetch Global System Gemini API Key & App Settings from Supabase system_settings
+      // 8. Fetch Subscriptions & Calculate Real Revenue / MRR
+      try {
+        const { data: subData } = await supabase
+          .from("subscriptions")
+          .select("*, profiles(id, name, email, role)")
+          .order("updated_at", { ascending: false });
+
+        if (subData) {
+          setSubscriptionsList(subData);
+
+          let totalRevenue = 0;
+          let proCount = 0;
+          let educatorCount = 0;
+
+          subData.forEach((s) => {
+            const plan = (s.plan_tier || "").toLowerCase();
+            const isActive = s.status === "active";
+
+            if (isActive) {
+              if (plan === "pro" || plan === "premium") {
+                totalRevenue += 15;
+                proCount += 1;
+              } else if (plan === "educator" || plan === "custom") {
+                totalRevenue += 21; // Base estimate for 100 seats
+                educatorCount += 1;
+              }
+            }
+          });
+
+          setMrrTotal(totalRevenue);
+          setActiveProCount(proCount);
+          setActiveEducatorCount(educatorCount);
+        }
+      } catch (sErr) {
+        console.warn("Could not fetch subscriptions:", sErr);
+      }
+
+      // 9. Fetch Global System Gemini API Key & App Settings from Supabase system_settings
       const dbKey = await fetchSystemApiKeyFromDb();
       setSystemApiKey(dbKey || import.meta.env.VITE_GEMINI_API_KEY || "");
 
@@ -673,6 +732,49 @@ export function AdminPortal() {
   const totalDemosPages = Math.ceil(filteredDemos.length / ITEMS_PER_PAGE) || 1;
   const paginatedDemos = filteredDemos.slice((demosPage - 1) * ITEMS_PER_PAGE, demosPage * ITEMS_PER_PAGE);
 
+  // Filtered Subscriptions List & Paginated Data
+  const filteredSubscriptions = subscriptionsList.filter((sub) => {
+    if (subPlanFilter !== "all" && (sub.plan_tier || "").toLowerCase() !== subPlanFilter.toLowerCase()) return false;
+    if (subStatusFilter !== "all" && sub.status !== subStatusFilter) return false;
+    if (!subSearchQuery.trim()) return true;
+    const q = subSearchQuery.toLowerCase();
+    const uName = (sub.profiles?.name || "").toLowerCase();
+    const uEmail = (sub.profiles?.email || "").toLowerCase();
+    const tierName = (sub.plan_tier || "").toLowerCase();
+    return uName.includes(q) || uEmail.includes(q) || tierName.includes(q);
+  });
+
+  const totalSubscriptionsPages = Math.ceil(filteredSubscriptions.length / ITEMS_PER_PAGE) || 1;
+  const paginatedSubscriptions = filteredSubscriptions.slice(
+    (subscriptionsPage - 1) * ITEMS_PER_PAGE,
+    subscriptionsPage * ITEMS_PER_PAGE
+  );
+
+  // Admin actions on subscriptions
+  const handleAdminUpdateSubscription = async (
+    userId: string,
+    planTier: "free" | "pro" | "educator",
+    status: "active" | "canceled" = "active"
+  ) => {
+    setIsSubActionWorking(true);
+    try {
+      const result = await saveUserSubscription({
+        userId,
+        planTier,
+        status,
+        extendMonths: 1,
+      });
+
+      if (!result.success) throw new Error(result.error);
+      toast.success(`Subscription updated to ${planTier.toUpperCase()} (${status})`);
+      await fetchWholeSystemData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update subscription");
+    } finally {
+      setIsSubActionWorking(false);
+    }
+  };
+
   // Update Demo Request Status
   const handleUpdateDemoStatus = async (id: string, newStatus: string) => {
     setIsUpdatingDemoStatus(id);
@@ -809,12 +911,29 @@ export function AdminPortal() {
         ["Log ID", "Timestamp", "Action Type", "User ID", "Details"],
         filteredLogs.map((l) => [l.id, l.created_at, l.action_type, l.user_id || "System", l.details || ""]),
       );
+    } else if (activeTab === "subscriptions") {
+      exportToCsv(
+        `purelearn_subscriptions_revenue_${new Date().toISOString().slice(0, 10)}.csv`,
+        ["Subscription ID", "User Name", "User Email", "Plan Tier", "Status", "Period End", "Updated Date"],
+        filteredSubscriptions.map((s) => [
+          s.id,
+          s.profiles?.name || "User",
+          s.profiles?.email || "N/A",
+          s.plan_tier || "free",
+          s.status || "active",
+          s.current_period_end || "Ongoing",
+          s.updated_at,
+        ]),
+      );
     } else if (activeTab === "analytics") {
       exportToCsv(
         `purelearn_analytics_summary_${new Date().toISOString().slice(0, 10)}.csv`,
         ["Metric Name", "Value", "Description"],
         [
           ["Total System Users", totalUsers, "All registered user accounts"],
+          ["Monthly Recurring Revenue ($)", mrrTotal, "Estimated MRR from active subscriptions"],
+          ["Pro Subscribers", activeProCount, "Active $15/mo student subscriptions"],
+          ["Educator Subscribers", activeEducatorCount, "Active custom educator/school subscriptions"],
           ["Demo Requests", demosCount, "Total institutional and user demo requests"],
           ["Pending Demos", pendingDemosCount, "Demo requests awaiting response"],
           ["Students Count", studentCount, "Enrolled student accounts"],
@@ -828,7 +947,7 @@ export function AdminPortal() {
         ],
       );
     } else {
-      toast.info("Select Demos, Users, Materials, Flashcards, Analytics, or Logs to export CSV data.");
+      toast.info("Select Demos, Users, Subscriptions, Materials, Flashcards, Analytics, or Logs to export CSV data.");
     }
   };
 
@@ -843,6 +962,7 @@ export function AdminPortal() {
               {activeTab === "overview" && "System Overview"}
               {activeTab === "demos" && "Institutional & User Demo Requests"}
               {activeTab === "users" && "User Directory & Management"}
+              {activeTab === "subscriptions" && "Subscriptions & Revenue Management"}
               {activeTab === "materials" && "Platform Study Materials"}
               {activeTab === "flashcards" && "System Flashcard Decks"}
               {activeTab === "analytics" && "System Telemetry & Analytics"}
@@ -986,6 +1106,32 @@ export function AdminPortal() {
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
                   {pendingTeacherCount > 0 ? "Pending verification action" : "All educators verified"}
+                </div>
+              </Card>
+
+              {/* Subscriptions & MRR Overview Card */}
+              <Card
+                className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm hover:border-primary/40 transition-colors cursor-pointer group"
+                onClick={() => navigate({ to: "/admin", search: { tab: "subscriptions" } })}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Monthly Recurring Revenue
+                      </p>
+                    </div>
+                    <h3 className="mt-2 text-3xl font-black tracking-tight text-primary font-mono">
+                      ${mrrTotal}
+                    </h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>{subscriptionsList.length} total subscribers</span>
+                  <span className="font-semibold text-primary group-hover:underline">Manage Revenue →</span>
                 </div>
               </Card>
             </div>
@@ -1600,7 +1746,317 @@ export function AdminPortal() {
           </Card>
         )}
 
-        {/* ── 3. MATERIALS MENU TAB WITH PAGINATION ── */}
+        {/* ── 4. SUBSCRIPTIONS & REVENUE MENU TAB ── */}
+        {activeTab === "subscriptions" && (
+          <div className="space-y-6 w-full">
+            {/* Revenue Analytics Metrics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+              {/* MRR Card */}
+              <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Monthly Recurring Revenue
+                    </p>
+                    <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground font-mono">
+                      ${mrrTotal}
+                    </h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <DollarSign className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between items-center">
+                  <span>Based on active subscriptions</span>
+                  <span className="text-primary font-bold font-mono">MRR</span>
+                </div>
+              </Card>
+
+              {/* Total Subscriptions Card */}
+              <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Total Subscribers
+                    </p>
+                    <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                      {subscriptionsList.length}
+                    </h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between">
+                  <span>Active: {subscriptionsList.filter((s) => s.status === "active").length}</span>
+                  <span>Canceled: {subscriptionsList.filter((s) => s.status === "canceled").length}</span>
+                </div>
+              </Card>
+
+              {/* Pro Subscribers */}
+              <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Pro Learners ($15/mo)
+                    </p>
+                    <h3 className="mt-2 text-3xl font-black tracking-tight text-primary">
+                      {activeProCount}
+                    </h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between">
+                  <span>Unlimited Prompts</span>
+                  <span className="font-mono font-bold">${activeProCount * 15}/mo</span>
+                </div>
+              </Card>
+
+              {/* Educator Custom Subscribers */}
+              <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Educator Hubs ($9+seats)
+                    </p>
+                    <h3 className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                      {activeEducatorCount}
+                    </h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-lg border border-border bg-muted flex items-center justify-center text-foreground shrink-0">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between">
+                  <span>Classrooms & Seats</span>
+                  <span className="font-mono font-bold">${activeEducatorCount * 21}/mo</span>
+                </div>
+              </Card>
+            </div>
+
+            {/* Subscriptions Table Card */}
+            <Card className="p-6 bg-background border border-border rounded-xl space-y-4 shadow-sm w-full">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">
+                    Subscriptions & Revenue Ledger ({subscriptionsList.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Live subscriptions persisted directly in Supabase <code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">subscriptions</code> table.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={subSearchQuery}
+                      onChange={(e) => setSubSearchQuery(e.target.value)}
+                      placeholder="Search user or tier..."
+                      className="pl-9 pr-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-foreground"
+                    />
+                  </div>
+
+                  <select
+                    value={subPlanFilter}
+                    onChange={(e) => setSubPlanFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-foreground"
+                  >
+                    <option value="all">All Plans</option>
+                    <option value="free">Free Tier</option>
+                    <option value="pro">Pro Learner</option>
+                    <option value="educator">Educator / Custom</option>
+                  </select>
+
+                  <select
+                    value={subStatusFilter}
+                    onChange={(e) => setSubStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-foreground"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active Only</option>
+                    <option value="canceled">Canceled Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto pt-2">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground uppercase font-mono text-[10px]">
+                      <th className="pb-3 font-semibold">User</th>
+                      <th className="pb-3 font-semibold">Role</th>
+                      <th className="pb-3 font-semibold">Subscribed Plan</th>
+                      <th className="pb-3 font-semibold">Status</th>
+                      <th className="pb-3 font-semibold">Period End / Renewal</th>
+                      <th className="pb-3 font-semibold">Updated</th>
+                      <th className="pb-3 font-semibold text-right">Manage Subscription</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {filteredSubscriptions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                          No subscription records found matching criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedSubscriptions.map((sub) => {
+                        const planKey = (sub.plan_tier || "free").toLowerCase();
+                        const periodEnd = formatPeriodEnd(sub.current_period_end);
+
+                        return (
+                          <tr key={sub.id || sub.user_id} className="hover:bg-muted/40 transition-colors">
+                            <td className="py-3.5">
+                              <div className="font-bold text-foreground">
+                                {sub.profiles?.name || "User"}
+                              </div>
+                              <div className="text-muted-foreground font-mono text-[11px]">
+                                {sub.profiles?.email || "N/A"}
+                              </div>
+                            </td>
+                            <td className="py-3.5">
+                              <span className="font-mono uppercase font-bold text-[10px] px-2 py-0.5 rounded bg-muted text-foreground">
+                                {sub.profiles?.role || "student"}
+                              </span>
+                            </td>
+                            <td className="py-3.5">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  planKey === "pro" || planKey === "premium"
+                                    ? "bg-primary/10 border-primary/30 text-primary"
+                                    : planKey === "educator" || planKey === "custom"
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                    : "bg-muted border-border text-muted-foreground"
+                                }`}
+                              >
+                                {planKey === "pro" || planKey === "premium"
+                                  ? "Pro Learner ($15)"
+                                  : planKey === "educator" || planKey === "custom"
+                                  ? "Educator Hub"
+                                  : "Free Tier ($0)"}
+                              </span>
+                            </td>
+                            <td className="py-3.5">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  sub.status === "active"
+                                    ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                {sub.status || "active"}
+                              </span>
+                            </td>
+                            <td className="py-3.5 font-mono text-muted-foreground text-[11px]">
+                              {sub.current_period_end ? (
+                                <div>
+                                  <div>{periodEnd.formattedDate}</div>
+                                  <div className="text-[10px] text-muted-foreground/80">
+                                    {periodEnd.daysRemaining} days remaining
+                                  </div>
+                                </div>
+                              ) : (
+                                "Ongoing / Lifetime"
+                              )}
+                            </td>
+                            <td className="py-3.5 text-muted-foreground text-[11px]">
+                              {sub.updated_at ? new Date(sub.updated_at).toLocaleDateString() : "—"}
+                            </td>
+                            <td className="py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Grant Pro Button */}
+                                {planKey !== "pro" && planKey !== "premium" && (
+                                  <button
+                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, "pro", "active")}
+                                    disabled={isSubActionWorking}
+                                    className="px-2 py-1 rounded border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-colors disabled:opacity-50"
+                                    title="Upgrade user to Pro ($15/mo)"
+                                  >
+                                    Grant Pro
+                                  </button>
+                                )}
+
+                                {/* Grant Educator Button */}
+                                {planKey !== "educator" && (
+                                  <button
+                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, "educator", "active")}
+                                    disabled={isSubActionWorking}
+                                    className="px-2 py-1 rounded border border-border bg-background hover:bg-muted text-foreground text-[10px] font-bold transition-colors disabled:opacity-50"
+                                    title="Upgrade user to Educator Hub"
+                                  >
+                                    Grant Educator
+                                  </button>
+                                )}
+
+                                {/* Extend 1 Month Button */}
+                                {planKey !== "free" && (
+                                  <button
+                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, planKey as any, "active")}
+                                    disabled={isSubActionWorking}
+                                    className="px-2 py-1 rounded border border-border bg-background hover:bg-muted text-foreground text-[10px] font-bold transition-colors disabled:opacity-50"
+                                    title="Extend renewal by 1 month"
+                                  >
+                                    +1 Month
+                                  </button>
+                                )}
+
+                                {/* Cancel Subscription */}
+                                {sub.status === "active" && planKey !== "free" && (
+                                  <button
+                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, planKey as any, "canceled")}
+                                    disabled={isSubActionWorking}
+                                    className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] font-bold transition-colors disabled:opacity-50"
+                                    title="Cancel subscription"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Subscriptions Pagination Bar */}
+              {filteredSubscriptions.length > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
+                  <div className="text-muted-foreground font-mono">
+                    Showing {(subscriptionsPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(subscriptionsPage * ITEMS_PER_PAGE, filteredSubscriptions.length)} of {filteredSubscriptions.length} subscriptions
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSubscriptionsPage((p) => Math.max(1, p - 1))}
+                      disabled={subscriptionsPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <span className="font-mono text-muted-foreground px-2">
+                      Page {subscriptionsPage} of {totalSubscriptionsPages}
+                    </span>
+                    <button
+                      onClick={() => setSubscriptionsPage((p) => Math.min(totalSubscriptionsPages, p + 1))}
+                      disabled={subscriptionsPage >= totalSubscriptionsPages}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* ── 5. MATERIALS MENU TAB WITH PAGINATION ── */}
         {activeTab === "materials" && (
           <Card className="p-6 bg-background border border-border rounded-xl space-y-4 shadow-sm w-full">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

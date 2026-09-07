@@ -57,6 +57,7 @@ const adminNav = [
   { to: "/admin", tab: "overview", label: "Overview", icon: LayoutDashboard },
   { to: "/admin", tab: "demos", label: "Demo Requests", icon: Presentation },
   { to: "/admin", tab: "users", label: "Users", icon: Users },
+  { to: "/admin", tab: "subscriptions", label: "Subscriptions & Revenue", icon: CreditCard },
   { to: "/admin", tab: "materials", label: "Materials", icon: FileText },
   { to: "/admin", tab: "flashcards", label: "Flashcards", icon: Layers },
   { to: "/admin", tab: "analytics", label: "Analytics (System)", icon: BarChart3 },

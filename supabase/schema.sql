@@ -324,8 +324,8 @@ ALTER TABLE public.demo_requests ENABLE ROW LEVEL SECURITY;
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-    plan_name TEXT NOT NULL DEFAULT 'Free', -- 'Free', 'Pro', 'Enterprise'
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
+    plan_tier TEXT NOT NULL DEFAULT 'free', -- 'free', 'pro', 'educator'
     status TEXT NOT NULL DEFAULT 'active', -- 'active', 'canceled', 'trialing'
     current_period_end TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,

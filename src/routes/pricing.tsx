@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Brain, Check, ArrowRight, Loader2 } from "lucide-react";
+import { Brain, Check, ArrowRight, Loader2, Lock } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ function PricingPage() {
   const navigate = useNavigate();
   const [studentCount, setStudentCount] = useState(100);
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>("student");
   const [currentTier, setCurrentTier] = useState<string>("free");
   const [loading, setLoading] = useState(false);
 
@@ -22,6 +23,18 @@ function PricingPage() {
       const { data } = await supabase.auth.getSession();
       if (data.session?.user) {
         setUser(data.session.user);
+
+        // Fetch user role from profiles table
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
+
+        if (profile?.role) {
+          setUserRole(profile.role);
+        }
+
         // Load active subscription tier
         const { data: sub } = await supabase
           .from("subscriptions")
@@ -192,9 +205,19 @@ function PricingPage() {
           </Card>
 
           {/* Custom Plan (Interactive Slider) */}
-          <Card className="p-8 flex flex-col relative overflow-hidden bg-elevated/20 border border-border/50 rounded-2xl">
-            <h3 className="text-lg font-bold text-foreground">Educator / Custom</h3>
-            <p className="mt-2 text-xs text-muted-foreground">Adjust seats for classrooms & verification.</p>
+          <Card className={`p-8 flex flex-col relative overflow-hidden bg-elevated/20 border border-border/50 rounded-2xl ${user && userRole !== "teacher" && userRole !== "admin" ? "opacity-75" : ""}`}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Educator / Custom</h3>
+                <p className="mt-2 text-xs text-muted-foreground">Adjust seats for classrooms & verification.</p>
+              </div>
+              {user && userRole !== "teacher" && userRole !== "admin" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border shrink-0">
+                  <Lock className="h-3 w-3" />
+                  Educators Only
+                </span>
+              )}
+            </div>
 
             {/* Interactive Slider Area */}
             <div className="my-6 flex-1 flex flex-col justify-center">
@@ -209,16 +232,19 @@ function PricingPage() {
                 min="10"
                 max="1000"
                 step="10"
+                disabled={Boolean(user && userRole !== "teacher" && userRole !== "admin")}
                 value={studentCount}
                 onChange={(e) => setStudentCount(Number(e.target.value))}
-                className="w-full h-1.5 rounded-lg bg-border appearance-none cursor-pointer accent-primary mb-4"
+                className="w-full h-1.5 rounded-lg bg-border appearance-none cursor-pointer accent-primary mb-4 disabled:opacity-40 disabled:cursor-not-allowed"
               />
               <div className="flex items-baseline justify-center gap-1 mb-2">
                 <span className="text-4xl font-extrabold text-foreground">${calculateCustomPrice(studentCount)}</span>
                 <span className="text-muted-foreground text-xs font-medium">/ month</span>
               </div>
               <p className="text-[10px] text-muted-foreground text-center mb-6">
-                Calculated at $9 base + volume student pricing.
+                {user && userRole !== "teacher" && userRole !== "admin"
+                  ? "Available exclusively to verified educator accounts."
+                  : "Calculated at $9 base + volume student pricing."}
               </p>
             </div>
 
@@ -237,13 +263,24 @@ function PricingPage() {
               </li>
             </ul>
             {user ? (
-              <button
-                disabled={loading || currentTier === "educator"}
-                onClick={() => handlePlanSelect("educator")}
-                className="w-full py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
-              >
-                {currentTier === "educator" ? "Current Plan" : `Build Classroom ($${calculateCustomPrice(studentCount)}/mo)`}
-              </button>
+              userRole === "teacher" || userRole === "admin" ? (
+                <button
+                  disabled={loading || currentTier === "educator"}
+                  onClick={() => handlePlanSelect("educator")}
+                  className="w-full py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                >
+                  {currentTier === "educator" ? "Current Plan" : `Build Classroom ($${calculateCustomPrice(studentCount)}/mo)`}
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-2.5 rounded-lg border border-border bg-muted/60 text-muted-foreground text-center text-xs font-bold transition disabled:opacity-50 cursor-not-allowed flex items-center justify-center gap-1.5"
+                  title="Educator account required"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  Educator Account Required
+                </button>
+              )
             ) : (
               <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
                 Build Classroom
