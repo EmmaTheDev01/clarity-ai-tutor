@@ -4,7 +4,14 @@ import { Send } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({ meta: [{ title: "Contact Us — purelearn.ai" }] }),
+  head: () => ({
+    meta: [
+      { title: "Contact Purelearn.ai | AI Tutoring Support" },
+      { name: "description", content: "Contact Purelearn.ai for product support, educator partnerships, and questions about our AI tutoring platform." },
+      { property: "og:url", content: "https://purelearn.vigilance.rw/contact" },
+    ],
+    links: [{ rel: "canonical", href: "https://purelearn.vigilance.rw/contact" }],
+  }),
   component: ContactPage,
 });
 

@@ -22,6 +22,23 @@ import {
 import appMockup from "@/assets/app-mockup.jpg";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "AI Tutor for Personalised, Socratic Learning | Purelearn.ai" },
+      {
+        name: "description",
+        content:
+          "Study smarter with an AI tutor that turns your documents into guided Socratic chats, clear notes, flashcards, and practice questions—built for every learning style.",
+      },
+      { property: "og:title", content: "AI Tutor for Personalised, Socratic Learning | Purelearn.ai" },
+      {
+        property: "og:description",
+        content: "Turn your study materials into guided chats, notes, flashcards, and practice questions with Purelearn.ai.",
+      },
+      { property: "og:url", content: "https://purelearn.vigilance.rw/" },
+    ],
+    links: [{ rel: "canonical", href: "https://purelearn.vigilance.rw/" }],
+  }),
   component: Landing,
 });
 

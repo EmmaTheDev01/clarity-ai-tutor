@@ -4,7 +4,14 @@ import { Brain, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/blog")({
-  head: () => ({ meta: [{ title: "Blog — purelearn.ai" }] }),
+  head: () => ({
+    meta: [
+      { title: "Learning, AI Tutoring & Study Skills Blog | Purelearn.ai" },
+      { name: "description", content: "Practical articles on Socratic learning, accessible study habits, ADHD-friendly design, and AI tutoring." },
+      { property: "og:url", content: "https://purelearn.vigilance.rw/blog" },
+    ],
+    links: [{ rel: "canonical", href: "https://purelearn.vigilance.rw/blog" }],
+  }),
   component: BlogPage,
 });
 

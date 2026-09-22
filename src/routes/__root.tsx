@@ -15,6 +15,10 @@ import appCss from "../styles.css?url";
 
 import { NotFoundPage } from "@/components/NotFoundPage";
 
+const SITE_URL = "https://purelearn.vigilance.rw";
+const DEFAULT_DESCRIPTION =
+  "Purelearn.ai is an AI tutor for personalised, Socratic learning. Turn study materials into guided chats, notes, flashcards, and practice questions.";
+
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   
@@ -59,17 +63,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "purelearn.ai — An AI tutor made exactly for you" },
       {
         name: "description",
-        content:
-          "Turn your notes, documents, and reference materials into interactive chats, summaries, and personalized practice exams instantly.",
+        content: DEFAULT_DESCRIPTION,
       },
-      { property: "og:title", content: "tutor.vigilance.rw — An AI tutor made exactly for you" },
+      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
+      { name: "author", content: "Purelearn.ai" },
+      { property: "og:title", content: "Purelearn.ai — AI tutor for personalised learning" },
       {
         property: "og:description",
-        content:
-          "Turn your notes, documents, and reference materials into interactive chats, summaries, and personalized practice exams instantly.",
+        content: DEFAULT_DESCRIPTION,
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: SITE_URL },
+      { property: "og:site_name", content: "Purelearn.ai" },
+      { property: "og:image", content: `${SITE_URL}/logo.png` },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Purelearn.ai — AI tutor for personalised learning" },
+      { name: "twitter:description", content: DEFAULT_DESCRIPTION },
+      { name: "twitter:image", content: `${SITE_URL}/logo.png` },
     ],
     links: [
       {
@@ -87,6 +97,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/site.webmanifest" },
+      { rel: "canonical", href: SITE_URL },
     ],
   }),
   shellComponent: RootShell,

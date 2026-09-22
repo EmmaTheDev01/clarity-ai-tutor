@@ -3,6 +3,8 @@ Allow: /
 Disallow: /app/
 Disallow: /admin/
 Disallow: /teacher/
+Disallow: /auth/
+Disallow: /register/
+Disallow: /request-demo/
 
-# Sitemaps can be added here
-Sitemap: https://purelearn.ai/sitemap.xml
+Sitemap: https://purelearn.vigilance.rw/sitemap.xml

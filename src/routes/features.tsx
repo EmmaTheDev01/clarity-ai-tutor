@@ -3,7 +3,14 @@ import { Brain, BrainCircuit, BookOpen, Layers, Zap } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/features")({
-  head: () => ({ meta: [{ title: "Core Features — purelearn.ai" }] }),
+  head: () => ({
+    meta: [
+      { title: "AI Tutor Features: Notes, Flashcards & Practice | Purelearn.ai" },
+      { name: "description", content: "Explore Purelearn.ai features: Socratic AI tutoring, accessible learning modes, study notes, flashcards, and clear STEM formatting." },
+      { property: "og:url", content: "https://purelearn.vigilance.rw/features" },
+    ],
+    links: [{ rel: "canonical", href: "https://purelearn.vigilance.rw/features" }],
+  }),
   component: FeaturesPage,
 });
 

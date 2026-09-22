@@ -7,7 +7,14 @@ import { toast } from "sonner";
 import { saveUserSubscription } from "@/lib/subscription-plans";
 
 export const Route = createFileRoute("/pricing")({
-  head: () => ({ meta: [{ title: "Pricing & Plans — purelearn.ai" }] }),
+  head: () => ({
+    meta: [
+      { title: "AI Tutor Pricing & Plans | Purelearn.ai" },
+      { name: "description", content: "Choose a Purelearn.ai plan for personalised AI tutoring, study tools, and educator-friendly learning support." },
+      { property: "og:url", content: "https://purelearn.vigilance.rw/pricing" },
+    ],
+    links: [{ rel: "canonical", href: "https://purelearn.vigilance.rw/pricing" }],
+  }),
   component: PricingPage,
 });
 
