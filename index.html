@@ -30,6 +30,14 @@
     <script>
       (function () {
         try {
+          // Public-facing pages are always light; workspace routes may use a
+          // learner's saved theme preference.
+          var isWorkspaceRoute = /^\/(app|admin|teacher)(?:\/|$)/.test(window.location.pathname);
+          if (!isWorkspaceRoute) {
+            document.documentElement.classList.add('light');
+            return;
+          }
+
           var theme = localStorage.getItem('purelearn-theme') || 'light';
           var validThemes = ['light', 'dark', 'system', 'low-light'];
           if (!validThemes.includes(theme)) theme = 'light';

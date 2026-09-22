@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
 
 export type Theme = "light" | "dark" | "system" | "low-light";
@@ -16,6 +17,14 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
   const [scaling, setScalingState] = useState<Scaling>("standard");
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const isWorkspaceRoute =
+    pathname === "/app" ||
+    pathname.startsWith("/app/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
+    pathname === "/teacher" ||
+    pathname.startsWith("/teacher/");
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("purelearn-theme") as Theme;
@@ -50,13 +59,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = window.document.documentElement;
     root.classList.remove("light", "dark", "low-light");
     
-    if (theme === "system") {
+    // Theme preferences are for the authenticated workspace only. Marketing,
+    // auth, and legal pages always use the light palette.
+    if (!isWorkspaceRoute) {
+      root.classList.add("light");
+    } else if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       root.classList.add(systemTheme);
     } else {
       root.classList.add(theme);
     }
-  }, [theme]);
+  }, [isWorkspaceRoute, theme]);
 
   useEffect(() => {
     const root = window.document.documentElement;

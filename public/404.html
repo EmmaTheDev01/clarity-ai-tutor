@@ -28,23 +28,8 @@
     <!-- Theme init: runs before render to prevent flash of wrong theme -->
     <script>
       (function () {
-        try {
-          var theme = localStorage.getItem('purelearn-theme') || 'light';
-          var validThemes = ['light', 'dark', 'system', 'low-light'];
-          if (!validThemes.includes(theme)) theme = 'light';
-
-          var el = document.documentElement;
-          el.classList.remove('light', 'dark', 'low-light');
-
-          if (theme === 'system') {
-            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            el.classList.add(prefersDark ? 'dark' : 'light');
-          } else {
-            el.classList.add(theme);
-          }
-        } catch (e) {
-          document.documentElement.classList.add('light');
-        }
+        // A not-found page is public content, so it always uses light mode.
+        document.documentElement.classList.add('light');
       })();
     </script>
   </head>
