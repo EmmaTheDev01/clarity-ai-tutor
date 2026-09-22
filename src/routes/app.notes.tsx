@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   UserPlus,
   Loader2,
+  PenTool,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
@@ -1098,10 +1099,18 @@ function NotesPage() {
             </div>
             <button
               onClick={handleAddNote}
-              className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground hover:opacity-90"
-              title="Add Note"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:opacity-90"
+              title="Add Typed Note"
             >
               <Plus className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => navigate({ to: "/app/notepad" })}
+              className="flex h-9 px-2.5 items-center gap-1.5 shrink-0 rounded-md border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold shadow-xs"
+              title="Open Tablet Scratchpad (Apple Pencil & S-Pen)"
+            >
+              <PenTool className="h-3.5 w-3.5 text-blue-500" />
+              <span className="hidden sm:inline">Tablet Notepad</span>
             </button>
           </div>
 

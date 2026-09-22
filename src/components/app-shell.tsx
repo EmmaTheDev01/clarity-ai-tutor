@@ -35,6 +35,7 @@ import {
   Cpu,
   Key,
   Loader2,
+  PenTool,
   ArrowRight,
   LogOut,
 } from "lucide-react";
@@ -42,11 +43,13 @@ import { Kbd } from "./ui-kit";
 import { toast } from "sonner";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 import { useDailyReminders } from "@/hooks/use-daily-reminders";
+import { InteractiveAppTour, startAppTour } from "@/components/InteractiveAppTour";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutGrid, exact: true },
   { to: "/app/library", label: "Library", icon: Library, exact: false },
   { to: "/app/notes", label: "Notes", icon: FileText, exact: false },
+  { to: "/app/notepad", label: "Notepad", icon: PenTool, exact: false },
   { to: "/app/flashcards", label: "Flashcards", icon: Layers, exact: false },
   { to: "/app/teasers", label: "Brain Teasers", icon: Gamepad2, exact: false },
   { to: "/app/analytics", label: "Analytics", icon: BarChart3, exact: false },
@@ -264,6 +267,15 @@ export function AppShell({
               badge: "Notes",
               icon: FileText,
               onSelect: () => { navigate({ to: "/app/notes" }); setIsSearchOpen(false); },
+            },
+            {
+              id: "s_notepad",
+              category: "Study Workspace",
+              title: "Tablet Scratchpad & Handwriting",
+              subtitle: "Apple Pencil & stylus natural scratchpad with Socratic AI synthesis",
+              badge: "Notepad",
+              icon: PenTool,
+              onSelect: () => { navigate({ to: "/app/notepad" }); setIsSearchOpen(false); },
             },
             {
               id: "s_flashcards",
@@ -1469,6 +1481,7 @@ export function AppShell({
                 )}
               </div>
 
+
               {/* Cognitive Accessibility Dropdown */}
               <div className="relative cognitive-trigger-container hidden sm:block">
                 <button
@@ -1588,6 +1601,7 @@ export function AppShell({
                           <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
                           Billing &amp; Plan
                         </Link>
+
                       </div>
 
                       {/* Sign Out */}
@@ -1679,6 +1693,9 @@ export function AppShell({
           </div>
         </div>
       )}
+
+      {/* Interactive Guided App Tour */}
+      <InteractiveAppTour />
     </div>
   );
 }

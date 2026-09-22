@@ -836,3 +836,45 @@ CREATE POLICY "Users manage own study files" ON storage.objects
     ) WITH CHECK (
         bucket_id = 'study-files' AND auth.uid()::text = (storage.foldername(name))[1]
     );
+
+-- =========================================================================
+-- 23. TABLET NOTEPAD & SCRATCHPADS (Apple Pencil & Stylus with AI Socratic Synthesis)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.scratchpads (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    student_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    title TEXT NOT NULL DEFAULT 'Untitled Scratchpad',
+    subject TEXT DEFAULT 'General',
+    strokes_data JSONB NOT NULL DEFAULT '[]'::jsonb,
+    thumbnail_url TEXT,
+    paper_style TEXT NOT NULL DEFAULT 'grid' CHECK (paper_style IN ('blank', 'ruled', 'grid', 'dots')),
+    paper_theme TEXT NOT NULL DEFAULT 'light' CHECK (paper_theme IN ('light', 'dark', 'yellow_pad', 'sepia')),
+    ai_analysis JSONB,
+    linked_note_id UUID REFERENCES public.notes(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_scratchpads_student ON public.scratchpads(student_id);
+CREATE INDEX IF NOT EXISTS idx_scratchpads_updated ON public.scratchpads(updated_at DESC);
+
+ALTER TABLE public.scratchpads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Students manage own scratchpads" ON public.scratchpads;
+CREATE POLICY "Students manage own scratchpads" ON public.scratchpads
+    FOR ALL
+    TO authenticated
+    USING (student_id = auth.uid())
+    WITH CHECK (student_id = auth.uid());
+
+DROP POLICY IF EXISTS "Admins have full access on scratchpads" ON public.scratchpads;
+CREATE POLICY "Admins have full access on scratchpads" ON public.scratchpads
+    FOR ALL
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+        )
+    );
+

@@ -34,6 +34,7 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-pas
 import { Route as AppTeasersRouteImport } from './routes/app.teasers'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppNotesRouteImport } from './routes/app.notes'
+import { Route as AppNotepadRouteImport } from './routes/app.notepad'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppFlashcardsRouteImport } from './routes/app.flashcards'
 import { Route as AppAnalyticsRouteImport } from './routes/app.analytics'
@@ -164,6 +165,11 @@ const AppNotesRoute = AppNotesRouteImport.update({
   path: '/app/notes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppNotepadRoute = AppNotepadRouteImport.update({
+  id: '/app/notepad',
+  path: '/app/notepad',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppLibraryRoute = AppLibraryRouteImport.update({
   id: '/app/library',
   path: '/app/library',
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/flashcards': typeof AppFlashcardsRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/notepad': typeof AppNotepadRoute
   '/app/notes': typeof AppNotesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/teasers': typeof AppTeasersRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/flashcards': typeof AppFlashcardsRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/notepad': typeof AppNotepadRoute
   '/app/notes': typeof AppNotesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/teasers': typeof AppTeasersRoute
@@ -265,6 +273,7 @@ export interface FileRoutesById {
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/flashcards': typeof AppFlashcardsRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/notepad': typeof AppNotepadRoute
   '/app/notes': typeof AppNotesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/teasers': typeof AppTeasersRoute
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/flashcards'
     | '/app/library'
+    | '/app/notepad'
     | '/app/notes'
     | '/app/settings'
     | '/app/teasers'
@@ -329,6 +339,7 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/flashcards'
     | '/app/library'
+    | '/app/notepad'
     | '/app/notes'
     | '/app/settings'
     | '/app/teasers'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/flashcards'
     | '/app/library'
+    | '/app/notepad'
     | '/app/notes'
     | '/app/settings'
     | '/app/teasers'
@@ -392,6 +404,7 @@ export interface RootRouteChildren {
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppFlashcardsRoute: typeof AppFlashcardsRoute
   AppLibraryRoute: typeof AppLibraryRoute
+  AppNotepadRoute: typeof AppNotepadRoute
   AppNotesRoute: typeof AppNotesRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTeasersRoute: typeof AppTeasersRoute
@@ -584,6 +597,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/notepad': {
+      id: '/app/notepad'
+      path: '/app/notepad'
+      fullPath: '/app/notepad'
+      preLoaderRoute: typeof AppNotepadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/library': {
       id: '/app/library'
       path: '/app/library'
@@ -632,6 +652,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppFlashcardsRoute: AppFlashcardsRoute,
   AppLibraryRoute: AppLibraryRoute,
+  AppNotepadRoute: AppNotepadRoute,
   AppNotesRoute: AppNotesRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTeasersRoute: AppTeasersRoute,
