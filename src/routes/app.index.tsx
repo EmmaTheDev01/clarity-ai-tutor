@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, BrainCircuit, Bot, Target } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, BrainCircuit, Bot, Target, Headphones, Volume2 } from "lucide-react";
 import { triggerCelebration, unlockBadge } from "@/lib/celebration";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
 import { MaterialQuizModal } from "@/components/MaterialQuizModal";
+import { SocraticAudioModal, SocraticAudioMiniPopup, useSocraticAudio } from "@/components/SocraticAudioModal";
 import { SvgBadge, getUnderstandingCategory, getBadgeTypeFromName, computeUnlockedBadges, ALL_PLATFORM_BADGES } from "@/components/ui/svg-badges";
 import { calculateDailyStreak, syncStreakWithDatabase } from "@/lib/streak";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +23,7 @@ import {
   togglePinMaterial,
   uploadLearningMaterial,
 } from "@/lib/learning-materials";
-import { geminiModel, generateGeminiText, streamGeminiText, GeminiContent, GeminiContentPart } from "@/lib/gemini";
+import { geminiModel, generateGeminiText, streamGeminiText, generateGeminiStructured, GeminiContent, GeminiContentPart } from "@/lib/gemini";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
@@ -139,6 +140,13 @@ type Message = {
   timestamp?: string;
   image?: string;
   images?: string[];
+  commandAction?: {
+    showQuiz?: boolean;
+    showFlashcards?: boolean;
+    showAudio?: boolean;
+    materialTitle?: string;
+    materialId?: string;
+  };
 };
 
 type CognitiveProfile = "standard" | "adhd" | "dyslexia" | "sensory";
@@ -171,12 +179,20 @@ function toBionic(text: string) {
   });
 }
 
+const MATERIAL_COMMANDS = [
+  { id: "quiz", cmd: "@quiz", label: "Material Quiz", desc: "Generate & launch Socratic quiz", icon: HelpCircle },
+  { id: "flashcards", cmd: "@flashcards", label: "Flashcards", desc: "Generate precision study flashcards", icon: Layers },
+  { id: "audio", cmd: "@audio", label: "Listen (Audio Notes)", desc: "Spoken concept explanation of notes & chat", icon: Headphones },
+  { id: "all", cmd: "@all", label: "Generate All", desc: "Quiz + Flashcards + Audio all at once", icon: Zap },
+];
+
 function Dashboard() {
   const [materials, setMaterials] = useState<LearningMaterial[]>([]);
   const [activeDoc, setActiveDoc] = useState<LearningMaterial | null>(null);
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [inputText, setInputText] = useState("");
+  const [activeCommandIdx, setActiveCommandIdx] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showStudyTools, setShowStudyTools] = useState(false);
@@ -207,6 +223,42 @@ function Dashboard() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Track @-command autocomplete
+  const atMatch = inputText.match(/(?:^|\s)@([a-zA-Z0-9]*)$/);
+  const atQuery = atMatch ? atMatch[1].toLowerCase() : null;
+  const matchingCommands = atQuery !== null
+    ? MATERIAL_COMMANDS.filter((c) => {
+        const q = atQuery.trim();
+        return !q || c.cmd.slice(1).startsWith(q) || c.id.startsWith(q) || c.label.toLowerCase().includes(q);
+      })
+    : [];
+
+  useEffect(() => {
+    setActiveCommandIdx(0);
+  }, [inputText]);
+
+  const handleCompleteCommand = (completedCmd: string) => {
+    const textarea = chatInputRef.current;
+    const cursorPos = textarea ? textarea.selectionStart : inputText.length;
+    const textBefore = inputText.slice(0, cursorPos);
+    const textAfter = inputText.slice(cursorPos);
+
+    // Replace the trailing @... in textBefore with completedCmd + ' '
+    const replacedBefore = textBefore.replace(/@([a-zA-Z0-9]*)$/, `${completedCmd} `);
+    const newText = replacedBefore + textAfter;
+
+    setInputText(newText);
+    setActiveCommandIdx(0);
+
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        const newCursorPos = replacedBefore.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
   // Gamification & Understanding metrics
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -221,6 +273,7 @@ function Dashboard() {
     content: string;
     id?: string;
   }>({ title: "", content: "" });
+  const audioSession = useSocraticAudio();
   const [showAddMaterialForm, setShowAddMaterialForm] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isDropUploading, setIsDropUploading] = useState(false);
@@ -858,9 +911,335 @@ function Dashboard() {
     }, 1500);
   };
 
+  // Execute Socratic in-chat commands (@quiz, @flashcards, @audio, @all)
+  const executeChatCommand = async (
+    cmdType: "quiz" | "flashcards" | "audio" | "all",
+    extraInstructions = "",
+    targetDoc: LearningMaterial
+  ) => {
+    const docId = targetDoc.id || "general";
+
+    if (cmdType === "quiz") {
+      setQuizModalMaterial({
+        title: targetDoc.title || "Active Discussion",
+        content: `${targetDoc.content || ""}\n${extraInstructions ? "Focus: " + extraInstructions : ""}`,
+        id: targetDoc.id,
+      });
+      setIsQuizModalOpen(true);
+      toast.success(`Material Quiz launched for "${targetDoc.title}"!`);
+
+      const aiMsg: Message = {
+        from: "ai",
+        text: `### 🎯 Socratic Quiz Launched\n\nI have prepared an adaptive understanding quiz for **${targetDoc.title}**${extraInstructions ? ` *(Focus: ${extraInstructions})*` : ""
+          }.\n\nTest your first-principles comprehension, tackle subtle edge cases, and earn XP towards your daily mastery streak.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        commandAction: {
+          showQuiz: true,
+          materialTitle: targetDoc.title,
+          materialId: targetDoc.id,
+        },
+      };
+
+      setChatHistories((prev) => ({
+        ...prev,
+        [docId]: [...(prev[docId] || []), aiMsg],
+      }));
+      return;
+    }
+
+    if (cmdType === "audio") {
+      // Gather any recent tutor chat explanations so the audio explains both the notes and recent chat responses
+      const recentChatExplanations = (chatHistories[docId] || [])
+        .filter((m) => m.from === "ai" && m.text && m.text.length > 20)
+        .slice(-3)
+        .map((m) => m.text)
+        .join("\n\n---\n\n");
+
+      const aggregatedContent = [
+        targetDoc.content || "",
+        recentChatExplanations ? `Recent Chat Explanations:\n${recentChatExplanations}` : "",
+        extraInstructions ? `Focus Topic: ${extraInstructions}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      audioSession.openModal({
+        title: targetDoc.title || "Active Discussion",
+        content: aggregatedContent || targetDoc.title || "Core Concepts",
+        id: targetDoc.id,
+      });
+      toast.success(`Audio Note Breakdown launched for "${targetDoc.title}"!`);
+
+      const aiMsg: Message = {
+        from: "ai",
+        text: `### 🎧 Audio Note Breakdown Active\n\nSynthesizing a spoken concept explanation of **${targetDoc.title}** covering all mechanisms, definitions, and key takeaways.\n\nYou can listen along, seek through sections, and read the real-time transcript.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        commandAction: {
+          showAudio: true,
+          materialTitle: targetDoc.title,
+          materialId: targetDoc.id,
+        },
+      };
+
+      setChatHistories((prev) => ({
+        ...prev,
+        [docId]: [...(prev[docId] || []), aiMsg],
+      }));
+      return;
+    }
+
+    if (cmdType === "flashcards") {
+      const toastId = toast.loading(`Generating precision flashcards from "${targetDoc.title}"...`);
+      try {
+        const flashcardsSchema = {
+          type: "OBJECT",
+          properties: {
+            title: { type: "STRING" },
+            subject: { type: "STRING" },
+            cards: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  q: { type: "STRING" },
+                  a: { type: "STRING" },
+                },
+                required: ["q", "a"],
+              },
+            },
+          },
+          required: ["title", "subject", "cards"],
+        };
+
+        const prompt = `You are a world-class AI professor creating precision study flashcards for students.
+Generate 6-10 high-impact, key-point flashcards for mastering the topic: "${targetDoc.title}".
+Each question must target a fundamental key concept or definition. Each answer must be concise, accurate, and pedagogically clear.
+${extraInstructions ? "Student Instructions: " + extraInstructions + "\n" : ""}
+Study Material Text:
+${(targetDoc.content || "").slice(0, 4000)}`;
+
+        const res = await generateGeminiStructured<{
+          title: string;
+          subject: string;
+          cards: Array<{ q: string; a: string }>;
+        }>({
+          systemInstruction: "You generate precision educational flashcard decks in valid JSON.",
+          prompt,
+          responseSchema: flashcardsSchema,
+        });
+
+        const newDeck = {
+          id: `ai_deck_${Date.now()}`,
+          title: res.data.title || targetDoc.title,
+          subject: res.data.subject || targetDoc.type || "AI Flashcards",
+          cards: res.data.cards,
+        };
+
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) {
+          try {
+            await supabase.from("flashcard_decks").insert({
+              title: newDeck.title,
+              subject: newDeck.subject,
+              user_id: authData.user.id,
+              cards: newDeck.cards,
+            });
+          } catch (dbErr) {
+            console.warn("Flashcard deck DB insert fallback:", dbErr);
+          }
+        }
+
+        const storedDecks = getStoredItem("ai_flashcard_decks", "[]");
+        try {
+          const parsed = JSON.parse(storedDecks);
+          setStoredItem("ai_flashcard_decks", JSON.stringify([newDeck, ...parsed]));
+        } catch {
+          setStoredItem("ai_flashcard_decks", JSON.stringify([newDeck]));
+        }
+
+        const newXp = xp + 20;
+        setXp(newXp);
+        setStoredItem("student_xp", String(newXp));
+
+        toast.success(`Generated ${res.data.cards.length} flashcards!`, { id: toastId });
+
+        const cardsCount = res.data.cards.length;
+        const previewCards = res.data.cards
+          .slice(0, 3)
+          .map((c, idx) => `**Q${idx + 1}:** ${c.q}\n*A:* ${c.a}`)
+          .join("\n\n");
+
+        const aiMsg: Message = {
+          from: "ai",
+          text: `### 🗂️ Flashcard Deck Generated (${cardsCount} Cards)\n\nCreated high-yield study cards for **${targetDoc.title}**:\n\n${previewCards}\n\n*...and ${Math.max(0, cardsCount - 3)} more cards saved to your Flashcards deck.*`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+          commandAction: {
+            showFlashcards: true,
+            materialTitle: targetDoc.title,
+            materialId: targetDoc.id,
+          },
+        };
+
+        setChatHistories((prev) => ({
+          ...prev,
+          [docId]: [...(prev[docId] || []), aiMsg],
+        }));
+      } catch (err) {
+        console.error("Flashcards command failed:", err);
+        toast.error("Failed to generate flashcards. Please try again.", { id: toastId });
+      }
+      return;
+    }
+
+    if (cmdType === "all") {
+      const toastId = toast.loading(`Generating complete Socratic study bundle for "${targetDoc.title}"...`);
+      try {
+        setQuizModalMaterial({
+          title: targetDoc.title || "Active Discussion",
+          content: targetDoc.content || "",
+          id: targetDoc.id,
+        });
+
+        const flashcardsSchema = {
+          type: "OBJECT",
+          properties: {
+            title: { type: "STRING" },
+            subject: { type: "STRING" },
+            cards: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  q: { type: "STRING" },
+                  a: { type: "STRING" },
+                },
+                required: ["q", "a"],
+              },
+            },
+          },
+          required: ["title", "subject", "cards"],
+        };
+
+        const res = await generateGeminiStructured<{
+          title: string;
+          subject: string;
+          cards: Array<{ q: string; a: string }>;
+        }>({
+          systemInstruction: "You generate precision educational flashcard decks in valid JSON.",
+          prompt: `Generate 6-8 key-point flashcards for mastering: "${targetDoc.title}".\nText:\n${(targetDoc.content || "").slice(0, 3000)}`,
+          responseSchema: flashcardsSchema,
+        });
+
+        const newDeck = {
+          id: `ai_deck_${Date.now()}`,
+          title: res.data.title || targetDoc.title,
+          subject: res.data.subject || "All-in-One Deck",
+          cards: res.data.cards,
+        };
+
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) {
+          try {
+            await supabase.from("flashcard_decks").insert({
+              title: newDeck.title,
+              subject: newDeck.subject,
+              user_id: authData.user.id,
+              cards: newDeck.cards,
+            });
+          } catch { }
+        }
+
+        const storedDecks = getStoredItem("ai_flashcard_decks", "[]");
+        try {
+          const parsed = JSON.parse(storedDecks);
+          setStoredItem("ai_flashcard_decks", JSON.stringify([newDeck, ...parsed]));
+        } catch {
+          setStoredItem("ai_flashcard_decks", JSON.stringify([newDeck]));
+        }
+
+        toast.success("Complete mastery pack created! Audio launched.", { id: toastId });
+        setIsAudioModalOpen(true);
+
+        const aiMsg: Message = {
+          from: "ai",
+          text: `### ✨ Complete Material Mastery Pack Generated\n\nAll Socratic study resources have been successfully compiled from **${targetDoc.title}**:\n\n* 🎯 **Material Quiz:** 5 adaptive questions ready to test your intuition.\n* 🗂️ **Flashcard Deck:** ${res.data.cards.length} precision recall flashcards saved to your library.\n* 🎧 **Audio Notes Breakdown:** Spoken explanation of all concepts and mechanisms launched in your player.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+          commandAction: {
+            showQuiz: true,
+            showFlashcards: true,
+            showAudio: true,
+            materialTitle: targetDoc.title,
+            materialId: targetDoc.id,
+          },
+        };
+
+        setChatHistories((prev) => ({
+          ...prev,
+          [docId]: [...(prev[docId] || []), aiMsg],
+        }));
+      } catch (err) {
+        console.error("All command failed:", err);
+        toast.error("Failed compiling complete study pack.", { id: toastId });
+      }
+    }
+  };
+
   const handleSend = async (textToSend = inputText) => {
     const trimmed = textToSend.trim();
     if (!trimmed) return;
+
+    // Detect in-chat material commands: @quiz, @flashcards, @audio, @all
+    const isAllCmd = /@all\b/i.test(trimmed) || (/@quiz\b/i.test(trimmed) && /@flashcards\b/i.test(trimmed) && /@audio\b/i.test(trimmed));
+    const isQuizCmd = /@quiz\b/i.test(trimmed);
+    const isFlashcardsCmd = /@flashcards\b/i.test(trimmed);
+    const isAudioCmd = /@audio\b/i.test(trimmed) || /@listen\b/i.test(trimmed);
+
+    if (isAllCmd || isQuizCmd || isFlashcardsCmd || isAudioCmd) {
+      let resolvedDoc: LearningMaterial | null = activeDoc;
+      if (!resolvedDoc || resolvedDoc.title === "General Academic Workspace") {
+        const generalDoc = await createGeneralChatMaterial();
+        resolvedDoc = generalDoc;
+        if (!activeDoc) {
+          setMaterials((prev) => (prev.some((item) => item.id === generalDoc.id) ? prev : [generalDoc, ...prev]));
+          setActiveDoc(generalDoc);
+        }
+      }
+
+      const userMessage: Message = {
+        from: "user",
+        text: trimmed,
+        timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      };
+
+      const docId = resolvedDoc.id;
+      const targetHistory = chatHistories[docId] || [
+        {
+          from: "ai" as const,
+          text: `This workspace is ready for ${resolvedDoc.title}. Ask your first question to begin.`,
+        }
+      ];
+
+      setChatHistories((prev) => ({
+        ...prev,
+        [docId]: [...targetHistory, userMessage],
+      }));
+      setInputText("");
+
+      const extraInstructions = trimmed
+        .replace(/@(all|quiz|flashcards|audio|listen)\b/gi, "")
+        .trim();
+
+      if (isAllCmd) {
+        await executeChatCommand("all", extraInstructions, resolvedDoc);
+      } else if (isQuizCmd) {
+        await executeChatCommand("quiz", extraInstructions, resolvedDoc);
+      } else if (isFlashcardsCmd) {
+        await executeChatCommand("flashcards", extraInstructions, resolvedDoc);
+      } else if (isAudioCmd) {
+        await executeChatCommand("audio", extraInstructions, resolvedDoc);
+      }
+      return;
+    }
 
     // Detect if the message contains a URL
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -2296,7 +2675,7 @@ You write responses that read like **award-winning, comprehensive university lec
               {/* Frictionless 1-Tap Action Launchpad (Hook Cycle) */}
               <div className="flex items-center gap-2 overflow-x-auto px-4 py-2 border-b border-border/50 bg-muted/20 hide-scrollbar shrink-0">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
-                  <Zap className="h-3 w-3 text-amber-500" /> Quick Launch:
+                  Quick Launch:
                 </span>
                 <button
                   onClick={() => {
@@ -2309,30 +2688,44 @@ You write responses that read like **award-winning, comprehensive university lec
                   }}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition shrink-0 cursor-pointer"
                 >
-                  <HelpCircle className="h-3 w-3 text-primary" />
+
                   <span>Material Quiz</span>
                 </button>
                 <Link
                   to="/app/flashcards"
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-background border border-border/70 hover:border-primary/50 text-foreground hover:bg-muted transition shrink-0"
                 >
-                  <Layers className="h-3 w-3 text-amber-500" />
+
                   <span>Flashcards Practice</span>
                 </Link>
                 <Link
                   to="/app/notes"
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-background border border-border/70 hover:border-primary/50 text-foreground hover:bg-muted transition shrink-0"
                 >
-                  <FileText className="h-3 w-3 text-blue-500" />
+
                   <span>Resume Recent Note</span>
                 </Link>
-                <Link
-                  to="/app/teasers"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-background border border-border/70 hover:border-primary/50 text-foreground hover:bg-muted transition shrink-0"
+                <button
+                  onClick={() => {
+                    const docId = activeDoc?.id || "general";
+                    const lastAiMsg = (chatHistories[docId] || []).findLast((m) => m.from === "ai" && m.text.length > 20);
+                    const combinedContent = [
+                      activeDoc?.content || "",
+                      lastAiMsg ? `Recent Chat Explanation:\n${lastAiMsg.text}` : "",
+                    ].filter(Boolean).join("\n\n");
+
+                    audioSession.openModal({
+                      title: activeDoc?.title || "Study Notes & Concept Explanation",
+                      content: combinedContent || activeDoc?.content || "Core Study Material",
+                      id: activeDoc?.id,
+                    });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-background border border-border/70 hover:border-primary/50 text-foreground hover:bg-muted transition shrink-0 cursor-pointer"
+                  title="Listen to notes and concepts in spoken audio breakdown"
                 >
-                  <Gamepad2 className="h-3 w-3 text-emerald-500" />
-                  <span>Daily Brain Teaser</span>
-                </Link>
+                  <Headphones className="h-3 w-3 text-foreground" />
+                  <span>Listen to Notes</span>
+                </button>
               </div>
 
               {/* Chat Message Feed */}
@@ -2439,6 +2832,53 @@ You write responses that read like **award-winning, comprehensive university lec
                             </div>
                           )}
                         </div>
+
+                        {/* Interactive In-Chat Command Action Buttons */}
+                        {msg.commandAction && (
+                          <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                            {msg.commandAction.showQuiz && (
+                              <button
+                                onClick={() => {
+                                  setQuizModalMaterial({
+                                    title: msg.commandAction?.materialTitle || activeDoc?.title || "Active Discussion",
+                                    content: activeDoc?.content || "",
+                                    id: msg.commandAction?.materialId || activeDoc?.id,
+                                  });
+                                  setIsQuizModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer shadow-xs"
+                              >
+                                <HelpCircle className="h-3.5 w-3.5" />
+                                <span>Launch Material Quiz</span>
+                              </button>
+                            )}
+                            {msg.commandAction.showFlashcards && (
+                              <Link
+                                to="/app/flashcards"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted hover:bg-muted/80 border border-border text-foreground transition"
+                              >
+                                <Layers className="h-3.5 w-3.5 text-foreground" />
+                                <span>Practice Flashcards</span>
+                              </Link>
+                            )}
+                            {msg.commandAction.showAudio && (
+                              <button
+                                onClick={() => {
+                                  audioSession.openModal({
+                                    title: msg.commandAction?.materialTitle || activeDoc?.title || "Active Discussion",
+                                    content: msg.text || activeDoc?.content || "",
+                                    id: msg.commandAction?.materialId || activeDoc?.id,
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer shadow-xs"
+                              >
+                                <Headphones className="h-3.5 w-3.5" />
+                                <span>Listen to Notes</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
                         <div
                           className="mt-2.5 flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground"
                         >
@@ -2457,6 +2897,21 @@ You write responses that read like **award-winning, comprehensive university lec
                           </button>
                           {msg.from === "ai" && (
                             <>
+                              <span className="text-muted-foreground/40 font-bold">•</span>
+                              <button
+                                onClick={() => {
+                                  audioSession.openModal({
+                                    title: activeDoc?.title ? `${activeDoc.title} • Explanation` : "Tutor Response Explanation",
+                                    content: msg.text,
+                                    id: `chat_resp_${msg.id || msg.timestamp.replace(/[^a-zA-Z0-9]/g, "_")}`,
+                                  });
+                                }}
+                                className="hover:text-foreground transition cursor-pointer flex items-center gap-1.5 font-medium hover:bg-muted/60 px-2 py-1 rounded-md text-xs text-muted-foreground"
+                                title="Listen to an audio breakdown of this response"
+                              >
+                                <Headphones className="h-3.5 w-3.5 text-primary" />
+                                <span>Listen to Notes</span>
+                              </button>
                               <span className="text-muted-foreground/40 font-bold">•</span>
                               <button
                                 onClick={async () => {
@@ -2594,54 +3049,101 @@ You write responses that read like **award-winning, comprehensive university lec
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Semantic Boundary Prompt Anchors (ADHD Focus Helper) */}
-              {cognitiveProfile === "adhd" && (
-                <div className="px-5 py-2.5 border-t border-border bg-elevated/20 flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground mr-1.5">
-                    Prompt Boundaries:
-                  </span>
-                  {[
-                    "Explain eigenvectors simply",
-                    "Test my eigenvalues knowledge",
-                    "Summarize backpropagation",
-                    "Explain learning rates with analogy",
-                  ].map((prompt) => (
-                    <button
-                      key={prompt}
-                      onClick={() => setInputText(prompt)}
-                      className="rounded-full border border-primary/20 bg-background hover:bg-primary/5 text-primary px-2.5 py-0.5 text-[9px] font-semibold transition"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Suggestions Toolbar */}
-              {currentMessages.length <= 2 && cognitiveProfile !== "adhd" && (
-                <div className="px-5 pb-3 flex flex-wrap gap-2">
-                  {quickPrompts.map((sug) => (
-                    <button
-                      key={sug}
-                      onClick={() => handleSuggestionClick(sug)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground hover:border-foreground hover:text-foreground transition"
-                    >
-                      {sug} <ArrowUpRight className="h-2.5 w-2.5" />
-                    </button>
-                  ))}
-                </div>
-              )}
-
               {/* Message input */}
               <div className="border-t border-border p-4 bg-background">
+                {/* Docked Socratic Audio Popup on top of text input */}
+                {audioSession.isPopupVisible && !audioSession.isModalOpen && audioSession.turns.length > 0 && (
+                  <SocraticAudioMiniPopup
+                    session={audioSession}
+                    onExpand={() => audioSession.reopenModal()}
+                    onClose={() => audioSession.closePopup()}
+                  />
+                )}
+
+                {/* In-Chat Material Commands Shortcut Bar */}
                 <div className="relative rounded-xl border border-border bg-elevated/40 p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all input-glow-pulse">
+                  {/* Floating Autocomplete Popover when user types @ */}
+                  {atMatch !== null && matchingCommands.length > 0 && (
+                    <div className="absolute bottom-full left-0 mb-2 w-72 sm:w-84 rounded-xl border border-border bg-card shadow-2xl p-1.5 z-30 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-1 flex items-center justify-between">
+                        <span>Material Commands</span>
+                        <span className="text-[9px] text-muted-foreground font-normal flex items-center gap-1">
+                          Press <kbd className="px-1 py-0.5 rounded bg-muted font-mono text-[9px] border border-border">Tab</kbd> to complete
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {matchingCommands.map((c, idx) => {
+                          const isSelected = idx === activeCommandIdx;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onMouseEnter={() => setActiveCommandIdx(idx)}
+                              onClick={() => handleCompleteCommand(c.cmd)}
+                              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition text-xs group cursor-pointer ${
+                                isSelected ? "bg-muted text-foreground ring-1 ring-primary/20 font-medium" : "text-foreground hover:bg-muted/60"
+                              }`}
+                            >
+                              <div className={`p-1.5 rounded-md border shrink-0 ${isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-foreground border-border"}`}>
+                                <c.icon className="h-3.5 w-3.5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-foreground text-xs">{c.cmd}</span>
+                                  <span className="text-[10px] text-muted-foreground font-medium">{c.label}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground truncate">{c.desc}</p>
+                              </div>
+                              <span className="text-[9px] text-muted-foreground font-mono opacity-60">Tab ⇥</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <Textarea
                     id="chat-input"
                     ref={chatInputRef}
-                    placeholder="Ask anything across your entire library… (Enter to send · / to focus)"
+                    placeholder="Ask anything across your entire library… (Type @quiz, @flashcards, @audio, @all)"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {
+                      const isDropdownOpen = atMatch !== null && matchingCommands.length > 0;
+
+                      if (isDropdownOpen) {
+                        if (e.key === "Tab") {
+                          e.preventDefault();
+                          const targetCmd = matchingCommands[activeCommandIdx] || matchingCommands[0];
+                          if (targetCmd) {
+                            handleCompleteCommand(targetCmd.cmd);
+                          }
+                          return;
+                        }
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          const targetCmd = matchingCommands[activeCommandIdx] || matchingCommands[0];
+                          if (targetCmd) {
+                            handleCompleteCommand(targetCmd.cmd);
+                          }
+                          return;
+                        }
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setActiveCommandIdx((prev) => (prev + 1) % matchingCommands.length);
+                          return;
+                        }
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setActiveCommandIdx((prev) => (prev - 1 + matchingCommands.length) % matchingCommands.length);
+                          return;
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          return;
+                        }
+                      }
+
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleSend();
@@ -3047,6 +3549,13 @@ You write responses that read like **award-winning, comprehensive university lec
           />
         </div>
       )}
+
+      {/* Socratic Audio Modal */}
+      <SocraticAudioModal
+        isOpen={audioSession.isModalOpen}
+        onClose={() => audioSession.closeModal()}
+        session={audioSession}
+      />
 
       {/* Material Understanding Quiz Modal */}
       <MaterialQuizModal

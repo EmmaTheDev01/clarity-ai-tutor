@@ -39,7 +39,6 @@ import {
   CreditCard,
   DollarSign,
   TrendingUp,
-  Sparkles,
   ArrowUpRight,
 } from "lucide-react";
 import {
@@ -1287,7 +1286,7 @@ export function AdminPortal() {
                                     : "bg-muted border-border text-muted-foreground"
                                 }`}
                               >
-                                {isPro && <Sparkles className="h-3 w-3 text-primary" />}
+                                {isPro && <CheckCircle2 className="h-3 w-3 text-primary" />}
                                 {isPro ? "Pro Learner ($15)" : isEducator ? "Educator Hub" : "Free Tier"}
                               </span>
                             </td>
@@ -1677,7 +1676,7 @@ export function AdminPortal() {
                                   : "bg-muted border-border text-muted-foreground"
                               }`}
                             >
-                              {isPro && <Sparkles className="h-3 w-3 text-primary" />}
+                              {isPro && <CheckCircle2 className="h-3 w-3 text-primary" />}
                               {isPro ? "Pro Learner ($15)" : isEducator ? "Educator Hub" : "Free Tier"}
                             </span>
                           </td>
@@ -1830,7 +1829,7 @@ export function AdminPortal() {
                     </h3>
                   </div>
                   <div className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    <Sparkles className="h-5 w-5" />
+                    <Zap className="h-5 w-5" />
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between">

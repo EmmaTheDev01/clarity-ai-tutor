@@ -25,7 +25,6 @@ import {
   Save,
   Award,
   Lock,
-  Sparkles,
   Zap,
   Calendar,
   ShieldCheck,
