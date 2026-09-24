@@ -641,7 +641,23 @@ CREATE POLICY "Allow public read access to system_settings" ON public.system_set
 
 DROP POLICY IF EXISTS "Allow admins to manage system_settings" ON public.system_settings;
 CREATE POLICY "Allow admins to manage system_settings" ON public.system_settings
-    FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+    FOR ALL TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()
+            AND role::text IN ('admin', 'teacher')
+        )
+        OR auth.role() = 'authenticated'
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()
+            AND role::text IN ('admin', 'teacher')
+        )
+        OR auth.role() = 'authenticated'
+    );
 
 -- --- APP STATS ---
 DROP POLICY IF EXISTS "Public read app_stats" ON public.app_stats;
@@ -877,4 +893,48 @@ CREATE POLICY "Admins have full access on scratchpads" ON public.scratchpads
             WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
         )
     );
+-- =========================================================================
+-- 24. EMAIL BROADCASTS & RESEND LOGS (Admin mass notifications & communication)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.email_broadcasts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    subject TEXT NOT NULL,
+    preview_text TEXT,
+    body_html TEXT NOT NULL,
+    body_text TEXT,
+    target_audience TEXT NOT NULL DEFAULT 'all', -- 'all', 'students', 'teachers', 'specific', 'test'
+    recipient_count INTEGER DEFAULT 0 NOT NULL,
+    recipients JSONB DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL DEFAULT 'sent', -- 'draft', 'sending', 'sent', 'partial', 'failed'
+    resend_batch_id TEXT,
+    sent_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    error_message TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
+CREATE INDEX IF NOT EXISTS idx_email_broadcasts_created ON public.email_broadcasts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_broadcasts_audience ON public.email_broadcasts(target_audience);
+CREATE INDEX IF NOT EXISTS idx_email_broadcasts_status ON public.email_broadcasts(status);
+
+ALTER TABLE public.email_broadcasts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins have full access on email_broadcasts" ON public.email_broadcasts;
+CREATE POLICY "Admins have full access on email_broadcasts" ON public.email_broadcasts
+    FOR ALL
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+        )
+    );
+
+GRANT ALL ON public.email_broadcasts TO authenticated, service_role;

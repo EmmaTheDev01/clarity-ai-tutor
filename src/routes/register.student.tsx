@@ -73,6 +73,17 @@ function StudentRegister() {
           theme_preference: "light",
         });
 
+        // Send welcome & verification email via Resend
+        try {
+          await sendRegistrationVerificationEmail({
+            email,
+            name,
+            role: "student",
+          });
+        } catch (emailErr) {
+          console.warn("Could not dispatch welcome email:", emailErr);
+        }
+
         // Log registration in audit log database
         try {
           await supabase.from("user_logs").insert({
@@ -84,7 +95,7 @@ function StudentRegister() {
           console.warn("Log writing warning:", logErr);
         }
 
-        alert("Registration successful! Please sign in with your credentials.");
+        alert("Registration successful! Check your email for welcome details, then sign in.");
         navigate({ to: "/auth/sign-in" as any });
       }
     } catch (err) {

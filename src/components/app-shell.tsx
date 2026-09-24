@@ -38,6 +38,7 @@ import {
   PenTool,
   ArrowRight,
   LogOut,
+  Mail,
 } from "lucide-react";
 import { Kbd } from "./ui-kit";
 import { toast } from "sonner";
@@ -64,6 +65,7 @@ const adminNav = [
   { to: "/admin", tab: "materials", label: "Materials", icon: FileText },
   { to: "/admin", tab: "flashcards", label: "Flashcards", icon: Layers },
   { to: "/admin", tab: "analytics", label: "Analytics (System)", icon: BarChart3 },
+  { to: "/admin", tab: "email", label: "Email Broadcasts", icon: Mail },
   { to: "/admin", tab: "logs", label: "System Logs", icon: Activity },
   { to: "/admin", tab: "settings", label: "App Settings", icon: Settings },
 ] as const;
@@ -125,10 +127,7 @@ export function AppShell({
   // Close search dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        searchContainerRef.current &&
-        !searchContainerRef.current.contains(e.target as Node)
-      ) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setIsSearchOpen(false);
       }
     };
@@ -146,8 +145,8 @@ export function AppShell({
         userRole === "admin" || pathname.startsWith("/admin")
           ? "admin"
           : userRole === "teacher" || pathname.startsWith("/teacher")
-          ? "teacher"
-          : "student";
+            ? "teacher"
+            : "student";
 
       // If empty query, provide role-specific quick shortcuts
       if (!q) {
@@ -160,7 +159,10 @@ export function AppShell({
               subtitle: "Live database records, classrooms, and materials count",
               badge: "Overview",
               icon: LayoutDashboard,
-              onSelect: () => { navigate({ to: "/admin", search: { tab: "overview" } as any }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "overview" } as any });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "nav_users",
@@ -169,7 +171,10 @@ export function AppShell({
               subtitle: "Index all students, educators, and admin accounts",
               badge: "Users",
               icon: Users,
-              onSelect: () => { navigate({ to: "/admin", search: { tab: "users" } as any }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "users" } as any });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "nav_materials",
@@ -178,7 +183,10 @@ export function AppShell({
               subtitle: "Directory of all course documents and files",
               badge: "Materials",
               icon: BookOpen,
-              onSelect: () => { navigate({ to: "/admin", search: { tab: "materials" } as any }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "materials" } as any });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "nav_flashcards",
@@ -187,7 +195,22 @@ export function AppShell({
               subtitle: "Active recall study decks created across platform",
               badge: "Flashcards",
               icon: Layers,
-              onSelect: () => { navigate({ to: "/admin", search: { tab: "flashcards" } as any }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "flashcards" } as any });
+                setIsSearchOpen(false);
+              },
+            },
+            {
+              id: "nav_email",
+              category: "Admin Portal",
+              title: "Email Broadcasts & Resend Campaigns",
+              subtitle: "Compose and dispatch emails to students, educators, or custom lists",
+              badge: "Email",
+              icon: Mail,
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "email" } as any });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "nav_logs",
@@ -196,7 +219,10 @@ export function AppShell({
               subtitle: "Index and search user queries, logins, and audit logs",
               badge: "Logs",
               icon: Activity,
-              onSelect: () => { navigate({ to: "/admin", search: { tab: "logs" } as any }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "logs" } as any });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "nav_settings",
@@ -205,7 +231,10 @@ export function AppShell({
               subtitle: "Configure default AI models, temperature, and keys",
               badge: "Settings",
               icon: Settings,
-              onSelect: () => { navigate({ to: "/admin", search: { tab: "settings" } as any }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/admin", search: { tab: "settings" } as any });
+                setIsSearchOpen(false);
+              },
             },
           ]);
         } else if (currentRole === "teacher") {
@@ -217,7 +246,10 @@ export function AppShell({
               subtitle: "Manage student enrollments and assignments",
               badge: "Classrooms",
               icon: GraduationCap,
-              onSelect: () => { navigate({ to: "/teacher" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/teacher" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "t_materials",
@@ -226,7 +258,10 @@ export function AppShell({
               subtitle: "Upload and publish syllabus materials",
               badge: "Library",
               icon: Library,
-              onSelect: () => { navigate({ to: "/app/library" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/library" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "t_ai_tutor",
@@ -235,7 +270,10 @@ export function AppShell({
               subtitle: "Interactive tutoring and automated synthesis",
               badge: "AI Tutor",
               icon: BrainCircuit,
-              onSelect: () => { navigate({ to: "/app" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "t_analytics",
@@ -244,7 +282,10 @@ export function AppShell({
               subtitle: "Monitor learning velocity and quiz scores",
               badge: "Analytics",
               icon: BarChart3,
-              onSelect: () => { navigate({ to: "/app/analytics" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/analytics" });
+                setIsSearchOpen(false);
+              },
             },
           ]);
         } else {
@@ -257,7 +298,10 @@ export function AppShell({
               subtitle: "Ask questions, review documents, and explore concepts",
               badge: "AI Tutor",
               icon: BrainCircuit,
-              onSelect: () => { navigate({ to: "/app" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "s_notes",
@@ -266,7 +310,10 @@ export function AppShell({
               subtitle: "Access markdown notes, flashcard tags, and takeaways",
               badge: "Notes",
               icon: FileText,
-              onSelect: () => { navigate({ to: "/app/notes" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/notes" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "s_notepad",
@@ -275,7 +322,10 @@ export function AppShell({
               subtitle: "Apple Pencil & stylus natural scratchpad with Socratic AI synthesis",
               badge: "Notepad",
               icon: PenTool,
-              onSelect: () => { navigate({ to: "/app/notepad" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/notepad" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "s_flashcards",
@@ -284,7 +334,10 @@ export function AppShell({
               subtitle: "Practice active recall with spaced repetitions",
               badge: "Flashcards",
               icon: Layers,
-              onSelect: () => { navigate({ to: "/app/flashcards" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/flashcards" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "s_library",
@@ -293,7 +346,10 @@ export function AppShell({
               subtitle: "Access syllabus documents, PDFs, and guides",
               badge: "Library",
               icon: Library,
-              onSelect: () => { navigate({ to: "/app/library" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/library" });
+                setIsSearchOpen(false);
+              },
             },
             {
               id: "s_teasers",
@@ -302,7 +358,10 @@ export function AppShell({
               subtitle: "Adaptive problem solving and cognitive puzzles",
               badge: "Challenges",
               icon: Gamepad2,
-              onSelect: () => { navigate({ to: "/app/teasers" }); setIsSearchOpen(false); },
+              onSelect: () => {
+                navigate({ to: "/app/teasers" });
+                setIsSearchOpen(false);
+              },
             },
           ]);
         }
@@ -723,8 +782,14 @@ export function AppShell({
           let finalAvatar: string | null = null;
 
           if (profErr || !prof) {
-            const newName = userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "Student User";
-            const newAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture || null;
+            const newName =
+              userData.user.user_metadata?.full_name ||
+              userData.user.email?.split("@")[0] ||
+              "Student User";
+            const newAvatar =
+              userData.user.user_metadata?.avatar_url ||
+              userData.user.user_metadata?.picture ||
+              null;
             const { data: createdProf } = await supabase
               .from("profiles")
               .insert({
@@ -746,9 +811,10 @@ export function AppShell({
             finalName = prof.name || "Student User";
             finalAvatar = prof.avatar_url || null;
             if (prof.role) setUserRole(prof.role);
-            
+
             // Backfill avatar if missing in DB but exists in auth metadata
-            const metaAvatar = userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture;
+            const metaAvatar =
+              userData.user.user_metadata?.avatar_url || userData.user.user_metadata?.picture;
             if (!finalAvatar && metaAvatar) {
               finalAvatar = metaAvatar;
               await supabase.from("profiles").update({ avatar_url: finalAvatar }).eq("id", userId);
@@ -767,8 +833,7 @@ export function AppShell({
             if (sub) {
               finalTier = sub.plan_tier || "free";
             }
-          } catch (e) {
-          }
+          } catch (e) {}
           setTier(finalTier);
 
           // Fetch dynamic notifications from Supabase
@@ -791,9 +856,11 @@ export function AppShell({
 
             if (dbLogs) {
               dbLogs.forEach((log: any) => {
-                const profileName = log.profiles?.name || (log.profiles?.email ? log.profiles.email.split("@")[0] : null);
+                const profileName =
+                  log.profiles?.name ||
+                  (log.profiles?.email ? log.profiles.email.split("@")[0] : null);
                 const userPrefix = isAdmin && profileName ? `${profileName}: ` : "";
-                
+
                 let icon = "activity";
                 let title = "Platform Activity";
                 let message = log.details || "Activity recorded in database.";
@@ -846,7 +913,9 @@ export function AppShell({
                     break;
                   default:
                     icon = "activity";
-                    title = isAdmin ? `${userPrefix}${log.action_type.replace(/_/g, " ")}` : log.action_type.replace(/_/g, " ");
+                    title = isAdmin
+                      ? `${userPrefix}${log.action_type.replace(/_/g, " ")}`
+                      : log.action_type.replace(/_/g, " ");
                     break;
                 }
 
@@ -870,8 +939,7 @@ export function AppShell({
                 });
               });
             }
-          } catch (e) {
-          }
+          } catch (e) {}
 
           // 2. Fetch persistent direct notifications from notifications table
           try {
@@ -889,24 +957,28 @@ export function AppShell({
                   icon: "bell",
                   title: n.title,
                   message: n.message,
-                  time: new Date(n.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+                  time: new Date(n.created_at).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }),
                 });
               });
             }
-          } catch (e) {
-          }
+          } catch (e) {}
 
           // 3. Fetch note share invitations
           try {
             const { data: dbShares } = await supabase
               .from("note_shares")
-              .select(`
+              .select(
+                `
                 id,
                 created_at,
                 notes (
                   title
                 )
-              `)
+              `,
+              )
               .eq("shared_with_email", userData.user.email)
               .eq("status", "pending");
 
@@ -921,8 +993,7 @@ export function AppShell({
                 });
               });
             }
-          } catch (e) {
-          }
+          } catch (e) {}
 
           // 4. Add streak notifications if streak exists
           try {
@@ -941,8 +1012,7 @@ export function AppShell({
                 time: "Level Info",
               });
             }
-          } catch (e) {
-          }
+          } catch (e) {}
 
           // 5. Fallback welcome notification if empty
           if (loadedNotifications.length === 0) {
@@ -958,14 +1028,17 @@ export function AppShell({
           setNotifications(loadedNotifications);
 
           // Save to Cache
-          CacheManager.set(cacheKey, {
-            profile: { name: finalName, avatarUrl: finalAvatar },
-            tier: finalTier,
-            notifications: loadedNotifications
-          }, 30000);
+          CacheManager.set(
+            cacheKey,
+            {
+              profile: { name: finalName, avatarUrl: finalAvatar },
+              tier: finalTier,
+              notifications: loadedNotifications,
+            },
+            30000,
+          );
         }
-      } catch (err) {
-      }
+      } catch (err) {}
     };
 
     loadProfile();
@@ -988,7 +1061,7 @@ export function AppShell({
               avatarUrl: payload.new.avatar_url || null,
             });
           }
-        }
+        },
       )
       .on(
         "postgres_changes",
@@ -1000,7 +1073,7 @@ export function AppShell({
         () => {
           // Re-load latest notifications when new activity occurs
           void loadProfile();
-        }
+        },
       )
       .subscribe();
 
@@ -1030,13 +1103,18 @@ export function AppShell({
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 border-r border-border bg-background transition-all duration-300 lg:translate-x-0 ${open ? "translate-x-0 w-64" : "-translate-x-full"
-          } ${isCollapsed ? "lg:w-16" : "lg:w-64"}`}
+        className={`fixed inset-y-0 left-0 z-40 border-r border-border bg-background transition-all duration-300 lg:translate-x-0 ${
+          open ? "translate-x-0 w-64" : "-translate-x-full"
+        } ${isCollapsed ? "lg:w-16" : "lg:w-64"}`}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link to="/app" className="flex items-center shrink-0">
             <img src="/logo.png" alt="Purelearn.ai Logo" className="h-7 sm:h-8 w-auto lg:hidden" />
-            <img src="/logo.png" alt="Purelearn.ai Logo" className={`h-10 w-auto hidden ${isCollapsed ? '' : 'lg:block'}`} />
+            <img
+              src="/logo.png"
+              alt="Purelearn.ai Logo"
+              className={`h-10 w-auto hidden ${isCollapsed ? "" : "lg:block"}`}
+            />
           </Link>
           <div className="flex items-center gap-1">
             <button
@@ -1072,7 +1150,9 @@ export function AppShell({
         <nav className="px-2 space-y-4">
           {(userRole === "admin" || pathname.startsWith("/admin")) && (
             <div>
-              <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}>
+              <div
+                className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}
+              >
                 Admin Management
               </div>
               {adminNav.map((item) => {
@@ -1119,30 +1199,34 @@ export function AppShell({
           )}
 
           <div>
-            <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}>
+            <div
+              className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}
+            >
               Workspace
             </div>
-          {nav.map((item) => {
-            const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all lg:justify-start ${isCollapsed ? "lg:justify-center" : "lg:justify-start"
-                  } ${active
-                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            {nav.map((item) => {
+              const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all lg:justify-start ${
+                    isCollapsed ? "lg:justify-center" : "lg:justify-start"
+                  } ${
+                    active
+                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
-                title={item.label}
-              >
-                <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
-                <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
+                  title={item.label}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
+                  <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </nav>
 
@@ -1154,7 +1238,9 @@ export function AppShell({
               className="flex h-10 w-full items-center justify-center rounded-md border border-border bg-elevated hover:bg-muted text-primary"
               title="Upgrade plan"
             >
-              <Crown className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`} />
+              <Crown
+                className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`}
+              />
             </Link>
           </div>
 
@@ -1162,11 +1248,15 @@ export function AppShell({
           <div className={`block ${isCollapsed ? "lg:hidden" : "lg:block"}`}>
             <div className="rounded-md border border-border bg-elevated p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <Crown className={`h-3.5 w-3.5 ${tier !== "free" ? "text-amber-500 fill-current" : ""}`} />
+                <Crown
+                  className={`h-3.5 w-3.5 ${tier !== "free" ? "text-amber-500 fill-current" : ""}`}
+                />
                 <span className="capitalize">{tier} Plan</span>
               </div>
               {tier !== "free" ? (
-                <p className="mt-1 text-xs text-muted-foreground">Unlimited daily queries unlocked.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Unlimited daily queries unlocked.
+                </p>
               ) : (
                 <>
                   <p className="mt-1 text-xs text-muted-foreground">20 / 50 daily queries used.</p>
@@ -1235,12 +1325,14 @@ export function AppShell({
                       if (e.key === "ArrowDown") {
                         e.preventDefault();
                         setSelectedSearchIndex((prev) =>
-                          searchResults.length > 0 ? (prev + 1) % searchResults.length : 0
+                          searchResults.length > 0 ? (prev + 1) % searchResults.length : 0,
                         );
                       } else if (e.key === "ArrowUp") {
                         e.preventDefault();
                         setSelectedSearchIndex((prev) =>
-                          searchResults.length > 0 ? (prev - 1 + searchResults.length) % searchResults.length : 0
+                          searchResults.length > 0
+                            ? (prev - 1 + searchResults.length) % searchResults.length
+                            : 0,
                         );
                       } else if (e.key === "Enter") {
                         e.preventDefault();
@@ -1255,8 +1347,8 @@ export function AppShell({
                       userRole === "admin" || pathname.startsWith("/admin")
                         ? "Search users, materials, telemetry logs, settings..."
                         : userRole === "teacher" || pathname.startsWith("/teacher")
-                        ? "Search classrooms, materials, quizzes..."
-                        : "Search notes, flashcards, documents, quizzes..."
+                          ? "Search classrooms, materials, quizzes..."
+                          : "Search notes, flashcards, documents, quizzes..."
                     }
                     className="bg-transparent border-none outline-none text-xs text-foreground placeholder-muted-foreground/70 flex-1 min-w-0"
                   />
@@ -1287,7 +1379,7 @@ export function AppShell({
                       <span>
                         {searchQuery
                           ? `Search Results for "${searchQuery}"`
-                          : `Quick Actions (${(userRole === "admin" || pathname.startsWith("/admin") ? "ADMIN" : userRole === "teacher" || pathname.startsWith("/teacher") ? "TEACHER" : "STUDENT")})`}
+                          : `Quick Actions (${userRole === "admin" || pathname.startsWith("/admin") ? "ADMIN" : userRole === "teacher" || pathname.startsWith("/teacher") ? "TEACHER" : "STUDENT"})`}
                       </span>
                       <span className="font-mono lowercase text-[9px] text-muted-foreground/70">
                         {searchResults.length} {searchResults.length === 1 ? "item" : "items"}
@@ -1298,7 +1390,9 @@ export function AppShell({
                       {searchResults.length === 0 ? (
                         <div className="py-8 text-center flex flex-col items-center justify-center">
                           <Search className="h-6 w-6 text-muted-foreground/50 mb-2" />
-                          <div className="text-xs font-bold text-foreground">No matching items found</div>
+                          <div className="text-xs font-bold text-foreground">
+                            No matching items found
+                          </div>
                           <p className="text-[11px] text-muted-foreground mt-1 px-4">
                             Try searching for different keywords or explore your main workspace.
                           </p>
@@ -1348,7 +1442,9 @@ export function AppShell({
                               </div>
                               <ArrowRight
                                 className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
-                                  isSelected ? "text-primary translate-x-0.5" : "text-muted-foreground/40"
+                                  isSelected
+                                    ? "text-primary translate-x-0.5"
+                                    : "text-muted-foreground/40"
                                 }`}
                               />
                             </div>
@@ -1358,9 +1454,16 @@ export function AppShell({
                     </div>
 
                     <div className="px-3 py-2 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground/70 font-mono">
-                      <span>Navigate: <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">↑</kbd> <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">↓</kbd></span>
-                      <span>Select: <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">Enter</kbd></span>
-                      <span>Close: <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">Esc</kbd></span>
+                      <span>
+                        Navigate: <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">↑</kbd>{" "}
+                        <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">↓</kbd>
+                      </span>
+                      <span>
+                        Select: <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">Enter</kbd>
+                      </span>
+                      <span>
+                        Close: <kbd className="bg-muted px-1 py-0.5 rounded text-[9px]">Esc</kbd>
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1386,10 +1489,15 @@ export function AppShell({
 
                 {showNotifications && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowNotifications(false)}
+                    />
                     <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-80 max-w-sm rounded-2xl border border-border/80 bg-popover text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] low-light:shadow-[0_25px_60px_rgba(0,0,0,0.9)] ring-1 ring-border/40 p-4 z-40 animate-fade-in origin-top-right">
                       <div className="flex items-center justify-between pb-3 border-b border-border/40">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Notifications</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">
+                          Notifications
+                        </span>
                         <span
                           className="text-[9px] font-extrabold text-primary hover:underline cursor-pointer"
                           onClick={async () => {
@@ -1403,7 +1511,9 @@ export function AppShell({
                                   .update({ is_read: true })
                                   .eq("user_id", userData.user.id);
                               }
-                            } catch { /* ignored */ }
+                            } catch {
+                              /* ignored */
+                            }
                           }}
                         >
                           Mark read
@@ -1415,9 +1525,12 @@ export function AppShell({
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/60 border border-border mb-2 text-muted-foreground">
                               <Bell className="h-5 w-5" />
                             </div>
-                            <div className="text-[11px] font-bold text-foreground">All caught up!</div>
+                            <div className="text-[11px] font-bold text-foreground">
+                              All caught up!
+                            </div>
                             <p className="text-[10px] text-muted-foreground mt-1 px-4 leading-normal">
-                              No new study suggestions or note invitations at this time. Go ahead and start a study session!
+                              No new study suggestions or note invitations at this time. Go ahead
+                              and start a study session!
                             </p>
                           </div>
                         ) : (
@@ -1481,7 +1594,6 @@ export function AppShell({
                 )}
               </div>
 
-
               {/* Cognitive Accessibility Dropdown */}
               <div className="relative cognitive-trigger-container hidden sm:block">
                 <button
@@ -1499,43 +1611,65 @@ export function AppShell({
 
                 {showCognitiveDropdown && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setShowCognitiveDropdown(false)} />
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowCognitiveDropdown(false)}
+                    />
                     <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-64 max-w-xs rounded-2xl border border-border/80 bg-popover text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.85)] low-light:shadow-[0_25px_60px_rgba(0,0,0,0.9)] ring-1 ring-border/40 p-2 z-40 animate-fade-in origin-top-right">
                       <div className="px-3 py-2 border-b border-border/40 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">Cognitive Profiles</span>
-                        <p className="text-[9px] text-muted-foreground mt-1">Adjust text rendering to match your processing style.</p>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">
+                          Cognitive Profiles
+                        </span>
+                        <p className="text-[9px] text-muted-foreground mt-1">
+                          Adjust text rendering to match your processing style.
+                        </p>
                       </div>
 
                       <div className="space-y-1">
                         <button
-                          onClick={() => { setMode("default"); setShowCognitiveDropdown(false); }}
+                          onClick={() => {
+                            setMode("default");
+                            setShowCognitiveDropdown(false);
+                          }}
                           className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "default" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}
                         >
                           <div>
                             Standard
-                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">Default text rendering</span>
+                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">
+                              Default text rendering
+                            </span>
                           </div>
                           {mode === "default" && <Check className="h-3.5 w-3.5" />}
                         </button>
 
                         <button
-                          onClick={() => { setMode("adhd"); setShowCognitiveDropdown(false); }}
+                          onClick={() => {
+                            setMode("adhd");
+                            setShowCognitiveDropdown(false);
+                          }}
                           className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "adhd" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}
                         >
                           <div>
                             Bionic Reading
-                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">Optimized for ADHD (Saccadic focus)</span>
+                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">
+                              Optimized for ADHD (Saccadic focus)
+                            </span>
                           </div>
                           {mode === "adhd" && <Check className="h-3.5 w-3.5" />}
                         </button>
 
                         <button
-                          onClick={() => { setMode("dyslexia"); setShowCognitiveDropdown(false); }}
+                          onClick={() => {
+                            setMode("dyslexia");
+                            setShowCognitiveDropdown(false);
+                          }}
                           className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs transition ${mode === "dyslexia" ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-muted font-medium"}`}
                         >
                           <div>
                             Dyslexia Support
-                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">Wider spacing and tailored fonts</span>
+                            <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">
+                              Wider spacing and tailored fonts
+                            </span>
                           </div>
                           {mode === "dyslexia" && <Check className="h-3.5 w-3.5" />}
                         </button>
@@ -1559,20 +1693,28 @@ export function AppShell({
                 >
                   {profile?.avatarUrl ? (
                     <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : profile?.name ? (
+                    profile.name.substring(0, 2).toUpperCase()
                   ) : (
-                    profile?.name ? profile.name.substring(0, 2).toUpperCase() : "ST"
+                    "ST"
                   )}
                 </button>
 
                 {showUserDropdown && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setShowUserDropdown(false)} />
+                    <div
+                      className="fixed inset-0 z-30"
+                      onClick={() => setShowUserDropdown(false)}
+                    />
                     <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-56 max-w-xs rounded-xl border border-border bg-popover text-popover-foreground shadow-lg ring-1 ring-border/30 p-1.5 z-40 animate-fade-in origin-top-right">
-
                       {/* User identity header */}
                       <div className="px-3 py-2.5 border-b border-border/50 mb-1">
-                        <div className="text-sm font-semibold text-foreground truncate">{profile?.name || "Scholar User"}</div>
-                        <div className="text-xs text-muted-foreground truncate mt-0.5">Logged in</div>
+                        <div className="text-sm font-semibold text-foreground truncate">
+                          {profile?.name || "Scholar User"}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate mt-0.5">
+                          Logged in
+                        </div>
                       </div>
 
                       {/* Nav items */}
@@ -1601,7 +1743,6 @@ export function AppShell({
                           <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
                           Billing &amp; Plan
                         </Link>
-
                       </div>
 
                       {/* Sign Out */}
@@ -1627,7 +1768,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-6 pb-24 lg:pb-6">{children}</main>
+        <main className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-6 pb-24 lg:pb-6">
+          {children}
+        </main>
       </div>
 
       {/* Fitts's Law: Mobile Bottom Navigation Dock (Natural thumb reach on mobile) */}
@@ -1654,9 +1797,7 @@ export function AppShell({
               }`}
             >
               <item.icon className={`h-5 w-5 ${active ? "stroke-[2.5]" : "stroke-[1.75]"}`} />
-              <span className="text-[10px] mt-0.5 tracking-tight font-medium">
-                {item.label}
-              </span>
+              <span className="text-[10px] mt-0.5 tracking-tight font-medium">{item.label}</span>
             </Link>
           );
         })}
@@ -1665,23 +1806,33 @@ export function AppShell({
       {shortcutModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-border bg-elevated/95 p-6 shadow-2xl animate-fade-in text-center">
-            <h3 className="text-sm font-bold text-foreground mb-4">Accessibility Keyboard Shortcuts</h3>
+            <h3 className="text-sm font-bold text-foreground mb-4">
+              Accessibility Keyboard Shortcuts
+            </h3>
             <div className="space-y-3.5 text-xs text-muted-foreground text-left mb-6">
               <div className="flex justify-between items-center">
                 <span>Show Shortcuts Help</span>
-                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">Cmd + /</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">
+                  Cmd + /
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Start New Chat Session</span>
-                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">Cmd + N</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">
+                  Cmd + N
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Focus Chat Input</span>
-                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">Cmd + S</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">
+                  Cmd + S
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Close Modals / Help Overlay</span>
-                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">ESC</span>
+                <span className="px-1.5 py-0.5 rounded border border-border bg-muted/60 font-mono text-[10px]">
+                  ESC
+                </span>
               </div>
             </div>
             <button

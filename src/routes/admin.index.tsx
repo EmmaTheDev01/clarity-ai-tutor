@@ -41,18 +41,26 @@ import {
   TrendingUp,
   ArrowUpRight,
 } from "lucide-react";
-import {
-  saveSystemApiKeyToDb,
-  fetchSystemApiKeyFromDb,
-} from "@/lib/gemini";
+import { saveSystemApiKeyToDb, fetchSystemApiKeyFromDb } from "@/lib/gemini";
 import {
   SUBSCRIPTION_TIERS,
   calculateEducatorCustomPrice,
   formatPeriodEnd,
   saveUserSubscription,
 } from "@/lib/subscription-plans";
+import { AdminEmailBroadcasts } from "@/components/admin/AdminEmailBroadcasts";
 
-type AdminMenuTab = "overview" | "demos" | "users" | "subscriptions" | "materials" | "flashcards" | "analytics" | "logs" | "settings";
+type AdminMenuTab =
+  | "overview"
+  | "demos"
+  | "users"
+  | "subscriptions"
+  | "materials"
+  | "flashcards"
+  | "analytics"
+  | "logs"
+  | "settings"
+  | "email";
 
 type AdminSearch = {
   tab?: AdminMenuTab;
@@ -73,7 +81,9 @@ const exportToCsv = (filename: string, headers: string[], rows: (string | number
   try {
     const csvContent = [
       headers.join(","),
-      ...rows.map((row) => row.map((field) => `"${String(field || "").replace(/"/g, '""')}"`).join(",")),
+      ...rows.map((row) =>
+        row.map((field) => `"${String(field || "").replace(/"/g, '""')}"`).join(","),
+      ),
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -98,9 +108,22 @@ export function AdminPortal() {
 
   // Reactive URL Search tab synchronization via TanStack Router
   const search = Route.useSearch();
-  const activeTab: AdminMenuTab = search.tab && ["overview", "demos", "users", "subscriptions", "materials", "flashcards", "analytics", "logs", "settings"].includes(search.tab)
-    ? search.tab
-    : "overview";
+  const activeTab: AdminMenuTab =
+    search.tab &&
+    [
+      "overview",
+      "demos",
+      "users",
+      "subscriptions",
+      "materials",
+      "flashcards",
+      "analytics",
+      "logs",
+      "settings",
+      "email",
+    ].includes(search.tab)
+      ? search.tab
+      : "overview";
 
   // System-wide live Database metrics (ZERO MOCK DATA)
   const [totalUsers, setTotalUsers] = useState<number>(0);
@@ -189,7 +212,7 @@ export function AdminPortal() {
     confirmText: "Confirm",
     variant: "danger",
     icon: "alert",
-    onConfirm: () => { },
+    onConfirm: () => {},
     isLoading: false,
   });
 
@@ -229,7 +252,9 @@ export function AdminPortal() {
         setUsersList(uData);
         const sCount = uData.filter((u) => u.role === "student").length;
         const tCount = uData.filter((u) => u.role === "teacher").length;
-        const pCount = uData.filter((u) => u.role === "teacher" && u.approval_status === "pending").length;
+        const pCount = uData.filter(
+          (u) => u.role === "teacher" && u.approval_status === "pending",
+        ).length;
         setStudentCount(sCount);
         setTeacherCount(tCount);
         setPendingTeacherCount(pCount);
@@ -435,7 +460,9 @@ export function AdminPortal() {
             await supabase.from("classroom_students").delete().eq("student_id", user.id);
             await supabase.from("quiz_attempts").delete().eq("student_id", user.id);
             await supabase.from("notes").delete().eq("student_id", user.id);
-            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch { };
+            try {
+              (await import("@/lib/notes")).notifyNotesUpdated();
+            } catch {}
             await supabase.from("flashcard_decks").delete().eq("user_id", user.id);
             await supabase.from("materials").delete().eq("uploaded_by", user.id);
             await supabase.from("user_logs").delete().eq("user_id", user.id);
@@ -457,7 +484,12 @@ export function AdminPortal() {
   };
 
   // Modal-driven Prompt for Ban / Unban User with Instant Optimistic UI + Database Execution
-  const promptBanUser = (user: { id: string; name?: string; email?: string; approval_status?: string }) => {
+  const promptBanUser = (user: {
+    id: string;
+    name?: string;
+    email?: string;
+    approval_status?: string;
+  }) => {
     const isBanned = user.approval_status === "banned";
     const nextStatus = isBanned ? "approved" : "banned";
 
@@ -477,9 +509,7 @@ export function AdminPortal() {
 
         // 1. Instant Optimistic UI Update
         setUsersList((prev) =>
-          prev.map((u) =>
-            u.id === user.id ? { ...u, approval_status: nextStatus } : u
-          )
+          prev.map((u) => (u.id === user.id ? { ...u, approval_status: nextStatus } : u)),
         );
 
         try {
@@ -512,7 +542,10 @@ export function AdminPortal() {
   };
 
   // Modal-driven Prompt for Verify Teacher
-  const promptVerifyTeacher = (teacher: { id: string; name?: string; email?: string }, status: "approved" | "rejected") => {
+  const promptVerifyTeacher = (
+    teacher: { id: string; name?: string; email?: string },
+    status: "approved" | "rejected",
+  ) => {
     const isApprove = status === "approved";
     setConfirmModal({
       isOpen: true,
@@ -559,10 +592,7 @@ export function AdminPortal() {
       onConfirm: async () => {
         setConfirmModal((p) => ({ ...p, isLoading: true }));
         try {
-          const { error } = await supabase
-            .from("materials")
-            .delete()
-            .eq("id", mat.id);
+          const { error } = await supabase.from("materials").delete().eq("id", mat.id);
 
           if (error) throw error;
           toast.success(`Material "${mat.title}" deleted.`);
@@ -593,7 +623,9 @@ export function AdminPortal() {
           if (deck.id.startsWith("note_")) {
             const noteId = deck.id.replace("note_", "");
             const { error } = await supabase.from("notes").delete().eq("id", noteId);
-            try { (await import("@/lib/notes")).notifyNotesUpdated(); } catch { };
+            try {
+              (await import("@/lib/notes")).notifyNotesUpdated();
+            } catch {}
             if (error) throw error;
           } else {
             const { error } = await supabase.from("flashcard_decks").delete().eq("id", deck.id);
@@ -680,7 +712,10 @@ export function AdminPortal() {
   });
 
   const totalUsersPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE) || 1;
-  const paginatedUsers = filteredUsers.slice((usersPage - 1) * ITEMS_PER_PAGE, usersPage * ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (usersPage - 1) * ITEMS_PER_PAGE,
+    usersPage * ITEMS_PER_PAGE,
+  );
 
   // Filtered Materials List & Paginated Data
   const filteredMaterials = materialsList.filter((mat) => {
@@ -689,7 +724,10 @@ export function AdminPortal() {
   });
 
   const totalMaterialsPages = Math.ceil(filteredMaterials.length / ITEMS_PER_PAGE) || 1;
-  const paginatedMaterials = filteredMaterials.slice((materialsPage - 1) * ITEMS_PER_PAGE, materialsPage * ITEMS_PER_PAGE);
+  const paginatedMaterials = filteredMaterials.slice(
+    (materialsPage - 1) * ITEMS_PER_PAGE,
+    materialsPage * ITEMS_PER_PAGE,
+  );
 
   // Filtered Flashcards List & Paginated Data
   const filteredFlashcards = flashcardDecksList.filter((fc) => {
@@ -703,7 +741,10 @@ export function AdminPortal() {
   });
 
   const totalFlashcardsPages = Math.ceil(filteredFlashcards.length / ITEMS_PER_PAGE) || 1;
-  const paginatedFlashcards = filteredFlashcards.slice((flashcardsPage - 1) * ITEMS_PER_PAGE, flashcardsPage * ITEMS_PER_PAGE);
+  const paginatedFlashcards = filteredFlashcards.slice(
+    (flashcardsPage - 1) * ITEMS_PER_PAGE,
+    flashcardsPage * ITEMS_PER_PAGE,
+  );
 
   // Filtered Logs List & Paginated Data
   const filteredLogs = userLogs.filter((log) => {
@@ -712,7 +753,10 @@ export function AdminPortal() {
   });
 
   const totalLogsPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE) || 1;
-  const paginatedLogs = filteredLogs.slice((logsPage - 1) * ITEMS_PER_PAGE, logsPage * ITEMS_PER_PAGE);
+  const paginatedLogs = filteredLogs.slice(
+    (logsPage - 1) * ITEMS_PER_PAGE,
+    logsPage * ITEMS_PER_PAGE,
+  );
 
   // Filtered Demo Requests & Paginated Data
   const filteredDemos = demoRequests.filter((d) => {
@@ -729,11 +773,18 @@ export function AdminPortal() {
   });
 
   const totalDemosPages = Math.ceil(filteredDemos.length / ITEMS_PER_PAGE) || 1;
-  const paginatedDemos = filteredDemos.slice((demosPage - 1) * ITEMS_PER_PAGE, demosPage * ITEMS_PER_PAGE);
+  const paginatedDemos = filteredDemos.slice(
+    (demosPage - 1) * ITEMS_PER_PAGE,
+    demosPage * ITEMS_PER_PAGE,
+  );
 
   // Filtered Subscriptions List & Paginated Data
   const filteredSubscriptions = subscriptionsList.filter((sub) => {
-    if (subPlanFilter !== "all" && (sub.plan_tier || "").toLowerCase() !== subPlanFilter.toLowerCase()) return false;
+    if (
+      subPlanFilter !== "all" &&
+      (sub.plan_tier || "").toLowerCase() !== subPlanFilter.toLowerCase()
+    )
+      return false;
     if (subStatusFilter !== "all" && sub.status !== subStatusFilter) return false;
     if (!subSearchQuery.trim()) return true;
     const q = subSearchQuery.toLowerCase();
@@ -746,14 +797,14 @@ export function AdminPortal() {
   const totalSubscriptionsPages = Math.ceil(filteredSubscriptions.length / ITEMS_PER_PAGE) || 1;
   const paginatedSubscriptions = filteredSubscriptions.slice(
     (subscriptionsPage - 1) * ITEMS_PER_PAGE,
-    subscriptionsPage * ITEMS_PER_PAGE
+    subscriptionsPage * ITEMS_PER_PAGE,
   );
 
   // Admin actions on subscriptions
   const handleAdminUpdateSubscription = async (
     userId: string,
     planTier: "free" | "pro" | "educator",
-    status: "active" | "canceled" = "active"
+    status: "active" | "canceled" = "active",
   ) => {
     setIsSubActionWorking(true);
     try {
@@ -777,9 +828,7 @@ export function AdminPortal() {
   // Update Demo Request Status
   const handleUpdateDemoStatus = async (id: string, newStatus: string) => {
     setIsUpdatingDemoStatus(id);
-    setDemoRequests((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
-    );
+    setDemoRequests((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
     try {
       const { error } = await supabase
         .from("demo_requests")
@@ -787,7 +836,9 @@ export function AdminPortal() {
         .eq("id", id);
       if (error) throw error;
       toast.success(`Demo marked as "${newStatus}"`);
-      setPendingDemosCount(demoRequests.filter((d) => (d.id === id ? newStatus : d.status) === "pending").length);
+      setPendingDemosCount(
+        demoRequests.filter((d) => (d.id === id ? newStatus : d.status) === "pending").length,
+      );
     } catch (e) {
       toast.error("Failed to update demo status");
       fetchWholeSystemData();
@@ -804,9 +855,7 @@ export function AdminPortal() {
         .update({ admin_notes: notes, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
-      setDemoRequests((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, admin_notes: notes } : d))
-      );
+      setDemoRequests((prev) => prev.map((d) => (d.id === id ? { ...d, admin_notes: notes } : d)));
       if (selectedDemoDetail && selectedDemoDetail.id === id) {
         setSelectedDemoDetail({ ...selectedDemoDetail, admin_notes: notes });
       }
@@ -870,13 +919,14 @@ export function AdminPortal() {
   const teacherPercent = totalUsers > 0 ? Math.round((teacherCount / totalUsers) * 100) : 0;
   const pendingPercent = totalUsers > 0 ? Math.round((pendingTeacherCount / totalUsers) * 100) : 0;
 
-  const pieConicGradient = totalUsers > 0
-    ? `conic-gradient(
+  const pieConicGradient =
+    totalUsers > 0
+      ? `conic-gradient(
         currentColor 0% ${studentPercent}%,
         #888888 ${studentPercent}% ${studentPercent + teacherPercent}%,
         #f59e0b ${studentPercent + teacherPercent}% 100%
       )`
-    : `#e5e7eb`;
+      : `#e5e7eb`;
 
   // Export CSV functions for current active tab
   const handleExportCurrentTab = () => {
@@ -884,36 +934,92 @@ export function AdminPortal() {
       exportToCsv(
         `purelearn_users_${new Date().toISOString().slice(0, 10)}.csv`,
         ["User ID", "Name", "Email", "Role", "Approval Status", "Created Date"],
-        filteredUsers.map((u) => [u.id, u.name || "User", u.email, u.role, u.approval_status || "approved", u.created_at]),
+        filteredUsers.map((u) => [
+          u.id,
+          u.name || "User",
+          u.email,
+          u.role,
+          u.approval_status || "approved",
+          u.created_at,
+        ]),
       );
     } else if (activeTab === "materials") {
       exportToCsv(
         `purelearn_materials_${new Date().toISOString().slice(0, 10)}.csv`,
         ["Material ID", "Title", "Type", "Source Kind", "Uploaded Date"],
-        filteredMaterials.map((m) => [m.id, m.title, m.type, m.source_kind || "file", m.created_at]),
+        filteredMaterials.map((m) => [
+          m.id,
+          m.title,
+          m.type,
+          m.source_kind || "file",
+          m.created_at,
+        ]),
       );
     } else if (activeTab === "flashcards") {
       exportToCsv(
         `purelearn_flashcard_decks_${new Date().toISOString().slice(0, 10)}.csv`,
         ["Deck ID", "Title", "Subject", "Cards Count", "Author", "Created Date"],
-        filteredFlashcards.map((fc) => [fc.id, fc.title, fc.subject, fc.cardsCount, fc.authorName, fc.created_at]),
+        filteredFlashcards.map((fc) => [
+          fc.id,
+          fc.title,
+          fc.subject,
+          fc.cardsCount,
+          fc.authorName,
+          fc.created_at,
+        ]),
       );
     } else if (activeTab === "demos") {
       exportToCsv(
         `purelearn_demo_requests_${new Date().toISOString().slice(0, 10)}.csv`,
-        ["Request ID", "Name", "Email", "Role", "Organization", "Learners", "Preferred Date", "Status", "Notes", "Submitted Date"],
-        filteredDemos.map((d) => [d.id, d.name, d.email, d.role, d.organization || "Independent", d.team_size || "", d.preferred_date || "", d.status, d.admin_notes || "", d.created_at]),
+        [
+          "Request ID",
+          "Name",
+          "Email",
+          "Role",
+          "Organization",
+          "Learners",
+          "Preferred Date",
+          "Status",
+          "Notes",
+          "Submitted Date",
+        ],
+        filteredDemos.map((d) => [
+          d.id,
+          d.name,
+          d.email,
+          d.role,
+          d.organization || "Independent",
+          d.team_size || "",
+          d.preferred_date || "",
+          d.status,
+          d.admin_notes || "",
+          d.created_at,
+        ]),
       );
     } else if (activeTab === "logs") {
       exportToCsv(
         `purelearn_audit_logs_${new Date().toISOString().slice(0, 10)}.csv`,
         ["Log ID", "Timestamp", "Action Type", "User ID", "Details"],
-        filteredLogs.map((l) => [l.id, l.created_at, l.action_type, l.user_id || "System", l.details || ""]),
+        filteredLogs.map((l) => [
+          l.id,
+          l.created_at,
+          l.action_type,
+          l.user_id || "System",
+          l.details || "",
+        ]),
       );
     } else if (activeTab === "subscriptions") {
       exportToCsv(
         `purelearn_subscriptions_revenue_${new Date().toISOString().slice(0, 10)}.csv`,
-        ["Subscription ID", "User Name", "User Email", "Plan Tier", "Status", "Period End", "Updated Date"],
+        [
+          "Subscription ID",
+          "User Name",
+          "User Email",
+          "Plan Tier",
+          "Status",
+          "Period End",
+          "Updated Date",
+        ],
         filteredSubscriptions.map((s) => [
           s.id,
           s.profiles?.name || "User",
@@ -932,7 +1038,11 @@ export function AdminPortal() {
           ["Total System Users", totalUsers, "All registered user accounts"],
           ["Monthly Recurring Revenue ($)", mrrTotal, "Estimated MRR from active subscriptions"],
           ["Pro Subscribers", activeProCount, "Active $15/mo student subscriptions"],
-          ["Educator Subscribers", activeEducatorCount, "Active custom educator/school subscriptions"],
+          [
+            "Educator Subscribers",
+            activeEducatorCount,
+            "Active custom educator/school subscriptions",
+          ],
           ["Demo Requests", demosCount, "Total institutional and user demo requests"],
           ["Pending Demos", pendingDemosCount, "Demo requests awaiting response"],
           ["Students Count", studentCount, "Enrolled student accounts"],
@@ -946,7 +1056,9 @@ export function AdminPortal() {
         ],
       );
     } else {
-      toast.info("Select Demos, Users, Subscriptions, Materials, Flashcards, Analytics, or Logs to export CSV data.");
+      toast.info(
+        "Select Demos, Users, Subscriptions, Materials, Flashcards, Analytics, or Logs to export CSV data.",
+      );
     }
   };
 
@@ -967,6 +1079,7 @@ export function AdminPortal() {
               {activeTab === "analytics" && "System Telemetry & Analytics"}
               {activeTab === "logs" && "System Security & Audit Logs"}
               {activeTab === "settings" && "Global Application Settings"}
+              {activeTab === "email" && "Email Broadcasts & Resend Campaigns"}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Live database records fetched directly from Supabase.
@@ -1047,7 +1160,9 @@ export function AdminPortal() {
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
                   <span>Pending: {pendingDemosCount}</span>
-                  <span className="font-semibold text-primary group-hover:underline">View Demos →</span>
+                  <span className="font-semibold text-primary group-hover:underline">
+                    View Demos →
+                  </span>
                 </div>
               </Card>
 
@@ -1070,7 +1185,6 @@ export function AdminPortal() {
                 </div>
               </Card>
 
-
               <Card className="p-5 bg-background border border-border rounded-xl flex flex-col justify-between shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
@@ -1086,7 +1200,9 @@ export function AdminPortal() {
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground">
-                  {pendingTeacherCount > 0 ? "Pending verification action" : "All educators verified"}
+                  {pendingTeacherCount > 0
+                    ? "Pending verification action"
+                    : "All educators verified"}
                 </div>
               </Card>
 
@@ -1112,7 +1228,9 @@ export function AdminPortal() {
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
                   <span>{subscriptionsList.length} total subscribers</span>
-                  <span className="font-semibold text-primary group-hover:underline">Manage Revenue →</span>
+                  <span className="font-semibold text-primary group-hover:underline">
+                    Manage Revenue →
+                  </span>
                 </div>
               </Card>
             </div>
@@ -1138,9 +1256,13 @@ export function AdminPortal() {
                 {/* Slim & Sleek Dynamic Monochrome Bar Chart */}
                 <div className="h-48 pt-6 flex items-end justify-between gap-2 px-4">
                   {realWeeklyData.map((d) => {
-                    const heightPercent = maxWeekly > 0 ? Math.round((d.count / maxWeekly) * 100) : 0;
+                    const heightPercent =
+                      maxWeekly > 0 ? Math.round((d.count / maxWeekly) * 100) : 0;
                     return (
-                      <div key={d.day} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
+                      <div
+                        key={d.day}
+                        className="flex-1 flex flex-col items-center gap-2 group h-full justify-end"
+                      >
                         <div className="text-[10px] font-mono font-bold text-muted-foreground group-hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                           {d.count}
                         </div>
@@ -1179,8 +1301,12 @@ export function AdminPortal() {
                     />
                     {/* Donut Hole */}
                     <div className="relative z-10 w-20 h-20 rounded-full bg-background flex flex-col items-center justify-center border border-border shadow-inner">
-                      <span className="text-xl font-black font-mono text-foreground">{totalUsers}</span>
-                      <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-muted-foreground">Total</span>
+                      <span className="text-xl font-black font-mono text-foreground">
+                        {totalUsers}
+                      </span>
+                      <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-muted-foreground">
+                        Total
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1222,7 +1348,11 @@ export function AdminPortal() {
                     Registered System Users Directory ({usersList.length})
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Live records fetched directly from Supabase database <code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">profiles</code> table.
+                    Live records fetched directly from Supabase database{" "}
+                    <code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">
+                      profiles
+                    </code>{" "}
+                    table.
                   </p>
                 </div>
 
@@ -1271,7 +1401,9 @@ export function AdminPortal() {
 
                         return (
                           <tr key={user.id} className="hover:bg-muted/40 transition-colors">
-                            <td className="py-3 font-bold text-foreground">{user.name || "User"}</td>
+                            <td className="py-3 font-bold text-foreground">
+                              {user.name || "User"}
+                            </td>
                             <td className="py-3 text-muted-foreground font-mono">{user.email}</td>
                             <td className="py-3 font-mono uppercase font-bold text-[11px] text-foreground">
                               {user.role}
@@ -1282,24 +1414,29 @@ export function AdminPortal() {
                                   isPro
                                     ? "bg-primary/15 border-primary text-primary shadow-sm shadow-primary/20 font-black"
                                     : isEducator
-                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
-                                    : "bg-muted border-border text-muted-foreground"
+                                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
+                                      : "bg-muted border-border text-muted-foreground"
                                 }`}
                               >
                                 {isPro && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                                {isPro ? "Pro Learner ($15)" : isEducator ? "Educator Hub" : "Free Tier"}
+                                {isPro
+                                  ? "Pro Learner ($15)"
+                                  : isEducator
+                                    ? "Educator Hub"
+                                    : "Free Tier"}
                               </span>
                             </td>
                             <td className="py-3">
                               <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
-                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
-                                  : user.approval_status === "approved"
-                                    ? "bg-foreground/10 border-foreground text-foreground"
-                                    : user.approval_status === "rejected"
-                                      ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                      : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                                  }`}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                                  user.approval_status === "banned"
+                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                                    : user.approval_status === "approved"
+                                      ? "bg-foreground/10 border-foreground text-foreground"
+                                      : user.approval_status === "rejected"
+                                        ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                        : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                }`}
                               >
                                 {user.approval_status || "approved"}
                               </span>
@@ -1307,46 +1444,49 @@ export function AdminPortal() {
                             <td className="py-3 text-muted-foreground">
                               {new Date(user.created_at).toLocaleDateString()}
                             </td>
-                          <td className="py-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {user.role === "teacher" && user.approval_status === "pending" && (
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {user.role === "teacher" && user.approval_status === "pending" && (
+                                  <button
+                                    onClick={() => promptVerifyTeacher(user, "approved")}
+                                    className="px-2.5 py-1 rounded bg-foreground text-background text-[11px] font-bold hover:opacity-90 transition-opacity"
+                                  >
+                                    Approve
+                                  </button>
+                                )}
+
+                                {/* Ban / Unban User Button */}
                                 <button
-                                  onClick={() => promptVerifyTeacher(user, "approved")}
-                                  className="px-2.5 py-1 rounded bg-foreground text-background text-[11px] font-bold hover:opacity-90 transition-opacity"
-                                >
-                                  Approve
-                                </button>
-                              )}
-
-                              {/* Ban / Unban User Button */}
-                              <button
-                                onClick={() => promptBanUser(user)}
-                                className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${user.approval_status === "banned"
-                                  ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                                  : "bg-background border-border text-foreground hover:bg-muted"
+                                  onClick={() => promptBanUser(user)}
+                                  className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${
+                                    user.approval_status === "banned"
+                                      ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                                      : "bg-background border-border text-foreground hover:bg-muted"
                                   }`}
-                                title={user.approval_status === "banned" ? "Unban user" : "Ban user"}
-                              >
-                                <Ban className="h-3 w-3" />
-                                {user.approval_status === "banned" ? "Unban" : "Ban"}
-                              </button>
+                                  title={
+                                    user.approval_status === "banned" ? "Unban user" : "Ban user"
+                                  }
+                                >
+                                  <Ban className="h-3 w-3" />
+                                  {user.approval_status === "banned" ? "Unban" : "Ban"}
+                                </button>
 
-                              {/* Delete User Button */}
-                              <button
-                                onClick={() => promptDeleteUser(user)}
-                                className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors flex items-center gap-1"
-                                title="Delete user permanently"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
+                                {/* Delete User Button */}
+                                <button
+                                  onClick={() => promptDeleteUser(user)}
+                                  className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors flex items-center gap-1"
+                                  title="Delete user permanently"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
                 </table>
               </div>
 
@@ -1354,7 +1494,9 @@ export function AdminPortal() {
               {filteredUsers.length > ITEMS_PER_PAGE && (
                 <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
                   <div className="text-muted-foreground font-mono">
-                    Showing {(usersPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(usersPage * ITEMS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
+                    Showing {(usersPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(usersPage * ITEMS_PER_PAGE, filteredUsers.length)} of{" "}
+                    {filteredUsers.length} users
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1387,21 +1529,29 @@ export function AdminPortal() {
             {/* Quick Metrics Bar for Demos */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <Card className="p-4 bg-background border border-border rounded-xl">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Inquiries</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Total Inquiries
+                </p>
                 <p className="text-2xl font-black text-foreground mt-1">{demosCount}</p>
               </Card>
               <Card className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-primary">Pending Review</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-primary">
+                  Pending Review
+                </p>
                 <p className="text-2xl font-black text-primary mt-1">{pendingDemosCount}</p>
               </Card>
               <Card className="p-4 bg-muted/40 border border-border rounded-xl">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Scheduled</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Scheduled
+                </p>
                 <p className="text-2xl font-black text-foreground mt-1">
                   {demoRequests.filter((d) => d.status === "scheduled").length}
                 </p>
               </Card>
               <Card className="p-4 bg-primary/10 border border-primary/30 rounded-xl">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-primary">Completed</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-primary">
+                  Completed
+                </p>
                 <p className="text-2xl font-black text-primary mt-1">
                   {demoRequests.filter((d) => d.status === "completed").length}
                 </p>
@@ -1416,7 +1566,8 @@ export function AdminPortal() {
                     Institutional Demo Requests ({demoRequests.length})
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Prospective school, university, and student walk-through requests submitted from the landing page.
+                    Prospective school, university, and student walk-through requests submitted from
+                    the landing page.
                   </p>
                 </div>
 
@@ -1439,10 +1590,18 @@ export function AdminPortal() {
                   >
                     <option value="all">All Statuses ({demoRequests.length})</option>
                     <option value="pending">Pending ({pendingDemosCount})</option>
-                    <option value="contacted">Contacted ({demoRequests.filter((d) => d.status === "contacted").length})</option>
-                    <option value="scheduled">Scheduled ({demoRequests.filter((d) => d.status === "scheduled").length})</option>
-                    <option value="completed">Completed ({demoRequests.filter((d) => d.status === "completed").length})</option>
-                    <option value="cancelled">Cancelled ({demoRequests.filter((d) => d.status === "cancelled").length})</option>
+                    <option value="contacted">
+                      Contacted ({demoRequests.filter((d) => d.status === "contacted").length})
+                    </option>
+                    <option value="scheduled">
+                      Scheduled ({demoRequests.filter((d) => d.status === "scheduled").length})
+                    </option>
+                    <option value="completed">
+                      Completed ({demoRequests.filter((d) => d.status === "completed").length})
+                    </option>
+                    <option value="cancelled">
+                      Cancelled ({demoRequests.filter((d) => d.status === "cancelled").length})
+                    </option>
                   </select>
                 </div>
               </div>
@@ -1452,7 +1611,8 @@ export function AdminPortal() {
                   <Building className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
                   <p className="text-sm font-semibold text-foreground">No demo requests found</p>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                    When prospective educators and students click "Get demo" on the landing page, their walk-through requests will populate here in real-time.
+                    When prospective educators and students click "Get demo" on the landing page,
+                    their walk-through requests will populate here in real-time.
                   </p>
                 </div>
               ) : (
@@ -1474,7 +1634,9 @@ export function AdminPortal() {
                         <tr key={demo.id} className="hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="font-semibold text-foreground">{demo.name}</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{demo.email}</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">
+                              {demo.email}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-muted text-foreground border border-border">
@@ -1485,7 +1647,9 @@ export function AdminPortal() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="font-medium text-foreground">{demo.organization || "Independent"}</div>
+                            <div className="font-medium text-foreground">
+                              {demo.organization || "Independent"}
+                            </div>
                             {demo.use_case && (
                               <button
                                 onClick={() => {
@@ -1506,16 +1670,17 @@ export function AdminPortal() {
                               value={demo.status}
                               disabled={isUpdatingDemoStatus === demo.id}
                               onChange={(e) => handleUpdateDemoStatus(demo.id, e.target.value)}
-                              className={`text-[10px] font-bold rounded-md px-2 py-1 border transition-colors ${demo.status === "pending"
-                                ? "bg-primary/10 text-primary border-primary/30"
-                                : demo.status === "scheduled"
-                                  ? "bg-primary/5 text-primary border-primary/20"
-                                  : demo.status === "contacted"
-                                    ? "bg-muted text-foreground border-border"
-                                    : demo.status === "completed"
-                                      ? "bg-primary/15 text-primary border-primary/40"
-                                      : "bg-muted text-muted-foreground border-border"
-                                }`}
+                              className={`text-[10px] font-bold rounded-md px-2 py-1 border transition-colors ${
+                                demo.status === "pending"
+                                  ? "bg-primary/10 text-primary border-primary/30"
+                                  : demo.status === "scheduled"
+                                    ? "bg-primary/5 text-primary border-primary/20"
+                                    : demo.status === "contacted"
+                                      ? "bg-muted text-foreground border-border"
+                                      : demo.status === "completed"
+                                        ? "bg-primary/15 text-primary border-primary/40"
+                                        : "bg-muted text-muted-foreground border-border"
+                              }`}
                             >
                               <option value="pending">Pending</option>
                               <option value="contacted">Contacted</option>
@@ -1661,7 +1826,9 @@ export function AdminPortal() {
 
                       return (
                         <tr key={user.id} className="hover:bg-muted/40 transition-colors">
-                          <td className="py-3.5 font-bold text-foreground">{user.name || "User"}</td>
+                          <td className="py-3.5 font-bold text-foreground">
+                            {user.name || "User"}
+                          </td>
                           <td className="py-3.5 text-muted-foreground font-mono">{user.email}</td>
                           <td className="py-3.5 font-mono uppercase font-bold text-[11px] text-foreground">
                             {user.role}
@@ -1672,24 +1839,29 @@ export function AdminPortal() {
                                 isPro
                                   ? "bg-primary/15 border-primary text-primary shadow-sm shadow-primary/20 font-black"
                                   : isEducator
-                                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
-                                  : "bg-muted border-border text-muted-foreground"
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold"
+                                    : "bg-muted border-border text-muted-foreground"
                               }`}
                             >
                               {isPro && <CheckCircle2 className="h-3 w-3 text-primary" />}
-                              {isPro ? "Pro Learner ($15)" : isEducator ? "Educator Hub" : "Free Tier"}
+                              {isPro
+                                ? "Pro Learner ($15)"
+                                : isEducator
+                                  ? "Educator Hub"
+                                  : "Free Tier"}
                             </span>
                           </td>
                           <td className="py-3.5">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${user.approval_status === "banned"
-                                ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
-                                : user.approval_status === "approved"
-                                  ? "bg-foreground/10 border-foreground text-foreground"
-                                  : user.approval_status === "rejected"
-                                    ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
-                                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                                }`}
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                                user.approval_status === "banned"
+                                  ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400 font-extrabold"
+                                  : user.approval_status === "approved"
+                                    ? "bg-foreground/10 border-foreground text-foreground"
+                                    : user.approval_status === "rejected"
+                                      ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                                      : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                              }`}
                             >
                               {user.approval_status || "approved"}
                             </span>
@@ -1697,46 +1869,49 @@ export function AdminPortal() {
                           <td className="py-3.5 text-muted-foreground">
                             {new Date(user.created_at).toLocaleDateString()}
                           </td>
-                        <td className="py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {user.role === "teacher" && user.approval_status === "pending" && (
+                          <td className="py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {user.role === "teacher" && user.approval_status === "pending" && (
+                                <button
+                                  onClick={() => promptVerifyTeacher(user, "approved")}
+                                  className="px-2.5 py-1 rounded bg-foreground text-background text-[11px] font-bold hover:opacity-90 transition-opacity"
+                                >
+                                  Approve
+                                </button>
+                              )}
+
+                              {/* Ban / Unban User Button */}
                               <button
-                                onClick={() => promptVerifyTeacher(user, "approved")}
-                                className="px-2.5 py-1 rounded bg-foreground text-background text-[11px] font-bold hover:opacity-90 transition-opacity"
-                              >
-                                Approve
-                              </button>
-                            )}
-
-                            {/* Ban / Unban User Button */}
-                            <button
-                              onClick={() => promptBanUser(user)}
-                              className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${user.approval_status === "banned"
-                                ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                                : "bg-background border-border text-foreground hover:bg-muted"
+                                onClick={() => promptBanUser(user)}
+                                className={`px-2.5 py-1 rounded border text-[11px] font-bold transition-colors flex items-center gap-1 ${
+                                  user.approval_status === "banned"
+                                    ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                                    : "bg-background border-border text-foreground hover:bg-muted"
                                 }`}
-                              title={user.approval_status === "banned" ? "Unban user" : "Ban user"}
-                            >
-                              <Ban className="h-3 w-3" />
-                              {user.approval_status === "banned" ? "Unban" : "Ban"}
-                            </button>
+                                title={
+                                  user.approval_status === "banned" ? "Unban user" : "Ban user"
+                                }
+                              >
+                                <Ban className="h-3 w-3" />
+                                {user.approval_status === "banned" ? "Unban" : "Ban"}
+                              </button>
 
-                            {/* Delete User Button */}
-                            <button
-                              onClick={() => promptDeleteUser(user)}
-                              className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors flex items-center gap-1"
-                              title="Delete user permanently"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
+                              {/* Delete User Button */}
+                              <button
+                                onClick={() => promptDeleteUser(user)}
+                                className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[11px] font-bold transition-colors flex items-center gap-1"
+                                title="Delete user permanently"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
               </table>
             </div>
 
@@ -1744,7 +1919,9 @@ export function AdminPortal() {
             {filteredUsers.length > ITEMS_PER_PAGE && (
               <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
                 <div className="text-muted-foreground font-mono">
-                  Showing {(usersPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(usersPage * ITEMS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
+                  Showing {(usersPage - 1) * ITEMS_PER_PAGE + 1}–
+                  {Math.min(usersPage * ITEMS_PER_PAGE, filteredUsers.length)} of{" "}
+                  {filteredUsers.length} users
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1812,8 +1989,12 @@ export function AdminPortal() {
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground flex justify-between">
-                  <span>Active: {subscriptionsList.filter((s) => s.status === "active").length}</span>
-                  <span>Canceled: {subscriptionsList.filter((s) => s.status === "canceled").length}</span>
+                  <span>
+                    Active: {subscriptionsList.filter((s) => s.status === "active").length}
+                  </span>
+                  <span>
+                    Canceled: {subscriptionsList.filter((s) => s.status === "canceled").length}
+                  </span>
                 </div>
               </Card>
 
@@ -1868,7 +2049,11 @@ export function AdminPortal() {
                     Subscriptions & Revenue Ledger ({subscriptionsList.length})
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Live subscriptions persisted directly in Supabase <code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">subscriptions</code> table.
+                    Live subscriptions persisted directly in Supabase{" "}
+                    <code className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">
+                      subscriptions
+                    </code>{" "}
+                    table.
                   </p>
                 </div>
 
@@ -1933,7 +2118,10 @@ export function AdminPortal() {
                         const periodEnd = formatPeriodEnd(sub.current_period_end);
 
                         return (
-                          <tr key={sub.id || sub.user_id} className="hover:bg-muted/40 transition-colors">
+                          <tr
+                            key={sub.id || sub.user_id}
+                            className="hover:bg-muted/40 transition-colors"
+                          >
                             <td className="py-3.5">
                               <div className="font-bold text-foreground">
                                 {sub.profiles?.name || "User"}
@@ -1949,12 +2137,13 @@ export function AdminPortal() {
                             </td>
                             <td className="py-3.5">
                               <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${planKey === "pro" || planKey === "premium"
-                                  ? "bg-primary/10 border-primary/30 text-primary"
-                                  : planKey === "educator" || planKey === "custom"
-                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                                    : "bg-muted border-border text-muted-foreground"
-                                  }`}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  planKey === "pro" || planKey === "premium"
+                                    ? "bg-primary/10 border-primary/30 text-primary"
+                                    : planKey === "educator" || planKey === "custom"
+                                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                                      : "bg-muted border-border text-muted-foreground"
+                                }`}
                               >
                                 {planKey === "pro" || planKey === "premium"
                                   ? "Pro Learner ($15)"
@@ -1965,10 +2154,11 @@ export function AdminPortal() {
                             </td>
                             <td className="py-3.5">
                               <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${sub.status === "active"
-                                  ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                                  : "bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400"
-                                  }`}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  sub.status === "active"
+                                    ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400"
+                                }`}
                               >
                                 {sub.status || "active"}
                               </span>
@@ -1993,7 +2183,9 @@ export function AdminPortal() {
                                 {/* Grant Pro Button */}
                                 {planKey !== "pro" && planKey !== "premium" && (
                                   <button
-                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, "pro", "active")}
+                                    onClick={() =>
+                                      handleAdminUpdateSubscription(sub.user_id, "pro", "active")
+                                    }
                                     disabled={isSubActionWorking}
                                     className="px-2 py-1 rounded border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-colors disabled:opacity-50"
                                     title="Upgrade user to Pro ($15/mo)"
@@ -2005,7 +2197,13 @@ export function AdminPortal() {
                                 {/* Grant Educator Button */}
                                 {planKey !== "educator" && (
                                   <button
-                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, "educator", "active")}
+                                    onClick={() =>
+                                      handleAdminUpdateSubscription(
+                                        sub.user_id,
+                                        "educator",
+                                        "active",
+                                      )
+                                    }
                                     disabled={isSubActionWorking}
                                     className="px-2 py-1 rounded border border-border bg-background hover:bg-muted text-foreground text-[10px] font-bold transition-colors disabled:opacity-50"
                                     title="Upgrade user to Educator Hub"
@@ -2017,7 +2215,13 @@ export function AdminPortal() {
                                 {/* Extend 1 Month Button */}
                                 {planKey !== "free" && (
                                   <button
-                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, planKey as any, "active")}
+                                    onClick={() =>
+                                      handleAdminUpdateSubscription(
+                                        sub.user_id,
+                                        planKey as any,
+                                        "active",
+                                      )
+                                    }
                                     disabled={isSubActionWorking}
                                     className="px-2 py-1 rounded border border-border bg-background hover:bg-muted text-foreground text-[10px] font-bold transition-colors disabled:opacity-50"
                                     title="Extend renewal by 1 month"
@@ -2029,7 +2233,13 @@ export function AdminPortal() {
                                 {/* Cancel Subscription */}
                                 {sub.status === "active" && planKey !== "free" && (
                                   <button
-                                    onClick={() => handleAdminUpdateSubscription(sub.user_id, planKey as any, "canceled")}
+                                    onClick={() =>
+                                      handleAdminUpdateSubscription(
+                                        sub.user_id,
+                                        planKey as any,
+                                        "canceled",
+                                      )
+                                    }
                                     disabled={isSubActionWorking}
                                     className="px-2 py-1 rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] font-bold transition-colors disabled:opacity-50"
                                     title="Cancel subscription"
@@ -2051,7 +2261,9 @@ export function AdminPortal() {
               {filteredSubscriptions.length > ITEMS_PER_PAGE && (
                 <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
                   <div className="text-muted-foreground font-mono">
-                    Showing {(subscriptionsPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(subscriptionsPage * ITEMS_PER_PAGE, filteredSubscriptions.length)} of {filteredSubscriptions.length} subscriptions
+                    Showing {(subscriptionsPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(subscriptionsPage * ITEMS_PER_PAGE, filteredSubscriptions.length)} of{" "}
+                    {filteredSubscriptions.length} subscriptions
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -2065,7 +2277,9 @@ export function AdminPortal() {
                       Page {subscriptionsPage} of {totalSubscriptionsPages}
                     </span>
                     <button
-                      onClick={() => setSubscriptionsPage((p) => Math.min(totalSubscriptionsPages, p + 1))}
+                      onClick={() =>
+                        setSubscriptionsPage((p) => Math.min(totalSubscriptionsPages, p + 1))
+                      }
                       disabled={subscriptionsPage >= totalSubscriptionsPages}
                       className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
@@ -2128,7 +2342,9 @@ export function AdminPortal() {
                   ) : (
                     paginatedMaterials.map((mat) => (
                       <tr key={mat.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="py-3.5 font-bold text-foreground break-words whitespace-normal max-w-[280px]">{mat.title}</td>
+                        <td className="py-3.5 font-bold text-foreground break-words whitespace-normal max-w-[280px]">
+                          {mat.title}
+                        </td>
                         <td className="py-3.5 font-mono uppercase font-bold text-[11px] text-foreground">
                           {mat.type}
                         </td>
@@ -2159,7 +2375,9 @@ export function AdminPortal() {
             {filteredMaterials.length > ITEMS_PER_PAGE && (
               <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
                 <div className="text-muted-foreground font-mono">
-                  Showing {(materialsPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(materialsPage * ITEMS_PER_PAGE, filteredMaterials.length)} of {filteredMaterials.length} materials
+                  Showing {(materialsPage - 1) * ITEMS_PER_PAGE + 1}–
+                  {Math.min(materialsPage * ITEMS_PER_PAGE, filteredMaterials.length)} of{" "}
+                  {filteredMaterials.length} materials
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2194,7 +2412,8 @@ export function AdminPortal() {
                   System Flashcards & Study Decks ({flashcardDecksList.length})
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  All flashcard sets created by students, educators, and AI study notes across the platform.
+                  All flashcard sets created by students, educators, and AI study notes across the
+                  platform.
                 </p>
               </div>
 
@@ -2246,7 +2465,9 @@ export function AdminPortal() {
                         </td>
                         <td className="py-3.5 text-foreground">
                           <span className="font-semibold">{fc.authorName}</span>
-                          <span className="text-[10px] block text-muted-foreground font-mono">{fc.authorEmail}</span>
+                          <span className="text-[10px] block text-muted-foreground font-mono">
+                            {fc.authorEmail}
+                          </span>
                         </td>
                         <td className="py-3.5 text-muted-foreground font-mono text-[11px]">
                           {new Date(fc.created_at).toLocaleDateString()}
@@ -2272,7 +2493,9 @@ export function AdminPortal() {
             {filteredFlashcards.length > ITEMS_PER_PAGE && (
               <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
                 <div className="text-muted-foreground font-mono">
-                  Showing {(flashcardsPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(flashcardsPage * ITEMS_PER_PAGE, filteredFlashcards.length)} of {filteredFlashcards.length} decks
+                  Showing {(flashcardsPage - 1) * ITEMS_PER_PAGE + 1}–
+                  {Math.min(flashcardsPage * ITEMS_PER_PAGE, filteredFlashcards.length)} of{" "}
+                  {filteredFlashcards.length} decks
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2357,9 +2580,13 @@ export function AdminPortal() {
 
                 <div className="h-44 pt-4 flex items-end justify-between gap-2 px-2">
                   {realWeeklyData.map((d) => {
-                    const heightPercent = maxWeekly > 0 ? Math.round((d.count / maxWeekly) * 100) : 0;
+                    const heightPercent =
+                      maxWeekly > 0 ? Math.round((d.count / maxWeekly) * 100) : 0;
                     return (
-                      <div key={d.day} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
+                      <div
+                        key={d.day}
+                        className="flex-1 flex flex-col items-center gap-2 group h-full justify-end"
+                      >
                         <div className="text-[10px] font-mono font-bold text-muted-foreground group-hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                           {d.count}
                         </div>
@@ -2397,8 +2624,12 @@ export function AdminPortal() {
                     />
                     {/* Donut Hole */}
                     <div className="relative z-10 w-20 h-20 rounded-full bg-background flex flex-col items-center justify-center border border-border shadow-inner">
-                      <span className="text-xl font-black font-mono text-foreground">{totalUsers}</span>
-                      <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-muted-foreground">Total</span>
+                      <span className="text-xl font-black font-mono text-foreground">
+                        {totalUsers}
+                      </span>
+                      <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-muted-foreground">
+                        Total
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2445,7 +2676,8 @@ export function AdminPortal() {
                     {totalUsers > 0 ? Math.round((studentCount / totalUsers) * 100) : 0}% Students
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {studentCount} Students, {teacherCount} Teachers out of {totalUsers} total registered accounts.
+                    {studentCount} Students, {teacherCount} Teachers out of {totalUsers} total
+                    registered accounts.
                   </p>
                 </div>
 
@@ -2454,7 +2686,8 @@ export function AdminPortal() {
                     Content Density
                   </div>
                   <div className="text-2xl font-black text-foreground">
-                    {activeClassrooms > 0 ? (materialsCount / activeClassrooms).toFixed(1) : 0} Items/Class
+                    {activeClassrooms > 0 ? (materialsCount / activeClassrooms).toFixed(1) : 0}{" "}
+                    Items/Class
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Average study materials uploaded per active classroom.
@@ -2535,7 +2768,9 @@ export function AdminPortal() {
             {filteredLogs.length > ITEMS_PER_PAGE && (
               <div className="flex items-center justify-between pt-4 border-t border-border/60 text-xs">
                 <div className="text-muted-foreground font-mono">
-                  Showing {(logsPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(logsPage * ITEMS_PER_PAGE, filteredLogs.length)} of {filteredLogs.length} logs
+                  Showing {(logsPage - 1) * ITEMS_PER_PAGE + 1}–
+                  {Math.min(logsPage * ITEMS_PER_PAGE, filteredLogs.length)} of{" "}
+                  {filteredLogs.length} logs
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -2561,7 +2796,17 @@ export function AdminPortal() {
           </Card>
         )}
 
-        {/* ── 7. APP SETTINGS MENU TAB (INTENTIONAL HIGH-AESTHETIC SYSTEM CONFIGURATION) ── */}
+        {/* ── 7. EMAIL BROADCASTS & RESEND MAILING TAB ── */}
+        {activeTab === "email" && (
+          <AdminEmailBroadcasts
+            usersList={usersList}
+            studentCount={studentCount}
+            teacherCount={teacherCount}
+            onRefresh={fetchWholeSystemData}
+          />
+        )}
+
+        {/* ── 8. APP SETTINGS MENU TAB (INTENTIONAL HIGH-AESTHETIC SYSTEM CONFIGURATION) ── */}
         {activeTab === "settings" && (
           <div className="space-y-6 w-full">
             {/* Global Settings Hero Banner */}
@@ -2579,7 +2824,11 @@ export function AdminPortal() {
                   Global System Settings & Database Configuration
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
-                  Changes made here update the <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-[11px]">system_settings</code> table in your Supabase database in real-time.
+                  Changes made here update the{" "}
+                  <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-[11px]">
+                    system_settings
+                  </code>{" "}
+                  table in your Supabase database in real-time.
                 </p>
               </div>
 
@@ -2638,7 +2887,11 @@ export function AdminPortal() {
                           disabled={isSavingKey}
                           className="px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5"
                         >
-                          {isSavingKey ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Key className="h-3.5 w-3.5" />}
+                          {isSavingKey ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Key className="h-3.5 w-3.5" />
+                          )}
                           Save Key
                         </button>
                       </div>
@@ -2646,7 +2899,8 @@ export function AdminPortal() {
                         <p className="text-[11px] mt-1.5 font-mono text-muted-foreground flex items-center gap-1">
                           {systemApiKey.trim().startsWith("AIzaSy") ? (
                             <span className="text-foreground font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-foreground" /> Verified Google AI Studio API Key format
+                              <CheckCircle2 className="h-3.5 w-3.5 text-foreground" /> Verified
+                              Google AI Studio API Key format
                             </span>
                           ) : (
                             <span>⚠️ Note: Official Google Gemini keys start with "AIzaSy".</span>
@@ -2664,8 +2918,12 @@ export function AdminPortal() {
                         onChange={(e) => setAiModel(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-foreground"
                       >
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended & Fast)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning & Analysis)</option>
+                        <option value="gemini-2.5-flash">
+                          Gemini 2.5 Flash (Recommended & Fast)
+                        </option>
+                        <option value="gemini-1.5-pro">
+                          Gemini 1.5 Pro (Deep Reasoning & Analysis)
+                        </option>
                         <option value="gemini-2.0-flash">Gemini 2.0 Flash Experimental</option>
                       </select>
                     </div>
@@ -2696,7 +2954,8 @@ export function AdminPortal() {
                       Educator Access & Registration Policy
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Define approval workflows and classroom capacity limits for registered educators.
+                      Define approval workflows and classroom capacity limits for registered
+                      educators.
                     </p>
                   </div>
 
@@ -2710,7 +2969,9 @@ export function AdminPortal() {
                         onChange={(e) => setTeacherApprovalMode(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-foreground"
                       >
-                        <option value="manual">Manual Admin Verification Required (Pending Queue)</option>
+                        <option value="manual">
+                          Manual Admin Verification Required (Pending Queue)
+                        </option>
                         <option value="auto">Auto-Approve All Educator Signups Immediately</option>
                       </select>
                     </div>
@@ -2757,7 +3018,8 @@ export function AdminPortal() {
                     System Maintenance & Security Policy Controls
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Manage platform maintenance mode banners, document upload limits, and audit log telemetry.
+                    Manage platform maintenance mode banners, document upload limits, and audit log
+                    telemetry.
                   </p>
                 </div>
 
@@ -2765,7 +3027,9 @@ export function AdminPortal() {
                   <div className="p-4 border border-border/80 rounded-xl space-y-2 bg-muted/20 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-bold uppercase text-foreground">Maintenance Mode</span>
+                        <span className="text-xs font-mono font-bold uppercase text-foreground">
+                          Maintenance Mode
+                        </span>
                         <input
                           type="checkbox"
                           checked={maintenanceMode}
@@ -2774,7 +3038,9 @@ export function AdminPortal() {
                         />
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-                        {maintenanceMode ? "⚠️ Enabled — Non-admin users see maintenance notice banner." : "Normal Operation — Platform is fully accessible."}
+                        {maintenanceMode
+                          ? "⚠️ Enabled — Non-admin users see maintenance notice banner."
+                          : "Normal Operation — Platform is fully accessible."}
                       </p>
                     </div>
                   </div>
@@ -2812,7 +3078,10 @@ export function AdminPortal() {
 
                 <div className="pt-3 flex items-center justify-between border-t border-border/60">
                   <span className="text-[11px] font-mono text-muted-foreground">
-                    Database Target: <code className="px-1.5 py-0.5 rounded bg-muted font-bold text-foreground">public.system_settings</code>
+                    Database Target:{" "}
+                    <code className="px-1.5 py-0.5 rounded bg-muted font-bold text-foreground">
+                      public.system_settings
+                    </code>
                   </span>
 
                   <button
@@ -2820,7 +3089,11 @@ export function AdminPortal() {
                     disabled={isSavingSettings}
                     className="px-5 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
                   >
-                    {isSavingSettings ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {isSavingSettings ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
                     Save All Settings Live
                   </button>
                 </div>
@@ -2859,34 +3132,49 @@ export function AdminPortal() {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
                 <span className="text-[10px] text-muted-foreground block">Email</span>
-                <a href={`mailto:${selectedDemoDetail.email}`} className="font-mono font-semibold text-primary hover:underline truncate block">
+                <a
+                  href={`mailto:${selectedDemoDetail.email}`}
+                  className="font-mono font-semibold text-primary hover:underline truncate block"
+                >
                   {selectedDemoDetail.email}
                 </a>
               </div>
               <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
                 <span className="text-[10px] text-muted-foreground block">Role</span>
-                <span className="font-semibold text-foreground">{selectedDemoDetail.role || "Educator"}</span>
+                <span className="font-semibold text-foreground">
+                  {selectedDemoDetail.role || "Educator"}
+                </span>
               </div>
               <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
                 <span className="text-[10px] text-muted-foreground block">Organization</span>
-                <span className="font-semibold text-foreground">{selectedDemoDetail.organization || "Independent"}</span>
+                <span className="font-semibold text-foreground">
+                  {selectedDemoDetail.organization || "Independent"}
+                </span>
               </div>
               <div className="rounded-lg bg-muted/40 p-2.5 border border-border">
                 <span className="text-[10px] text-muted-foreground block">Audience Size</span>
-                <span className="font-semibold text-foreground">{selectedDemoDetail.team_size || "1–50 learners"}</span>
+                <span className="font-semibold text-foreground">
+                  {selectedDemoDetail.team_size || "1–50 learners"}
+                </span>
               </div>
             </div>
 
             {selectedDemoDetail.preferred_date && (
               <div className="text-xs rounded-lg bg-muted/30 p-2.5 border border-border">
-                <span className="text-[10px] text-muted-foreground block font-mono uppercase">Preferred Date / Time</span>
-                <span className="font-medium text-foreground">{selectedDemoDetail.preferred_date}</span>
+                <span className="text-[10px] text-muted-foreground block font-mono uppercase">
+                  Preferred Date / Time
+                </span>
+                <span className="font-medium text-foreground">
+                  {selectedDemoDetail.preferred_date}
+                </span>
               </div>
             )}
 
             {selectedDemoDetail.use_case && (
               <div className="text-xs rounded-lg bg-muted/30 p-3 border border-border space-y-1">
-                <span className="text-[10px] text-muted-foreground block font-mono uppercase">Goals & Learning Challenges</span>
+                <span className="text-[10px] text-muted-foreground block font-mono uppercase">
+                  Goals & Learning Challenges
+                </span>
                 <p className="text-muted-foreground leading-relaxed italic">
                   "{selectedDemoDetail.use_case}"
                 </p>
@@ -2896,7 +3184,9 @@ export function AdminPortal() {
             <div className="space-y-1.5 pt-2">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Internal Admin Notes</span>
-                <span className="text-[10px] font-normal text-muted-foreground">Visible to admins only</span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  Visible to admins only
+                </span>
               </label>
               <textarea
                 rows={3}
@@ -2961,12 +3251,13 @@ export function AdminPortal() {
           <div className="w-full max-w-md rounded-2xl border border-border/80 bg-popover text-popover-foreground p-6 shadow-2xl ring-1 ring-border/40">
             <div className="flex items-start justify-between gap-4">
               <div
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${confirmModal.variant === "danger"
-                  ? "border-red-500/30 bg-red-500/10 text-red-500"
-                  : confirmModal.variant === "warning"
-                    ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
-                    : "border-primary/30 bg-primary/10 text-primary"
-                  }`}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
+                  confirmModal.variant === "danger"
+                    ? "border-red-500/30 bg-red-500/10 text-red-500"
+                    : confirmModal.variant === "warning"
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
+                      : "border-primary/30 bg-primary/10 text-primary"
+                }`}
               >
                 {confirmModal.icon === "trash" && <Trash2 className="h-6 w-6" />}
                 {confirmModal.icon === "ban" && <Ban className="h-6 w-6" />}
@@ -3009,12 +3300,13 @@ export function AdminPortal() {
                 onClick={() => void confirmModal.onConfirm()}
                 disabled={confirmModal.isLoading}
                 autoFocus
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${confirmModal.variant === "danger"
-                  ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
-                  : confirmModal.variant === "warning"
-                    ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20"
-                    : "bg-foreground text-background hover:opacity-90"
-                  }`}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${
+                  confirmModal.variant === "danger"
+                    ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
+                    : confirmModal.variant === "warning"
+                      ? "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/20"
+                      : "bg-foreground text-background hover:opacity-90"
+                }`}
               >
                 {confirmModal.isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {confirmModal.confirmText}
