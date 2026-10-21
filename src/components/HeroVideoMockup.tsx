@@ -185,7 +185,7 @@ export function HeroVideoMockup() {
       </div>
 
       {/* 2. Main App Screen (Sidebar + Replicated Dashboard Workspace) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 min-h-[500px] sm:min-h-[540px] md:min-h-[580px] bg-background">
+      <div className="grid grid-cols-1 md:grid-cols-12 min-h-[620px] sm:min-h-[700px] md:min-h-[760px] lg:min-h-[820px] bg-background">
         {/* Actual PureLearn App Sidebar (Left Column - 3.5 / 12 width) */}
         <aside className="hidden md:flex md:col-span-4 lg:col-span-3 flex-col border-r border-border/70 bg-background p-3.5 justify-between">
           <div>
@@ -299,7 +299,7 @@ export function HeroVideoMockup() {
           </div>
 
           {/* DYNAMIC DASHBOARD WORKSPACE CONTENT */}
-          <div className="my-auto py-2 min-h-[300px] flex flex-col justify-center relative">
+          <div className="my-auto py-4 min-h-[380px] sm:min-h-[460px] md:min-h-[520px] flex flex-col justify-center relative">
             {/* 1. SCENE: DASHBOARD SOCRATIC CHAT & CITATIONS */}
             {activeChapter.id === "chat" && (
               <div className="space-y-4 animate-in fade-in duration-300 w-full max-w-2xl mx-auto">
@@ -484,7 +484,7 @@ export function HeroVideoMockup() {
 
                   {/* Dot Paper Surface */}
                   <div
-                    className="relative h-40 w-full rounded-lg border border-border bg-muted/20 p-3 flex flex-col justify-between overflow-hidden"
+                    className="relative h-56 sm:h-64 w-full rounded-lg border border-border bg-muted/20 p-3.5 flex flex-col justify-between overflow-hidden"
                     style={{
                       backgroundImage: "radial-gradient(circle, currentColor 0.75px, transparent 0.75px)",
                       backgroundSize: "12px 12px",
@@ -528,7 +528,7 @@ export function HeroVideoMockup() {
             {/* 5. SCENE: SPACED REPETITION FLASHCARDS */}
             {activeChapter.id === "flashcards" && (
               <div className="space-y-3 animate-in fade-in duration-300 max-w-xl mx-auto w-full">
-                <div className="rounded-xl border border-border bg-card p-5 min-h-[200px] flex flex-col justify-between shadow-xs">
+                <div className="rounded-xl border border-border bg-card p-6 min-h-[260px] sm:min-h-[290px] flex flex-col justify-between shadow-xs">
                   <div className="flex items-center justify-between border-b border-border/50 pb-2 text-xs">
                     <span className="text-[10px] font-mono text-muted-foreground uppercase font-semibold">
                       Memory Anchor #04 / 28

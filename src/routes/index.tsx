@@ -128,7 +128,7 @@ function Hero({ userCountLabel }: { userCountLabel: string }) {
 
   useEffect(() => {
     const handleScroll = () => {
-      const progress = Math.min(1, Math.max(0, window.scrollY / 500));
+      const progress = Math.min(1, Math.max(0, window.scrollY / 400));
       setHeroScroll(progress);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -136,8 +136,8 @@ function Hero({ userCountLabel }: { userCountLabel: string }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
   return (
-    <section className="">
-      <div className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-24 pt-24 text-center sm:pb-32 sm:pt-32 md:pt-40">
+    <section className="relative overflow-hidden">
+      <div className="mx-auto flex max-w-5xl flex-col items-center px-6 pt-24 text-center pb-8 sm:pt-32 md:pt-40">
         <span className="inline-flex items-center gap-3 rounded-full border border-border bg-elevated pl-2 pr-4 py-1.5 text-xs font-medium text-foreground">
           <div className="flex -space-x-2">
             <img
@@ -205,15 +205,16 @@ function Hero({ userCountLabel }: { userCountLabel: string }) {
             </span>
           </div>
         </ScrollReveal>
+      </div>
 
-        {/* Interactive 3D Video Showcase that tilts & expands on scroll */}
+      {/* Interactive 3D Video Showcase that tilts & expands to almost fill the screen on scroll */}
+      <div className="w-full px-2 sm:px-4 md:px-8 pb-20 sm:pb-28 flex justify-center mt-10 sm:mt-14">
         <div
-          className="mt-10 w-full sm:mt-16 transition-all duration-100 ease-out will-change-transform"
+          className="w-full transition-all duration-150 ease-out will-change-transform"
           style={{
-            transform: `perspective(1200px) rotateX(${(1 - heroScroll) * 10}deg) scale(${0.93 + heroScroll * 0.07}) translateY(${(1 - heroScroll) * 20}px)`,
-            maxWidth: `${74 + heroScroll * 14}rem`,
-            marginLeft: "auto",
-            marginRight: "auto",
+            transform: `perspective(1200px) rotateX(${(1 - heroScroll) * 8}deg) scale(${0.92 + heroScroll * 0.08}) translateY(${(1 - heroScroll) * 20}px)`,
+            maxWidth: `min(96vw, ${1100 + heroScroll * 500}px)`,
+            width: "100%",
           }}
         >
           <HeroVideoMockup />
