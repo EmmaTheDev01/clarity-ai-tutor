@@ -10,6 +10,51 @@ export const Route = createFileRoute("/changelog")({
 function ChangelogPage() {
   const releases = [
     {
+      version: "v1.7.0",
+      date: "September 2026",
+      title: "Resend Email Broadcasts & Transactional Mail System",
+      changes: [
+        "Integrated Resend API with serverless Edge Functions (send-email & send-transactional-email).",
+        "Built comprehensive Admin Email Broadcast Studio with real-time Markdown live preview, segment filters, and dispatch logs.",
+        "Automated transactional welcome emails upon new student registrations.",
+        "Created email broadcast audit logging tables with administrator Row Level Security policies.",
+      ],
+    },
+    {
+      version: "v1.6.0",
+      date: "September 2026",
+      title: "Socratic Audio Dialogue Assistant & In-Chat Commands",
+      changes: [
+        "Introduced browser-native speech synthesis with dual-role collaborative dialogue (Lead Explainer & Analytical Deep-Diver).",
+        "Added voice ranking heuristics to automatically prioritize natural OS neural voices.",
+        "Designed seekable timeline scrubber, live speaker waveform visuals, and non-blocking docked mini-player.",
+        "Implemented in-chat @ commands system (@quiz, @flashcards, @audio, @all) with floating autocomplete palette.",
+        "Added interactive modern features showcase to the landing page.",
+      ],
+    },
+    {
+      version: "v1.5.0",
+      date: "September 2026",
+      title: "Native iPad/Tablet Scratchpad & Search Engine Optimization",
+      changes: [
+        "Developed freehand touch & stylus Scratchpad canvas with Apple Pencil pressure sensitivity and palm rejection.",
+        "Integrated Socratic AI Drawer for step-by-step mathematical hint generation without revealing answers.",
+        "Added Interactive Guided App Tour for seamless new student onboarding.",
+        "Configured comprehensive Google Search Console SEO meta tags, OpenGraph, sitemap.xml, and robots.txt.",
+      ],
+    },
+    {
+      version: "v1.4.0",
+      date: "September 2026",
+      title: "Streaks, Gamification Badges & Strict Material Isolation",
+      changes: [
+        "Implemented persistent timezone-aware daily study streaks and XP multiplier mechanisms.",
+        "Applied Hick's Law cognitive simplification with celebration animations and custom SVG achievement badges.",
+        "Enforced strict student-level isolation across flashcards and study materials.",
+        "Fixed subscription upsert collisions and analytics tooltip calculation edge cases.",
+      ],
+    },
+    {
       version: "v1.3.0",
       date: "July 2026",
       title: "UI/UX Enhancements & Google OAuth Integration",

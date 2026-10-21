@@ -930,7 +930,7 @@ function Dashboard() {
 
       const aiMsg: Message = {
         from: "ai",
-        text: `### 🎯 Socratic Quiz Launched\n\nI have prepared an adaptive understanding quiz for **${targetDoc.title}**${extraInstructions ? ` *(Focus: ${extraInstructions})*` : ""
+        text: `### Socratic Quiz Launched\n\nI have prepared an adaptive understanding quiz for **${targetDoc.title}**${extraInstructions ? ` *(Focus: ${extraInstructions})*` : ""
           }.\n\nTest your first-principles comprehension, tackle subtle edge cases, and earn XP towards your daily mastery streak.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
         commandAction: {
@@ -972,7 +972,7 @@ function Dashboard() {
 
       const aiMsg: Message = {
         from: "ai",
-        text: `### 🎧 Audio Note Breakdown Active\n\nSynthesizing a spoken concept explanation of **${targetDoc.title}** covering all mechanisms, definitions, and key takeaways.\n\nYou can listen along, seek through sections, and read the real-time transcript.`,
+        text: `### Audio Note Breakdown Active\n\nSynthesizing a spoken concept explanation of **${targetDoc.title}** covering all mechanisms, definitions, and key takeaways.\n\nYou can listen along, seek through sections, and read the real-time transcript.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
         commandAction: {
           showAudio: true,
@@ -1071,7 +1071,7 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
 
         const aiMsg: Message = {
           from: "ai",
-          text: `### 🗂️ Flashcard Deck Generated (${cardsCount} Cards)\n\nCreated high-yield study cards for **${targetDoc.title}**:\n\n${previewCards}\n\n*...and ${Math.max(0, cardsCount - 3)} more cards saved to your Flashcards deck.*`,
+          text: `### Flashcard Deck Generated (${cardsCount} Cards)\n\nCreated high-yield study cards for **${targetDoc.title}**:\n\n${previewCards}\n\n*...and ${Math.max(0, cardsCount - 3)} more cards saved to your Flashcards deck.*`,
           timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
           commandAction: {
             showFlashcards: true,
@@ -1162,7 +1162,7 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
 
         const aiMsg: Message = {
           from: "ai",
-          text: `### ✨ Complete Material Mastery Pack Generated\n\nAll Socratic study resources have been successfully compiled from **${targetDoc.title}**:\n\n* 🎯 **Material Quiz:** 5 adaptive questions ready to test your intuition.\n* 🗂️ **Flashcard Deck:** ${res.data.cards.length} precision recall flashcards saved to your library.\n* 🎧 **Audio Notes Breakdown:** Spoken explanation of all concepts and mechanisms launched in your player.`,
+          text: `### Complete Material Mastery Pack Generated\n\nAll Socratic study resources have been successfully compiled from **${targetDoc.title}**:\n\n* **Material Quiz:** 5 adaptive questions ready to test your intuition.\n* **Flashcard Deck:** ${res.data.cards.length} precision recall flashcards saved to your library.\n* **Audio Notes Breakdown:** Spoken explanation of all concepts and mechanisms launched in your player.`,
           timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
           commandAction: {
             showQuiz: true,

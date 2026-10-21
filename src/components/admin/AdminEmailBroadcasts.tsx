@@ -840,7 +840,7 @@ export function AdminEmailBroadcasts({
                     className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    💡 If using Resend free sandbox (<code>onboarding@resend.dev</code>), send only
+                    Note: If using Resend free sandbox (<code>onboarding@resend.dev</code>), send only
                     to the email address tied to your Resend account.
                   </p>
                 </div>
@@ -919,7 +919,7 @@ export function AdminEmailBroadcasts({
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  placeholder="e.g. 🚀 Exciting PureLearn Platform Update..."
+                  placeholder="e.g. Exciting PureLearn Platform Update..."
                   className="w-full px-3.5 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
                 />
               </div>
@@ -1493,7 +1493,7 @@ export function AdminEmailBroadcasts({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              ⚠️ Emails will be immediately dispatched through Resend. Recipients will receive this
+              Warning: Emails will be immediately dispatched through Resend. Recipients will receive this
               message directly in their inboxes.
             </p>
 

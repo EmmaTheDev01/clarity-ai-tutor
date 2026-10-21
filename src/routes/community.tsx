@@ -44,7 +44,12 @@ function CommunityPage() {
                 Interact directly with developers, submit cognitive accessibility requests, and share LaTeX formatting workflows.
               </p>
             </div>
-            <a href="#" className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-sm font-bold transition flex items-center gap-1.5 shrink-0">
+            <a
+              href="https://discord.com/users/939201208235741184"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-sm font-bold transition flex items-center gap-1.5 shrink-0"
+            >
               Connect Discord
               <ArrowRight className="h-3.5 w-3.5" />
             </a>

@@ -99,7 +99,7 @@ export function HowItWorks() {
   ];
 
   return (
-    <section className="border-t border-border/60 bg-elevated/30 py-24 sm:py-32">
+    <section className="bg-elevated/30 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-3xl text-center">
           <ScrollReveal animation="fade-up">

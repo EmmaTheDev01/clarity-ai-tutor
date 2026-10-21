@@ -76,7 +76,7 @@ function GDPRPage() {
       title: "10. Cross-Border Data Transfers & SCCs",
       paragraphs: [
         "For EU users, personal data collected by purelearn.ai may be transferred to servers located outside the European Economic Area (EEA), primarily in the United States, to perform necessary cloud database and AI processing.",
-        "To ensure your information remains protected during cross-border transfers, we implement Standard Contractual Clauses (SCCs) approved by the European Commission with our data processors, including Supabase and Google Cloud. This guarantees equivalent privacy protection."
+        "To ensure your information remains protected during cross-border transfers, we implement Standard Contractual Clauses (SCCs) approved by the European Commission with our data processors, including our cloud infrastructure and Google Cloud providers. This guarantees equivalent privacy protection."
       ]
     }
   ];

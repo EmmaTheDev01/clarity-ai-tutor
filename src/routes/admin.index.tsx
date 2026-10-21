@@ -2903,7 +2903,7 @@ export function AdminPortal() {
                               Google AI Studio API Key format
                             </span>
                           ) : (
-                            <span>⚠️ Note: Official Google Gemini keys start with "AIzaSy".</span>
+                            <span>Note: Official Google Gemini keys start with "AIzaSy".</span>
                           )}
                         </p>
                       )}
@@ -3039,7 +3039,7 @@ export function AdminPortal() {
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
                         {maintenanceMode
-                          ? "⚠️ Enabled — Non-admin users see maintenance notice banner."
+                          ? "Enabled — Non-admin users see maintenance notice banner."
                           : "Normal Operation — Platform is fully accessible."}
                       </p>
                     </div>

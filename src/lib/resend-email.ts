@@ -327,13 +327,13 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     name: "Feature Announcement",
     category: "Product Updates",
     description: "Inform users of major platform features, model updates, or tool improvements.",
-    subject: "🚀 Exciting Platform Update: New Learning Tools Now Live on PureLearn AI",
+    subject: "Exciting Platform Update: New Learning Tools Now Live on PureLearn AI",
     previewText: "Discover new features designed to help you study smarter and faster.",
     content: `
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Hello PureLearn Learner,</p>
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">We are thrilled to share our latest platform update, bringing powerful new tools to elevate your personalized learning experience:</p>
       <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-left: 4px solid #000000; padding: 18px 20px; border-radius: 8px; margin: 24px 0;">
-        <h4 style="margin: 0 0 10px; color: #000000; font-size: 15px; font-weight: 700;">✨ What's New:</h4>
+        <h4 style="margin: 0 0 10px; color: #000000; font-size: 15px; font-weight: 700;">What's New:</h4>
         <ul style="margin: 0; padding-left: 20px; color: #09090b; font-size: 14px; line-height: 1.7;">
           <li><strong>Smart Tablet Scratchpad:</strong> Draw, sketch math equations, and receive instant AI step-by-step socratic breakdown.</li>
           <li><strong>Audio Socratic Tutor:</strong> Real-time voice interaction with active pacing adapted to your learning style.</li>
@@ -350,14 +350,14 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     name: "System Maintenance Notice",
     category: "System Alerts",
     description: "Notify users of planned system upgrades or scheduled downtime.",
-    subject: "⚙️ Scheduled System Maintenance Notice — PureLearn AI",
+    subject: "Scheduled System Maintenance Notice — PureLearn AI",
     previewText:
       "Planned maintenance scheduled for this weekend. Brief service interruption expected.",
     content: `
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Dear PureLearn Member,</p>
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">To ensure maximum platform speed, database security, and AI inference performance, our infrastructure team will be performing scheduled maintenance.</p>
       <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-left: 4px solid #000000; padding: 18px 20px; border-radius: 8px; margin: 24px 0;">
-        <p style="margin: 0 0 8px; color: #000000; font-weight: 700; font-size: 15px;">🕒 Maintenance Window:</p>
+        <p style="margin: 0 0 8px; color: #000000; font-weight: 700; font-size: 15px;">Maintenance Window:</p>
         <p style="margin: 0; color: #09090b; font-size: 14px; line-height: 1.6;"><strong>Date:</strong> Sunday, 02:00 AM – 03:00 AM UTC<br><strong>Expected Impact:</strong> Brief read-only access to study materials for approximately 15 minutes.</p>
       </div>
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">All your notes, flashcards, streaks, and quiz progress remain completely safe. We appreciate your patience as we make PureLearn even better.</p>
@@ -370,13 +370,12 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     name: "Weekly Study Motivation",
     category: "Engagement",
     description: "Inspire students to maintain their learning streak and review flashcards.",
-    subject: "🔥 Keep Your Study Streak Alive! Your Weekly PureLearn Check-in",
+    subject: "Keep Your Study Streak Alive! Your Weekly PureLearn Check-in",
     previewText: "10 minutes of daily active recall beats 5 hours of cramming.",
     content: `
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Hi there,</p>
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Consistency is the secret to mastering difficult concepts. Did you know that reviewing just <strong>5 flashcards a day</strong> reinforces long-term memory retention by over 80%?</p>
       <div style="background-color: #fafafa; border: 1px solid #e4e4e7; padding: 22px; border-radius: 8px; margin: 24px 0; text-align: center;">
-        <span style="font-size: 36px; display: block; margin-bottom: 8px;">🎯</span>
         <h3 style="margin: 0 0 8px; color: #000000; font-size: 17px; font-weight: 700;">Your Weekly Challenge</h3>
         <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.5;">Complete 1 quick quiz or review 10 cards to maintain your learning streak and earn bonus XP.</p>
       </div>
@@ -390,13 +389,13 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     name: "Welcome & Onboarding Guide",
     category: "Onboarding",
     description: "Welcome new learners and guide them to their first study session.",
-    subject: "🎓 Welcome to PureLearn AI — Your Personalized AI Socratic Tutor",
+    subject: "Welcome to PureLearn AI — Your Personalized AI Socratic Tutor",
     previewText: "Here is your 3-step quick start guide to mastering any subject.",
     content: `
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Welcome to <strong>PureLearn AI / Clarity AI Tutor</strong>!</p>
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">We are thrilled to have you here. PureLearn adapts specifically to how your brain learns best — whether you have ADHD, dyslexia, or prefer high-focus visual cards.</p>
       <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-left: 4px solid #000000; padding: 18px 22px; border-radius: 8px; margin: 24px 0;">
-        <h4 style="margin: 0 0 12px; color: #000000; font-size: 15px; font-weight: 700;">🚀 3 Steps to Get Started:</h4>
+        <h4 style="margin: 0 0 12px; color: #000000; font-size: 15px; font-weight: 700;">3 Steps to Get Started:</h4>
         <ol style="margin: 0; padding-left: 20px; color: #09090b; font-size: 14px; line-height: 1.75;">
           <li><strong>Upload your course material:</strong> Upload PDFs, slide decks, or lecture notes.</li>
           <li><strong>Generate Flashcards & Quizzes:</strong> Let AI create instant active recall decks grounded strictly in your syllabus.</li>
@@ -413,7 +412,7 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     name: "Custom / Blank Template",
     category: "Custom",
     description: "Start with a clean slate for custom announcements or messages.",
-    subject: "📢 Important Update from PureLearn AI",
+    subject: "Important Update from PureLearn AI",
     previewText: "A quick update from the PureLearn AI team.",
     content: `
       <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Hello,</p>

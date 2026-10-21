@@ -19,14 +19,14 @@ function PrivacyPage() {
     {
       title: "2. Personal & Account Information We Collect",
       paragraphs: [
-        "We collect information necessary to establish secure user profiles and optimize learning customized views. This includes your name, email address, password hashes managed via Supabase auth services, and user roles (student, teacher, or administrator). We do not collect raw credentials or inspect unauthorized fields.",
+        "We collect information necessary to establish secure user profiles and optimize learning customized views. This includes your name, email address, password hashes managed via secure cloud authentication services, and user roles (student, teacher, or administrator). We do not collect raw credentials or inspect unauthorized fields.",
         "For student accounts, we also record cognitive profile preferences (such as ADHD, Dyslexia, or Sensory adjustments) to adapt our typography and layout parameters. For educators, we collect credential proofs, institution names, and verified status codes to complete manual onboarding audits."
       ]
     },
     {
       title: "3. Learning Data & Document Uploads",
       paragraphs: [
-        "Our services process document attachments (such as PDF files, textbooks, lecture slides, and images containing equations) that you explicitly upload to the Platform. This material is stored securely on Supabase Storage buckets, and is indexed solely for the purpose of serving your private Socratic tutoring sessions.",
+        "Our services process document attachments (such as PDF files, textbooks, lecture slides, and images containing equations) that you explicitly upload to the Platform. This material is stored securely on encrypted cloud storage buckets, and is indexed solely for the purpose of serving your private Socratic tutoring sessions.",
         "We also log chat history interactions, quiz results, and study streak scores to calculate your XP rewards and badging levels. These logs are isolated at the database layer and are never accessible to other students unless you explicitly share your study notes."
       ]
     },
@@ -40,7 +40,7 @@ function PrivacyPage() {
     {
       title: "5. Information Sharing & Third-Party Integrations",
       paragraphs: [
-        "purelearn.ai maintains a strict policy against selling, renting, or trading your personal data to marketing brokers. We share information only with trusted processors essential to system operation, such as Supabase for database hosting, Stripe for payment processing, and Google Gemini API for Socratic text inferences.",
+        "purelearn.ai maintains a strict policy against selling, renting, or trading your personal data to marketing brokers. We share information only with trusted processors essential to system operation, such as managed cloud infrastructure for database hosting, Stripe for payment processing, and Google Gemini API for Socratic text inferences.",
         "All data processed by external AI inference engines is stripped of direct user identities where feasible. We bind all partner processors to standard data security terms, ensuring they maintain the same high level of protection as our primary servers."
       ]
     },

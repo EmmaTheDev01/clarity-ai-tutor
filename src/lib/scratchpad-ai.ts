@@ -195,14 +195,14 @@ export async function convertStudyGuideToNote(params: {
   if (studyGuide.keyConcepts && studyGuide.keyConcepts.length > 0) {
     markdown += `### Core Concepts\n\n`;
     for (const c of studyGuide.keyConcepts) {
-      markdown += `#### ${c.concept}\n${c.explanation}\n\n> 💡 **Analogy:** ${c.realWorldAnalogy}\n\n`;
+      markdown += `#### ${c.concept}\n${c.explanation}\n\n> **Analogy:** ${c.realWorldAnalogy}\n\n`;
     }
   }
 
   if (studyGuide.errorCheckOrRefinements && studyGuide.errorCheckOrRefinements.length > 0) {
     markdown += `### Socratic Observations & Checks\n\n`;
     for (const err of studyGuide.errorCheckOrRefinements) {
-      markdown += `- 🔍 ${err}\n`;
+      markdown += `- ${err}\n`;
     }
     markdown += `\n`;
   }

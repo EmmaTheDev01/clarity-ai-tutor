@@ -81,13 +81,13 @@ export function useDailyReminders() {
     if (Notification.permission !== "granted") {
       const perm = await requestPermission();
       if (perm !== "granted") {
-        toast.info("In-App Reminder: Time for your daily micro-learning sprint! 🚀");
+        toast.info("In-App Reminder: Time for your daily micro-learning sprint!");
         return;
       }
     }
 
     try {
-      const notif = new Notification("PureLearn Micro-Learning Time! 🎯", {
+      const notif = new Notification("PureLearn Micro-Learning Time!", {
         body: `Your daily ${config.durationMinutes}-minute study sprint is ready. Review flashcards or ask your AI tutor to keep your streak alive!`,
         icon: "/favicon.ico",
         tag: "purelearn-daily-study",
@@ -100,7 +100,7 @@ export function useDailyReminders() {
 
       toast.success("Test notification delivered!");
     } catch (err) {
-      toast.info("Time for your daily micro-learning sprint! 🚀");
+      toast.info("Time for your daily micro-learning sprint!");
     }
   }, [config.durationMinutes, requestPermission]);
 
@@ -123,7 +123,7 @@ export function useDailyReminders() {
         // Deliver notification
         if ("Notification" in window && Notification.permission === "granted") {
           try {
-            const notif = new Notification("Time for Micro-Learning! 🧠", {
+            const notif = new Notification("Time for Micro-Learning!", {
               body: `Ready for your ${config.durationMinutes}-minute focus session? Keep your streak burning!`,
               icon: "/favicon.ico",
               tag: "purelearn-daily-scheduled",

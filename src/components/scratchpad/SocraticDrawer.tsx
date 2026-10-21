@@ -196,7 +196,7 @@ export function SocraticDrawer({
                     {kc.explanation}
                   </p>
                   <div className="mt-2 p-2.5 rounded-lg bg-muted text-foreground border border-border/80 text-xs">
-                    <span className="font-bold">💡 Intuition: </span>
+                    <span className="font-bold">Intuition: </span>
                     <span>{kc.realWorldAnalogy}</span>
                   </div>
                 </div>

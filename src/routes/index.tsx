@@ -1,19 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { CoverflowCarousel } from "@/components/CoverflowCarousel";
+import { PURELEARN_COVERFLOW_FEATURES } from "@/data/coverflow-features";
 import { supabase } from "@/lib/supabase";
 import { useUserCount } from "@/hooks/useUserCount";
 import { HowItWorks } from "@/components/HowItWorks";
+import { HeroVideoMockup } from "@/components/HeroVideoMockup";
 import {
-  Upload,
-  MessageSquare,
-  FileCheck2,
   BrainCircuit,
   Plus,
   Minus,
   ArrowRight,
-  Play,
-  Pause,
   Briefcase,
   GraduationCap,
   FolderHeart,
@@ -21,12 +19,7 @@ import {
   CheckCircle2,
   Headphones,
   PenTool,
-  Zap,
-  Volume2,
-  Layers,
-  HelpCircle,
 } from "lucide-react";
-import appMockup from "@/assets/app-mockup.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -71,7 +64,6 @@ function Landing() {
       <main>
         <Hero userCountLabel={userCountLabel} />
         <Features />
-        <ModernFeaturesShowcase />
         <HowItWorks />
         <UseCases />
         <AppDownloadCTA />
@@ -219,301 +211,37 @@ function Hero({ userCountLabel }: { userCountLabel: string }) {
           className="mt-10 w-full sm:mt-16 transition-all duration-100 ease-out will-change-transform"
           style={{
             transform: `perspective(1200px) rotateX(${(1 - heroScroll) * 10}deg) scale(${0.93 + heroScroll * 0.07}) translateY(${(1 - heroScroll) * 20}px)`,
-            maxWidth: `${62 + heroScroll * 18}rem`,
+            maxWidth: `${74 + heroScroll * 14}rem`,
             marginLeft: "auto",
             marginRight: "auto",
           }}
         >
-          <div className="overflow-hidden rounded-lg border border-border bg-elevated shadow-[0_20px_60px_-20px_rgba(0,0,0,0.15)]">
-            <div className="flex items-center gap-1.5 border-b border-border bg-background px-4 py-3">
-              <span className="h-2.5 w-2.5 rounded-full border border-border" />
-              <span className="h-2.5 w-2.5 rounded-full border border-border" />
-              <span className="h-2.5 w-2.5 rounded-full border border-border" />
-              <span className="ml-4 text-xs text-muted-foreground">{APP}</span>
-            </div>
-            <img
-              src={appMockup}
-              alt="Purelearn.ai Workspace showing documents list and interactive AI tutor chat"
-              width={1600}
-              height={1008}
-              className="block h-auto w-full"
-            />
-          </div>
+          <HeroVideoMockup />
         </div>
       </div>
     </section>
   );
 }
 
-const features = [
-  {
-    icon: Upload,
-    title: "Upload any medium",
-    body: "Drop in PDFs, textbooks, slide decks, or lecture recordings for instant parsing.",
-  },
-  {
-    icon: Headphones,
-    title: "Audio Notes & Explanations",
-    body: "Listen to all concepts, mechanisms, and notes thoroughly explained by collaborative AI educators on the go.",
-  },
-  {
-    icon: PenTool,
-    title: "Tablet Scratchpad",
-    body: "Sketch math derivations and diagrams with stylus support; AI analyzes handwritten proofs.",
-  },
-  {
-    icon: CheckCircle2,
-    title: "Easy @ commands",
-    body: "Type @quiz, @flashcards, or @audio in chat with Tab autocomplete for zero-friction launch.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Socratic AI tutor",
-    body: "Engage in guided inquiry that builds deep conceptual mastery rather than passive answers.",
-  },
-  {
-    icon: FileCheck2,
-    title: "Targeted practice exams",
-    body: "Generate precision quizzes with full rationale breakdowns to track retention curves.",
-  },
-];
 
 function Features() {
   return (
-    <section className="">
-      <div className="mx-auto max-w-7xl px-6 py-24">
+    <section className="py-12 md:py-20 bg-radial from-primary/5 via-background to-background relative overflow-hidden">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <ScrollReveal animation="fade-up">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Save hours. Learn smarter.
-            </h2>
-            <p className="mt-4 text-base text-muted-foreground">
-              Everything you need to turn passive material into active understanding.
-            </p>
-          </div>
+          <CoverflowCarousel
+            items={PURELEARN_COVERFLOW_FEATURES}
+            tagline="Interactive 3D Capabilities"
+            title="Save hours. Learn smarter."
+            subtitle="Engineered for cognitive diversity: from spoken conversational podcasts to stylus scratchpad derivations and neuro-inclusive reading modes."
+            defaultIndex={1}
+          />
         </ScrollReveal>
-        <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2 xl:grid-cols-3">
-          {features.map((f, i) => (
-            <ScrollReveal
-              key={f.title}
-              animation="crazy-reveal"
-              delay={i * 120}
-              className="bg-background h-full"
-            >
-              <div className="p-8 h-full">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border">
-                  <f.icon className="h-5 w-5 text-foreground" strokeWidth={1.75} />
-                </div>
-                <h3 className="mt-6 text-lg font-medium text-foreground">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </div>
-            </ScrollReveal>
-          ))}
-        </div>
       </div>
     </section>
   );
 }
 
-function ModernFeaturesShowcase() {
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [activeScratchTool, setActiveScratchTool] = useState<"pen" | "highlighter" | "eraser">("pen");
-
-  return (
-    <section className="bg-elevated/10 border-y border-border/50 py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <ScrollReveal animation="fade-up">
-          <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-elevated px-3 py-1 text-xs font-semibold text-muted-foreground">
-              New Modalities
-            </span>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
-              Audio. Scratchpad. Instant Commands.
-            </h2>
-            <p className="mt-4 text-base text-muted-foreground max-w-2xl mx-auto">
-              Engineered for seamless flow: listen to conversational Socratic dialogues, sketch visual proofs with stylus support, and summon tools with single-key commands.
-            </p>
-          </div>
-        </ScrollReveal>
-
-        <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Card 1: Socratic Audio */}
-          <ScrollReveal animation="crazy-reveal" duration={800} delay={0} className="flex flex-col h-full">
-            <div className="flex flex-col justify-between h-full rounded-2xl border border-border bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
-              <div>
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  <Headphones className="h-5 w-5" strokeWidth={1.75} />
-                </div>
-                <span className="block mt-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Conversational Audio
-                </span>
-                <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground leading-snug">
-                  Listen to notes and concepts explained
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Turn dense texts and lecture notes into engaging spoken audio explanations between two expert co-explainers. Thoroughly breaks down every mechanism and concept without quiz pressure.
-                </p>
-              </div>
-
-              {/* Interactive Audio Widget */}
-              <div className="mt-8 rounded-xl border border-border bg-background p-4 text-left space-y-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border/50 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-mono text-[10px] uppercase font-bold text-foreground">Audio Concept Stream</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">02:14 / 04:30</span>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="rounded-lg bg-muted/50 p-2.5 text-[11px] border border-border/40">
-                    <span className="font-bold text-foreground text-[10px] block mb-0.5">Lead Explainer (Guide)</span>
-                    <p className="text-muted-foreground italic">&ldquo;Notice how L2 regularization adds a penalty term directly proportional to the squared weight values.&rdquo;</p>
-                  </div>
-                  <div className="rounded-lg bg-primary/5 p-2.5 text-[11px] border border-primary/20">
-                    <span className="font-bold text-primary text-[10px] block mb-0.5">Deep Dive Analyst</span>
-                    <p className="text-foreground">&ldquo;This effectively shrinks weights toward zero, smoothing the hypothesis curve to eliminate overfitting.&rdquo;</p>
-                  </div>
-                </div>
-
-                <div className="pt-1 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                    className="h-9 w-9 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition flex items-center justify-center cursor-pointer shadow-xs shrink-0"
-                    title={isPlayingAudio ? "Pause" : "Play"}
-                    aria-label={isPlayingAudio ? "Pause" : "Play"}
-                  >
-                    {isPlayingAudio ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-                  </button>
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
-                    <Volume2 className="h-3.5 w-3.5 text-foreground" />
-                    <span>Neural Voices</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-
-          {/* Card 2: Tablet Scratchpad */}
-          <ScrollReveal animation="crazy-reveal" duration={800} delay={150} className="flex flex-col h-full">
-            <div className="flex flex-col justify-between h-full rounded-2xl border border-border bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
-              <div>
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  <PenTool className="h-5 w-5" strokeWidth={1.75} />
-                </div>
-                <span className="block mt-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Stylus & Freehand Canvas
-                </span>
-                <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground leading-snug">
-                  Tablet Scratchpad with AI vision
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Draw equations, derivations, and diagrams naturally on dot or grid paper. PureLearn&apos;s vision intelligence analyzes your handwritten strokes into structured study guides.
-                </p>
-              </div>
-
-              {/* Interactive Scratchpad Widget */}
-              <div className="mt-8 rounded-xl border border-border bg-background p-4 text-left space-y-3">
-                <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                  <div className="flex items-center gap-1">
-                    {(["pen", "highlighter", "eraser"] as const).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setActiveScratchTool(t)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize transition ${activeScratchTool === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
-                          }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="font-mono text-[10px] text-muted-foreground">Grid 5mm</span>
-                </div>
-
-                {/* Simulated Canvas Drawing */}
-                <div
-                  className="relative h-28 w-full rounded-lg border border-border/60 bg-muted/20 p-2.5 overflow-hidden flex flex-col justify-between"
-                  style={{ backgroundImage: "radial-gradient(circle, currentColor 0.75px, transparent 0.75px)", backgroundSize: "12px 12px", color: "var(--border)" }}
-                >
-                  <svg className="absolute inset-0 h-full w-full pointer-events-none text-foreground/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M 20 80 Q 70 20 130 50 T 240 30" />
-                    <circle cx="130" cy="50" r="3" fill="currentColor" />
-                    <line x1="130" y1="50" x2="130" y2="85" strokeDasharray="3 3" strokeWidth="1.5" />
-                  </svg>
-                  <div className="relative z-10 text-[10px] font-mono text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded w-fit border border-border/50">
-                    dy/dx = 2x - 4
-                  </div>
-                  <div className="relative z-10 flex items-center justify-between text-[10px]">
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
-                      ✓ Stroke Vectorized
-                    </span>
-                    <span className="font-mono text-muted-foreground text-[9px]">4.2 KB</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                  <span className="font-medium text-foreground">Socratic Vision Engine</span>
-                  <span className="text-primary font-semibold">Ready to synthesize</span>
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-
-          {/* Card 3: Easy Access & Commands */}
-          <ScrollReveal animation="crazy-reveal" duration={800} delay={300} className="flex flex-col h-full">
-            <div className="flex flex-col justify-between h-full rounded-2xl border border-border bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:border-muted-foreground/30 hover:shadow-lg">
-              <div>
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  <Zap className="h-5 w-5" strokeWidth={1.75} />
-                </div>
-                <span className="block mt-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Frictionless Flow
-                </span>
-                <h3 className="mt-2 text-xl font-bold tracking-tight text-foreground leading-snug">
-                  Easy access via &apos;@&apos; keyboard commands
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Never leave your chat flow to dig through menus. Type @quiz, @flashcards, or @audio directly in the prompt, press Tab to autocomplete, and launch instantly.
-                </p>
-              </div>
-
-              {/* Interactive In-Chat Command Popover Widget */}
-              <div className="mt-8 rounded-xl border border-border bg-background p-4 text-left space-y-2.5">
-                {/* Simulated Floating Autocomplete Popover */}
-                <div className="rounded-lg border border-border bg-card p-1.5 shadow-md space-y-1">
-                  <div className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between border-b border-border/40 pb-1">
-                    <span>Autocomplete Command</span>
-                    <span className="text-[8px] font-mono text-primary font-semibold">Press Tab ⇥</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-2 py-1 rounded bg-muted text-foreground ring-1 ring-primary/20 text-xs">
-                    <HelpCircle className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="font-bold font-mono">@quiz</span>
-                    <span className="text-[10px] text-muted-foreground truncate">Launch Material Quiz</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-2 py-1 rounded text-muted-foreground hover:bg-muted/50 text-xs">
-                    <Layers className="h-3.5 w-3.5 shrink-0" />
-                    <span className="font-bold font-mono">@flashcards</span>
-                    <span className="text-[10px] truncate">Precision Flashcards</span>
-                  </div>
-                </div>
-
-                {/* Simulated Input Area */}
-                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
-                  <span className="text-foreground">Review neural networks @q<span className="inline-block w-1.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" /></span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-background border border-border text-[9px] text-muted-foreground font-sans">
-                    Tab
-                  </kbd>
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function UseCases() {
   return (
@@ -924,11 +652,35 @@ function Footer() {
             </p>
           </div>
           <div className="flex items-center gap-4 text-sm font-semibold text-muted-foreground">
-            <span className="hover:text-primary transition cursor-pointer">Twitter</span>
+            <a
+              href="https://x.com/CybeReazon"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary transition"
+              aria-label="Twitter / X profile"
+            >
+              Twitter
+            </a>
             <span className="text-border">•</span>
-            <span className="hover:text-primary transition cursor-pointer">GitHub</span>
+            <a
+              href="https://github.com/EmmaTheDev01"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary transition"
+              aria-label="GitHub profile"
+            >
+              GitHub
+            </a>
             <span className="text-border">•</span>
-            <span className="hover:text-primary transition cursor-pointer">Discord</span>
+            <a
+              href="https://discord.com/users/939201208235741184"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary transition"
+              aria-label="Discord profile"
+            >
+              Discord
+            </a>
           </div>
         </div>
       </div>
