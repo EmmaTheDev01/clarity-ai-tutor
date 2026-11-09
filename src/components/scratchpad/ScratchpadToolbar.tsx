@@ -7,7 +7,7 @@ import {
   Undo2,
   Redo2,
   Trash2,
-  BrainCircuit,
+  Lightbulb,
   Grid,
   Check,
   Smartphone,
@@ -402,12 +402,12 @@ export function ScratchpadToolbar({
           type="button"
           disabled={isAnalyzing}
           onClick={onSynthesizeAI}
-          className="h-9 px-4 rounded-xl flex items-center gap-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:opacity-90 shadow-sm active:scale-95 transition-all disabled:opacity-50 shrink-0"
+          className="h-9 px-4 rounded-full flex items-center gap-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:opacity-90 shadow-sm active:scale-95 transition-all disabled:opacity-50 shrink-0"
         >
           {isAnalyzing ? (
             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
           ) : (
-            <BrainCircuit className="w-4 h-4 shrink-0" />
+            <Lightbulb className="w-4 h-4 shrink-0" />
           )}
           <span>{isAnalyzing ? "Analyzing…" : "Brainstorm"}</span>
         </button>

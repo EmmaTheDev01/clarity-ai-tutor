@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   X,
-  BrainCircuit,
+  Lightbulb,
   Award,
   BookOpen,
   HelpCircle,
@@ -79,7 +79,7 @@ export function SocraticDrawer({
       <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-muted/40 backdrop-blur-md">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-primary text-primary-foreground shadow-xs">
-            <BrainCircuit className="w-5 h-5" />
+            <Lightbulb className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base font-bold text-foreground leading-tight">
@@ -101,7 +101,7 @@ export function SocraticDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -286,7 +286,7 @@ export function SocraticDrawer({
               type="button"
               disabled={isSaving}
               onClick={handleSaveToNotes}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:opacity-90 transition-all disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:opacity-90 transition-all disabled:opacity-50"
             >
               {isSaving ? (
                 <>
@@ -304,7 +304,7 @@ export function SocraticDrawer({
             <button
               type="button"
               onClick={() => navigate({ to: "/app/notes" })}
-              className="p-2.5 rounded-xl border border-border hover:bg-muted text-foreground transition-colors"
+              className="p-2.5 rounded-full border border-border hover:bg-muted text-foreground transition-colors"
               title="View in Notes"
             >
               <ArrowRight className="w-4 h-4" />
@@ -315,7 +315,7 @@ export function SocraticDrawer({
             type="button"
             disabled={isSaving}
             onClick={handleSaveToNotes}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:opacity-90 shadow-sm active:scale-95 transition-all disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:opacity-90 shadow-sm active:scale-95 transition-all disabled:opacity-50"
           >
             {isSaving ? (
               <>

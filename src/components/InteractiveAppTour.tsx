@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  BrainCircuit,
+  Bot,
   Library,
   FileText,
   PenTool,
@@ -34,7 +34,7 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Step 1 of 7",
     description:
       "Your core learning command center. Chat with your Socratic AI Tutor, upload learning materials, receive step-by-step guided hints, and master tough concepts without just being spoon-fed answers.",
-    icon: BrainCircuit,
+    icon: Bot,
   },
   {
     id: "step_library",
@@ -327,7 +327,7 @@ export function InteractiveAppTour() {
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Close Tour (Esc)"
           >
             <X className="w-4 h-4" />
@@ -364,7 +364,7 @@ export function InteractiveAppTour() {
               <button
                 type="button"
                 onClick={handlePrev}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
@@ -374,7 +374,7 @@ export function InteractiveAppTour() {
             <button
               type="button"
               onClick={handleNext}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-primary-foreground bg-primary hover:opacity-90 transition-all flex items-center gap-1.5 shadow-xs"
+              className="px-4 py-2 rounded-full text-xs font-bold text-primary-foreground bg-primary hover:opacity-90 transition-all flex items-center gap-1.5 shadow-xs"
             >
               <span>{isLast ? "Done" : "Next"}</span>
               {isLast ? (

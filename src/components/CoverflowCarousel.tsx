@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, ChevronRight, ArrowRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export interface CoverflowItem {
@@ -104,7 +104,7 @@ export function CoverflowCarousel({
         <div className="mx-auto max-w-3xl text-center px-6 mb-12">
           {tagline && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-3">
-              <Sparkles className="h-3 w-3" />
+             
               {tagline}
             </span>
           )}

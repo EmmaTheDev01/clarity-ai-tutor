@@ -11,7 +11,6 @@ import {
   FileText,
   Loader2,
   CheckCircle2,
-  BrainCircuit,
   PanelLeft,
   X,
 } from "lucide-react";
@@ -362,7 +361,7 @@ function ScratchpadPage() {
               <button
                 type="button"
                 onClick={createNewScratchpad}
-                className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                className="p-1.5 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
                 title="Create New Sheet"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -370,7 +369,7 @@ function ScratchpadPage() {
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 title="Close Sheets (Esc)"
               >
                 <X className="w-4 h-4" />
@@ -514,7 +513,7 @@ function ScratchpadPage() {
                 type="button"
                 onClick={handleDownloadPNG}
                 title="Download Canvas PNG"
-                className="p-2 rounded-xl bg-card/90 text-foreground border border-border shadow-md hover:bg-muted transition-colors backdrop-blur-md"
+                className="p-2 rounded-full bg-card/90 text-foreground border border-border shadow-md hover:bg-muted transition-colors backdrop-blur-md"
               >
                 <Download className="w-4 h-4" />
               </button>

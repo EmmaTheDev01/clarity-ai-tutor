@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Brain, Users, ArrowRight } from "lucide-react";
+import { GraduationCap, Users, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/community")({
@@ -16,7 +16,7 @@ function CommunityPage() {
           <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-2 font-serif">
             <img src="/logo.png" alt="purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
           </Link>
-          <Link to="/auth/sign-up" className="text-sm font-bold px-4 py-2 rounded-lg bg-primary hover:opacity-90 text-primary-foreground transition">
+          <Link to="/auth/sign-up" className="text-sm font-bold px-4 py-2 rounded-full bg-primary hover:opacity-90 text-primary-foreground transition">
             Join Community
           </Link>
         </div>
@@ -48,7 +48,7 @@ function CommunityPage() {
               href="https://discord.com/users/939201208235741184"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-sm font-bold transition flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2 rounded-full border border-border hover:bg-muted text-sm font-bold transition flex items-center gap-1.5 shrink-0"
             >
               Connect Discord
               <ArrowRight className="h-3.5 w-3.5" />
@@ -57,7 +57,7 @@ function CommunityPage() {
 
           <Card className="p-8 bg-elevated/10 border border-border/50 rounded-2xl flex flex-col md:flex-row items-center gap-6">
             <div className="h-12 w-12 rounded-full bg-black/5 border border-black/10 flex items-center justify-center text-black shrink-0">
-              <Brain className="h-6 w-6" />
+              <GraduationCap className="h-6 w-6" />
             </div>
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-base font-bold text-foreground mb-1">Educator Masterclass</h3>
@@ -65,7 +65,7 @@ function CommunityPage() {
                 Online forums for verifying academic institutions, tuning AI tutor rules, and establishing student privacy boundaries.
               </p>
             </div>
-            <a href="#" className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-sm font-bold transition flex items-center gap-1.5 shrink-0">
+            <a href="#" className="px-4 py-2 rounded-full border border-border hover:bg-muted text-sm font-bold transition flex items-center gap-1.5 shrink-0">
               Browse Classes
               <ArrowRight className="h-3.5 w-3.5" />
             </a>

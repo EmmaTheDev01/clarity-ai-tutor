@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  Brain,
   Headphones,
   PenTool,
   Zap,
@@ -12,7 +11,6 @@ import {
   Play,
   Pause,
   Volume2,
-  Sparkles,
   SlidersHorizontal,
   ShieldCheck,
   Mail,
@@ -98,13 +96,13 @@ function FeaturesPage() {
           <div className="flex items-center gap-3">
             <Link
               to="/auth/sign-in"
-              className="text-xs font-semibold px-3.5 py-2 rounded-lg border border-border hover:bg-muted text-foreground transition"
+              className="text-xs font-semibold px-3.5 py-2 rounded-full border border-border hover:bg-muted text-foreground transition"
             >
               Sign In
             </Link>
             <Link
               to="/auth/sign-up"
-              className="text-xs font-bold px-4 py-2 rounded-lg bg-primary hover:opacity-90 text-primary-foreground shadow-xs transition flex items-center gap-1.5"
+              className="text-xs font-bold px-4 py-2 rounded-full bg-primary hover:opacity-90 text-primary-foreground shadow-xs transition flex items-center gap-1.5"
             >
               Get Started
               <ArrowRight className="h-3 w-3" />
@@ -120,7 +118,7 @@ function FeaturesPage() {
           <div className="mx-auto max-w-7xl px-6 relative z-10 text-center">
             <ScrollReveal animation="fade-up">
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-bold tracking-wide uppercase">
-                <Sparkles className="h-3.5 w-3.5" />
+            
                 Comprehensive Platform Architecture
               </span>
               <h1 className="mt-6 text-4xl font-black tracking-tight text-foreground sm:text-5xl md:text-6xl max-w-4xl mx-auto leading-[1.12]">
@@ -148,7 +146,7 @@ function FeaturesPage() {
                   <Zap className="h-3.5 w-3.5 text-primary" /> In-Chat @ Commands
                 </span>
                 <span className="px-3 py-1.5 rounded-lg border border-border/80 bg-elevated/40 flex items-center gap-1.5">
-                  <Brain className="h-3.5 w-3.5 text-primary" /> ADHD & Dyslexia Modes
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-primary" /> ADHD & Dyslexia Modes
                 </span>
                 <span className="px-3 py-1.5 rounded-lg border border-border/80 bg-elevated/40 flex items-center gap-1.5">
                   <Flame className="h-3.5 w-3.5 text-orange-500" /> Daily XP Streaks
@@ -164,14 +162,14 @@ function FeaturesPage() {
               <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
                 <Link
                   to="/auth/sign-up"
-                  className="px-6 py-3.5 rounded-xl bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-md transition flex items-center gap-2"
+                  className="px-6 py-3.5 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-md transition flex items-center gap-2"
                 >
                   Start Learning Free
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   to="/request-demo"
-                  className="px-6 py-3.5 rounded-xl border border-border bg-card hover:bg-muted font-bold text-sm text-foreground transition"
+                  className="px-6 py-3.5 rounded-full border border-border bg-card hover:bg-muted font-bold text-sm text-foreground transition"
                 >
                   Request Educator Demo
                 </Link>
@@ -223,7 +221,7 @@ function FeaturesPage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveModalTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       activeModalTab === tab.id
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -331,7 +329,7 @@ function FeaturesPage() {
                           key={t}
                           type="button"
                           onClick={() => setActiveScratchTool(t)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition ${
                             activeScratchTool === t
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground hover:text-foreground"
@@ -488,7 +486,7 @@ function FeaturesPage() {
                           key={m.id}
                           type="button"
                           onClick={() => setActiveCognitiveMode(m.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${
                             activeCognitiveMode === m.id
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground hover:text-foreground"
@@ -859,14 +857,14 @@ function FeaturesPage() {
                 <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
                   <Link
                     to="/auth/sign-up"
-                    className="px-6 py-3.5 rounded-xl bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-md transition flex items-center gap-2"
+                    className="px-6 py-3.5 rounded-full bg-primary hover:opacity-90 text-primary-foreground font-bold text-sm shadow-md transition flex items-center gap-2"
                   >
                     Get Started Free
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link
                     to="/request-demo"
-                    className="px-6 py-3.5 rounded-xl border border-border bg-card hover:bg-muted font-bold text-sm text-foreground transition"
+                    className="px-6 py-3.5 rounded-full border border-border bg-card hover:bg-muted font-bold text-sm text-foreground transition"
                   >
                     Schedule an Institutional Walkthrough
                   </Link>

@@ -22,7 +22,6 @@ import {
   Award,
   Zap,
   HelpCircle,
-  BrainCircuit,
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -430,7 +429,7 @@ export function MaterialQuizModal({
         <div className="px-6 py-5 border-b border-border/60 flex items-start justify-between">
           <div>
             <DialogTitle className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
-              <BrainCircuit className="w-5 h-5 text-primary" />
+              <HelpCircle className="w-5 h-5 text-primary" />
               Understanding Assessment
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
@@ -450,7 +449,7 @@ export function MaterialQuizModal({
           {loading ? (
             <div className="py-14 flex flex-col items-center justify-center space-y-4 text-center">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse border border-primary/20">
-                <BrainCircuit className="w-7 h-7 text-primary animate-pulse" />
+                <HelpCircle className="w-7 h-7 text-primary animate-pulse" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-foreground">
@@ -540,7 +539,7 @@ export function MaterialQuizModal({
               <div className="pt-2">
                 <Button
                   onClick={onClose}
-                  className="font-bold px-8 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md text-xs"
+                  className="font-bold px-8 py-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md text-xs"
                 >
                   Return to Learning
                 </Button>
@@ -648,7 +647,7 @@ export function MaterialQuizModal({
                   variant="outline"
                   size="sm"
                   onClick={onClose}
-                  className="text-xs font-semibold px-4 py-2 border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-xl"
+                  className="text-xs font-semibold px-4 py-2 border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-full"
                 >
                   Cancel
                 </Button>
@@ -658,7 +657,7 @@ export function MaterialQuizModal({
                     <Button
                       type="button"
                       onClick={handleNext}
-                      className="font-bold text-xs px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm flex items-center space-x-1.5"
+                      className="font-bold text-xs px-5 py-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm flex items-center space-x-1.5"
                     >
                       <span>
                         {currentIndex < questions.length - 1 ? "Next Question" : "Finish Quiz"}
@@ -672,7 +671,7 @@ export function MaterialQuizModal({
                         setSubmitted(false);
                         setSelectedOption(null);
                       }}
-                      className="font-bold text-xs px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                      className="font-bold text-xs px-5 py-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                     >
                       Try Again
                     </Button>
@@ -681,7 +680,7 @@ export function MaterialQuizModal({
                       type="button"
                       disabled={selectedOption === null}
                       onClick={handleSubmitAnswer}
-                      className="font-bold text-xs px-6 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm disabled:opacity-50"
+                      className="font-bold text-xs px-6 py-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm disabled:opacity-50"
                     >
                       Submit
                     </Button>

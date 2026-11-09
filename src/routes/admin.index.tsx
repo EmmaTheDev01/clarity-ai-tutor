@@ -1090,7 +1090,7 @@ export function AdminPortal() {
             <button
               onClick={fetchWholeSystemData}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-colors shadow-sm"
               title="Refresh database records"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -1099,7 +1099,7 @@ export function AdminPortal() {
 
             <button
               onClick={handleExportCurrentTab}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-foreground text-background hover:opacity-90 text-xs font-bold transition-opacity shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-foreground text-background hover:opacity-90 text-xs font-bold transition-opacity shadow-sm"
               title="Export CSV data"
             >
               <Download className="h-3.5 w-3.5" />
@@ -1699,21 +1699,21 @@ export function AdminPortal() {
                                   setSelectedDemoDetail(demo);
                                   setAdminNotesDraft(demo.admin_notes || "");
                                 }}
-                                className="p-1.5 rounded-lg border border-border hover:bg-muted text-foreground transition-colors"
+                                className="p-1.5 rounded-full border border-border hover:bg-muted text-foreground transition-colors"
                                 title="View Details & Notes"
                               >
                                 <MessageSquare className="h-3.5 w-3.5" />
                               </button>
                               <a
                                 href={`mailto:${demo.email}?subject=PureLearn%20Demo%20Walkthrough&body=Hello%20${encodeURIComponent(demo.name)},%0A%0AThank%20you%20for%20requesting%20a%20demo%20of%20PureLearn.ai.%20We%20would%20love%20to%20schedule%20a%20walkthrough...`}
-                                className="p-1.5 rounded-lg border border-border hover:bg-muted text-foreground transition-colors inline-flex items-center"
+                                className="p-1.5 rounded-full border border-border hover:bg-muted text-foreground transition-colors inline-flex items-center"
                                 title="Email requester"
                               >
                                 <Mail className="h-3.5 w-3.5" />
                               </a>
                               <button
                                 onClick={() => promptDeleteDemo(demo)}
-                                className="p-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 text-red-500 transition-colors"
+                                className="p-1.5 rounded-full border border-red-500/20 hover:bg-red-500/10 text-red-500 transition-colors"
                                 title="Delete request"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -2835,7 +2835,7 @@ export function AdminPortal() {
               <button
                 onClick={handleSaveAllSettings}
                 disabled={isSavingSettings}
-                className="px-5 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity shrink-0 flex items-center gap-2 shadow-sm"
+                className="px-5 py-2.5 rounded-full bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity shrink-0 flex items-center gap-2 shadow-sm"
               >
                 {isSavingSettings ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
@@ -2885,7 +2885,7 @@ export function AdminPortal() {
                         <button
                           onClick={handleSaveApiKey}
                           disabled={isSavingKey}
-                          className="px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5"
+                          className="px-4 py-2 rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5"
                         >
                           {isSavingKey ? (
                             <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -3087,7 +3087,7 @@ export function AdminPortal() {
                   <button
                     onClick={handleSaveAllSettings}
                     disabled={isSavingSettings}
-                    className="px-5 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
+                    className="px-5 py-2.5 rounded-full bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
                   >
                     {isSavingSettings ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
@@ -3267,7 +3267,7 @@ export function AdminPortal() {
               <button
                 onClick={closeConfirmModal}
                 disabled={confirmModal.isLoading}
-                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                className="rounded-full p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -3290,7 +3290,7 @@ export function AdminPortal() {
                 type="button"
                 onClick={closeConfirmModal}
                 disabled={confirmModal.isLoading}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted disabled:opacity-50"
               >
                 {confirmModal.cancelText || "Cancel"}
               </button>
@@ -3300,7 +3300,7 @@ export function AdminPortal() {
                 onClick={() => void confirmModal.onConfirm()}
                 disabled={confirmModal.isLoading}
                 autoFocus
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold transition shadow-sm disabled:opacity-60 ${
                   confirmModal.variant === "danger"
                     ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
                     : confirmModal.variant === "warning"

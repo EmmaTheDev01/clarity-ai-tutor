@@ -848,7 +848,7 @@ function NotesPage() {
             setNoteMenuPos(pos);
             setNoteMenu({ x: e.clientX, y: e.clientY, note });
           }}
-          className="absolute right-2.5 bottom-2.5 rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground transition"
+          className="absolute right-2.5 bottom-2.5 rounded-full p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground transition"
           aria-label="Note options"
         >
           <MoreHorizontal className="h-3.5 w-3.5" />
@@ -1000,14 +1000,14 @@ function NotesPage() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShareTargetNote(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleShareSubmit}
                 disabled={isSharing || !shareEmail.trim()}
-                className="rounded-xl bg-primary hover:opacity-90 text-primary-foreground px-4 py-2 text-xs font-extrabold transition flex items-center gap-1.5"
+                className="rounded-full bg-primary hover:opacity-90 text-primary-foreground px-4 py-2 text-xs font-extrabold transition flex items-center gap-1.5"
               >
                 Share Note
               </button>
@@ -1027,7 +1027,7 @@ function NotesPage() {
               </div>
               <button
                 onClick={() => setRenameTargetNote(null)}
-                className="rounded-lg p-1 hover:bg-muted text-muted-foreground transition"
+                className="rounded-full p-1 hover:bg-muted text-muted-foreground transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1056,14 +1056,14 @@ function NotesPage() {
           <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setRenameTargetNote(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRenameNoteSubmit}
                 disabled={isRenamingNote || !renameNoteValue.trim()}
-                className="rounded-xl bg-primary hover:opacity-90 text-primary-foreground px-4 py-2 text-xs font-extrabold transition flex items-center gap-1.5"
+                className="rounded-full bg-primary hover:opacity-90 text-primary-foreground px-4 py-2 text-xs font-extrabold transition flex items-center gap-1.5"
               >
                 {isRenamingNote ? (
                   <>
@@ -1099,14 +1099,14 @@ function NotesPage() {
             </div>
             <button
               onClick={handleAddNote}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground hover:opacity-90"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90"
               title="Add Typed Note"
             >
               <Plus className="h-4 w-4" />
             </button>
             <button
               onClick={() => navigate({ to: "/app/notepad" })}
-              className="flex h-9 px-2.5 items-center gap-1.5 shrink-0 rounded-md border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold shadow-xs"
+              className="flex h-9 px-2.5 items-center gap-1.5 shrink-0 rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold shadow-xs"
               title="Open Tablet Scratchpad (Apple Pencil & S-Pen)"
             >
               <PenTool className="h-3.5 w-3.5 text-blue-500" />
@@ -1129,13 +1129,13 @@ function NotesPage() {
                     <div className="mt-2.5 flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => handleRejectShare(req.id)}
-                        className="rounded px-2 py-1 text-[10px] font-bold text-muted-foreground hover:bg-muted transition"
+                        className="rounded-full px-2.5 py-1 text-[10px] font-bold text-muted-foreground hover:bg-muted transition"
                       >
                         Decline
                       </button>
                       <button
                         onClick={() => handleAcceptShare(req.id)}
-                        className="rounded bg-sky-500 text-white px-2 py-1 text-[10px] font-black transition flex items-center gap-1 hover:bg-sky-600"
+                        className="rounded-full bg-sky-500 text-white px-2.5 py-1 text-[10px] font-black transition flex items-center gap-1 hover:bg-sky-600"
                       >
                         <Check className="h-3 w-3" /> Accept
                       </button>
@@ -1233,7 +1233,7 @@ function NotesPage() {
                     <button
                       type="button"
                       onClick={() => handleEscalateToTutor(activeNote)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold transition shadow-xs"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold transition shadow-xs"
                       title="Escalate note context to Socratic AI Tutor thread"
                     >
                       <Wand2 className="h-3.5 w-3.5 text-primary" />
@@ -1242,7 +1242,7 @@ function NotesPage() {
                     <button
                       type="button"
                       onClick={() => handleTogglePin(activeNote.id)}
-                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition border border-border/40"
+                      className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition border border-border/40"
                       title={activeNote.pinned ? "Unpin Note" : "Pin Note"}
                     >
                       {activeNote.pinned ? (
@@ -1255,7 +1255,7 @@ function NotesPage() {
                       type="button"
                       onClick={() => handleToggleFavorite(activeNote.id)}
                       disabled={activeNote.readOnly}
-                      className="p-1.5 rounded-lg hover:bg-muted text-sm leading-none transition border border-border/40"
+                      className="p-1.5 rounded-full hover:bg-muted text-sm leading-none transition border border-border/40"
                       title={activeNote.isStarred ? "Unfavorite" : "Favorite"}
                     >
                       {activeNote.isStarred ? (
@@ -1372,7 +1372,7 @@ function NotesPage() {
               </p>
               <button
                 onClick={handleAddNote}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition shadow-sm"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition shadow-sm"
               >
                 <Plus className="h-4 w-4" /> Create Note
               </button>

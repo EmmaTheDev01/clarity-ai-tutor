@@ -565,7 +565,7 @@ function ProfileSection() {
             <Check className="h-3.5 w-3.5" /> Profile saved successfully!
           </span>
         )}
-        <Button onClick={handleSave} disabled={isSaving} className="text-xs font-semibold py-2.5 px-5 rounded-md transition-all duration-200">
+        <Button onClick={handleSave} disabled={isSaving} className="text-xs font-semibold py-2.5 px-5 rounded-full transition-all duration-200">
           {isSaving ? "Saving..." : "Save changes"}
         </Button>
       </div>
@@ -709,7 +709,7 @@ function GeminiApiKeyCard() {
           />
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 shrink-0"
+            className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 shrink-0"
           >
             {isSaved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
             Save Key
@@ -926,7 +926,7 @@ function PlanSection() {
                 <button
                   onClick={handleCancelPlan}
                   disabled={isUpdating}
-                  className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-full border border-border bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition disabled:opacity-50"
                 >
                   Cancel Plan
                 </button>
@@ -935,7 +935,7 @@ function PlanSection() {
                 <button
                   onClick={handleExtendMonth}
                   disabled={isUpdating}
-                  className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Calendar className="h-3.5 w-3.5" />
                   +1 Month
@@ -1003,7 +1003,7 @@ function PlanSection() {
                 variant="outline"
                 disabled={activeTier === "free" || isUpdating}
                 onClick={() => handleSelectPlan("free")}
-                className="w-full text-xs font-bold py-2 rounded-lg"
+                className="w-full text-xs font-bold py-2 rounded-full"
               >
                 {activeTier === "free" ? "Current Plan" : "Downgrade to Free"}
               </Button>
@@ -1051,7 +1051,7 @@ function PlanSection() {
               <Button
                 disabled={activeTier === "pro" || isUpdating}
                 onClick={() => handleSelectPlan("pro")}
-                className="w-full text-xs font-bold py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-all flex items-center justify-center gap-1.5"
+                className="w-full text-xs font-bold py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-all flex items-center justify-center gap-1.5"
               >
                 {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 {activeTier === "pro" ? "Active Subscription" : "Upgrade to Pro ($15/mo)"}
@@ -1125,7 +1125,7 @@ function PlanSection() {
                 variant="outline"
                 disabled={activeTier === "educator" || isUpdating}
                 onClick={() => handleSelectPlan("educator")}
-                className="w-full text-xs font-bold py-2 rounded-lg"
+                className="w-full text-xs font-bold py-2 rounded-full"
               >
                 {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 {activeTier === "educator"
@@ -1292,7 +1292,7 @@ function SecuritySection() {
                 {isSuccess && <Check className="h-3.5 w-3.5" />} {message}
               </span>
             )}
-            <Button type="submit" disabled={isUpdating} className="text-xs font-semibold py-2.5 px-5 rounded-md ml-auto">
+            <Button type="submit" disabled={isUpdating} className="text-xs font-semibold py-2.5 px-5 rounded-full ml-auto">
               {isUpdating ? "Updating..." : "Update Password"}
             </Button>
           </div>
@@ -1319,7 +1319,7 @@ function SecuritySection() {
               Logged in on Chrome (macOS). Last active: Just now.
             </p>
           </div>
-          <button className="mt-5 rounded-md border border-border px-4 py-2.5 text-left text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all duration-300 w-fit">
+          <button className="mt-5 rounded-full border border-border px-4 py-2.5 text-left text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all duration-300 w-fit">
             Revoke other sessions
           </button>
         </div>
@@ -1378,7 +1378,7 @@ function DangerSection() {
               </div>
               <button
                 onClick={() => setModal(null)}
-                className="rounded-lg p-1 hover:bg-muted text-muted-foreground transition"
+                className="rounded-full p-1 hover:bg-muted text-muted-foreground transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1394,14 +1394,14 @@ function DangerSection() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setModal(null)}
-                className="rounded-md border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
               >
                 Cancel
               </button>
               <button
                 onClick={modal === "delete" ? handleDelete : handleSignOut}
                 disabled={isWorking}
-                className={`rounded-md px-4 py-2 text-xs font-extrabold transition flex items-center gap-2 ${
+                className={`rounded-full px-4 py-2 text-xs font-extrabold transition flex items-center gap-2 ${
                   modal === "delete"
                     ? "bg-red-500 hover:bg-red-600 text-white"
                     : "bg-foreground hover:bg-foreground/90 text-background"
@@ -1446,7 +1446,7 @@ function DangerSection() {
             </div>
             <button
               onClick={() => setModal("signout")}
-              className="mt-5 rounded-md border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-primary px-4 py-2.5 text-xs font-extrabold transition-all duration-300 hover:scale-[1.02] w-fit"
+              className="mt-5 rounded-full border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-primary px-4 py-2.5 text-xs font-extrabold transition-all duration-300 hover:scale-[1.02] w-fit"
             >
               Sign Out
             </button>
@@ -1463,7 +1463,7 @@ function DangerSection() {
             </div>
             <button
               onClick={() => setModal("delete")}
-              className="mt-5 rounded-md border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground px-4 py-2.5 text-xs font-bold transition-all duration-300 hover:scale-[1.02] w-fit"
+              className="mt-5 rounded-full border border-border bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground px-4 py-2.5 text-xs font-bold transition-all duration-300 hover:scale-[1.02] w-fit"
             >
               Delete Account
             </button>
@@ -1613,7 +1613,7 @@ function NotificationsSection() {
                     <button
                       key={mins}
                       onClick={() => updateConfig({ durationMinutes: mins })}
-                      className={`flex-1 py-2 text-xs rounded-lg font-bold border transition ${
+                      className={`flex-1 py-2 text-xs rounded-full font-bold border transition ${
                         config.durationMinutes === mins
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background border-border text-foreground hover:bg-muted"
@@ -1635,14 +1635,14 @@ function NotificationsSection() {
                   {permission !== "granted" ? (
                     <Button
                       onClick={requestPermission}
-                      className="w-full text-xs font-bold py-2 bg-primary text-primary-foreground rounded-lg"
+                      className="w-full text-xs font-bold py-2 bg-primary text-primary-foreground rounded-full"
                     >
                       Enable Browser Push
                     </Button>
                   ) : (
                     <Button
                       onClick={triggerTestNotification}
-                      className="w-full text-xs font-bold py-2 bg-muted hover:bg-muted/80 text-foreground border border-border/80 rounded-lg"
+                      className="w-full text-xs font-bold py-2 bg-muted hover:bg-muted/80 text-foreground border border-border/80 rounded-full"
                     >
                       Test Push Alert
                     </Button>
@@ -1689,7 +1689,7 @@ function IntegrationsSection() {
             </p>
           </div>
           <div className="mt-5">
-            <Button className="text-xs font-bold bg-muted text-foreground border border-border/60 hover:bg-muted/80 rounded-md">Connect Drive</Button>
+            <Button className="text-xs font-bold bg-muted text-foreground border border-border/60 hover:bg-muted/80 rounded-full">Connect Drive</Button>
           </div>
         </div>
 
@@ -1701,7 +1701,7 @@ function IntegrationsSection() {
             </p>
           </div>
           <div className="mt-5">
-            <Button className="text-xs font-bold bg-muted text-foreground border border-border/60 hover:bg-muted/80 rounded-md">Connect Notion</Button>
+            <Button className="text-xs font-bold bg-muted text-foreground border border-border/60 hover:bg-muted/80 rounded-full">Connect Notion</Button>
           </div>
         </div>
       </div>

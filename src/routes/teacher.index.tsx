@@ -460,7 +460,7 @@ export function TeacherPortal() {
                 <button
                   type="submit"
                   disabled={isCreatingClass}
-                  className="w-full py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
+                  className="w-full py-2 rounded-full bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
                 >
                   {isCreatingClass ? (
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -568,7 +568,7 @@ export function TeacherPortal() {
                     <button
                       type="submit"
                       disabled={isUploading}
-                      className="px-4 py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-full bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
                     >
                       {isUploading ? (
                         <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -644,7 +644,7 @@ export function TeacherPortal() {
                     <button
                       type="submit"
                       disabled={isCreatingQuiz}
-                      className="px-4 py-2 rounded-lg bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                      className="px-4 py-2 rounded-full bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
                     >
                       {isCreatingQuiz ? (
                         <RefreshCw className="h-3.5 w-3.5 animate-spin" />

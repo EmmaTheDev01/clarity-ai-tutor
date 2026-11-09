@@ -198,7 +198,7 @@ function LibraryPage() {
               </div>
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-lg p-1 hover:bg-muted text-muted-foreground transition"
+                className="rounded-full p-1 hover:bg-muted text-muted-foreground transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -211,14 +211,14 @@ function LibraryPage() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="rounded-xl bg-red-500 hover:bg-red-600 text-white px-4 py-2 text-xs font-extrabold transition flex items-center gap-2"
+                className="rounded-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 text-xs font-extrabold transition flex items-center gap-2"
               >
                 {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Delete
@@ -237,7 +237,7 @@ function LibraryPage() {
               </div>
               <button
                 onClick={() => setRenameTarget(null)}
-                className="rounded-lg p-1 hover:bg-muted text-muted-foreground transition"
+                className="rounded-full p-1 hover:bg-muted text-muted-foreground transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -258,14 +258,14 @@ function LibraryPage() {
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setRenameTarget(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRenameSubmit}
                 disabled={isRenaming || !renameValue.trim() || renameValue.trim() === renameTarget.title}
-                className="rounded-xl bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 text-xs font-extrabold transition flex items-center gap-2"
+                className="rounded-full bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 text-xs font-extrabold transition flex items-center gap-2"
               >
                 {isRenaming && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Rename
@@ -316,7 +316,7 @@ function LibraryPage() {
               className="pl-9 md:w-64"
             />
           </div>
-          <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted">
+          <button className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-muted">
             <Filter className="h-3.5 w-3.5" /> Sort
           </button>
         </div>
@@ -372,7 +372,7 @@ function LibraryPage() {
                       setQuizMaterial(it);
                       setIsQuizOpen(true);
                     }}
-                    className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 text-[11px] font-bold text-primary transition cursor-pointer"
+                    className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 text-[11px] font-bold text-primary transition cursor-pointer"
                     title={`Test Understanding with Quiz for "${it.title}"`}
                   >
                     <HelpCircle className="h-3 w-3 text-primary" />
@@ -380,7 +380,7 @@ function LibraryPage() {
                   </button>
                   <button
                     onClick={() => handlePinToggle(it, !it.pinned)}
-                    className={`rounded-md p-1.5 transition ${it.pinned
+                    className={`rounded-full p-1.5 transition ${it.pinned
                       ? "text-primary hover:bg-primary/10"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
@@ -391,7 +391,7 @@ function LibraryPage() {
                   </button>
                   <button
                     onClick={() => setDeleteTarget(it)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition"
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition"
                     aria-label="Delete material"
                     title="Delete"
                   >
@@ -402,7 +402,7 @@ function LibraryPage() {
                       setRenameTarget(it);
                       setRenameValue(it.title);
                     }}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
                     aria-label="Rename material"
                     title="Rename"
                   >

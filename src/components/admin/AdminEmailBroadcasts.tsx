@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import {
   Mail,
   Send,
-  Sparkles,
   Users,
   GraduationCap,
   Presentation,
@@ -405,59 +404,59 @@ export function AdminEmailBroadcasts({
       {/* ── TOP METRICS ROW ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Reachable Email Audience */}
-        <Card className="p-4 border-border/60 bg-card/60 backdrop-blur-sm relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 p-4.5 shadow-2xs transition-all duration-300 hover:shadow-sm hover:border-primary/30">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Email Audience
             </span>
-            <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
               <Users className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-foreground">
+            <span className="text-2xl font-black text-foreground tracking-tight">
               {usersList.filter((u) => u.email).length}
             </span>
             <span className="text-xs text-muted-foreground ml-2">verified contacts</span>
           </div>
           <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-            <span className="text-indigo-400 font-semibold">{studentCount} Students</span>
+            <span className="text-indigo-500 font-semibold">{studentCount} Students</span>
             <span>&bull;</span>
-            <span className="text-violet-400 font-semibold">{teacherCount} Teachers</span>
+            <span className="text-violet-500 font-semibold">{teacherCount} Teachers</span>
           </div>
-        </Card>
+        </div>
 
         {/* Metric 2: Total Broadcasts Dispatched */}
-        <Card className="p-4 border-border/60 bg-card/60 backdrop-blur-sm relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 p-4.5 shadow-2xs transition-all duration-300 hover:shadow-sm hover:border-primary/30">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Broadcasts Sent
             </span>
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
               <Send className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-foreground">{broadcastHistory.length}</span>
+            <span className="text-2xl font-black text-foreground tracking-tight">{broadcastHistory.length}</span>
             <span className="text-xs text-muted-foreground ml-2">campaigns logged</span>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {broadcastHistory.reduce((acc, curr) => acc + (curr.recipient_count || 0), 0)} total
             emails delivered
           </p>
-        </Card>
+        </div>
 
         {/* Metric 3: Resend Engine Status */}
-        <Card className="p-4 border-border/60 bg-card/60 backdrop-blur-sm relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 p-4.5 shadow-2xs transition-all duration-300 hover:shadow-sm hover:border-primary/30">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Resend Delivery
             </span>
             <div
-              className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+              className={`h-8 w-8 rounded-full flex items-center justify-center ${
                 isResendConfigured
-                  ? "bg-emerald-500/10 text-emerald-400"
-                  : "bg-amber-500/10 text-amber-400"
+                  ? "bg-emerald-500/10 text-emerald-500"
+                  : "bg-amber-500/10 text-amber-500"
               }`}
             >
               {isResendConfigured ? (
@@ -480,15 +479,15 @@ export function AdminEmailBroadcasts({
           <p className="mt-2 text-xs text-muted-foreground truncate">
             {isResendConfigured ? settings.fromEmail : "Configure key in Settings tab"}
           </p>
-        </Card>
+        </div>
 
         {/* Metric 4: Edge Function Architecture */}
-        <Card className="p-4 border-border/60 bg-card/60 backdrop-blur-sm relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 p-4.5 shadow-2xs transition-all duration-300 hover:shadow-sm hover:border-primary/30">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Infrastructure
             </span>
-            <div className="h-8 w-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-cyan-500/10 text-cyan-500 flex items-center justify-center">
               <Layers className="h-4 w-4" />
             </div>
           </div>
@@ -498,18 +497,19 @@ export function AdminEmailBroadcasts({
           <p className="mt-2 text-xs text-muted-foreground">
             Non-blocking batch queue &bull; Resend REST v1
           </p>
-        </Card>
+        </div>
       </div>
 
       {/* ── SUB-NAVIGATION TABS ── */}
-      <div className="flex items-center justify-between border-b border-border/60 pb-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+        <div className="inline-flex items-center p-1 rounded-full bg-muted/60 border border-border/60 gap-1">
           <button
+            type="button"
             onClick={() => setActiveSubTab("compose")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === "compose"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Mail className="h-3.5 w-3.5" />
@@ -517,35 +517,38 @@ export function AdminEmailBroadcasts({
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveSubTab("history")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === "history"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <History className="h-3.5 w-3.5" />
-            Broadcast History ({broadcastHistory.length})
+            History ({broadcastHistory.length})
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveSubTab("config")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === "config"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Key className="h-3.5 w-3.5" />
-            Resend & Sender Config
+            Resend Config
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           {activeSubTab === "history" && (
             <button
+              type="button"
               onClick={exportHistoryCsv}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-background hover:bg-muted text-xs font-bold transition-colors cursor-pointer shadow-2xs"
             >
               <Download className="h-3.5 w-3.5" />
               Export CSV
@@ -553,9 +556,10 @@ export function AdminEmailBroadcasts({
           )}
 
           <button
+            type="button"
             onClick={loadInitialData}
             disabled={isLoadingSettings || isLoadingHistory}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-bold transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-background hover:bg-muted text-xs font-bold transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
             title="Refresh emails and settings"
           >
             <RefreshCw
@@ -575,7 +579,7 @@ export function AdminEmailBroadcasts({
           <div className="lg:col-span-7 space-y-6">
             {/* Missing Resend Key Warning Banner */}
             {!isResendConfigured && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs shadow-sm animate-in fade-in">
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs shadow-2xs animate-in fade-in">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                   <div>
@@ -588,7 +592,7 @@ export function AdminEmailBroadcasts({
                 <button
                   type="button"
                   onClick={() => setActiveSubTab("config")}
-                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 text-black font-bold text-xs hover:opacity-90 shrink-0 transition-opacity"
+                  className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-xs hover:opacity-90 shrink-0 transition-opacity cursor-pointer shadow-2xs"
                 >
                   Configure Key &rarr;
                 </button>
@@ -597,7 +601,7 @@ export function AdminEmailBroadcasts({
 
             {/* Dev Mode Sandbox Notice */}
             {settings.fromEmail.includes("onboarding@resend.dev") && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-3 text-xs shadow-sm">
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-3 text-xs shadow-2xs">
                 <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <div className="font-bold text-amber-500 flex items-center gap-2">
@@ -617,11 +621,11 @@ export function AdminEmailBroadcasts({
             )}
 
             {/* Step 1: Select Target Audience */}
-            <Card className="p-5 border-border/60 bg-card/60 backdrop-blur-sm space-y-4">
+            <Card className="p-5 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <span className="flex h-5 w-5 rounded-full bg-primary/20 text-primary text-xs font-black items-center justify-center">
+                    <span className="flex h-5 w-5 rounded-full bg-primary/15 text-primary text-xs font-black items-center justify-center">
                       1
                     </span>
                     Target Audience
@@ -630,7 +634,7 @@ export function AdminEmailBroadcasts({
                     Choose which segment of users will receive this email broadcast.
                   </p>
                 </div>
-                <span className="text-xs font-extrabold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
                   {getTargetRecipientCount()} Recipients Selected
                 </span>
               </div>
@@ -641,13 +645,13 @@ export function AdminEmailBroadcasts({
                 <button
                   type="button"
                   onClick={() => setAudience("all")}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     audience === "all"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border/60 bg-background/50 hover:bg-muted/40"
+                      ? "border-primary/50 bg-primary/[0.08] shadow-xs ring-1 ring-primary/25"
+                      : "border-border/70 bg-background/60 hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <Users className="h-4 w-4 text-indigo-400" />
                     {audience === "all" && <Check className="h-3.5 w-3.5 text-primary" />}
                   </div>
@@ -661,13 +665,13 @@ export function AdminEmailBroadcasts({
                 <button
                   type="button"
                   onClick={() => setAudience("students")}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     audience === "students"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border/60 bg-background/50 hover:bg-muted/40"
+                      ? "border-primary/50 bg-primary/[0.08] shadow-xs ring-1 ring-primary/25"
+                      : "border-border/70 bg-background/60 hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <GraduationCap className="h-4 w-4 text-emerald-400" />
                     {audience === "students" && <Check className="h-3.5 w-3.5 text-primary" />}
                   </div>
@@ -681,13 +685,13 @@ export function AdminEmailBroadcasts({
                 <button
                   type="button"
                   onClick={() => setAudience("teachers")}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     audience === "teachers"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border/60 bg-background/50 hover:bg-muted/40"
+                      ? "border-primary/50 bg-primary/[0.08] shadow-xs ring-1 ring-primary/25"
+                      : "border-border/70 bg-background/60 hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <Presentation className="h-4 w-4 text-violet-400" />
                     {audience === "teachers" && <Check className="h-3.5 w-3.5 text-primary" />}
                   </div>
@@ -701,13 +705,13 @@ export function AdminEmailBroadcasts({
                 <button
                   type="button"
                   onClick={() => setAudience("specific")}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all ${
                     audience === "specific"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border/60 bg-background/50 hover:bg-muted/40"
+                      ? "border-primary/50 bg-primary/[0.08] shadow-xs ring-1 ring-primary/25"
+                      : "border-border/70 bg-background/60 hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <Filter className="h-4 w-4 text-amber-400" />
                     {audience === "specific" && <Check className="h-3.5 w-3.5 text-primary" />}
                   </div>
@@ -721,14 +725,14 @@ export function AdminEmailBroadcasts({
                 <button
                   type="button"
                   onClick={() => setAudience("test")}
-                  className={`p-3 rounded-xl border text-left transition-all col-span-2 sm:col-span-2 ${
+                  className={`p-3.5 rounded-2xl border text-left transition-all col-span-2 sm:col-span-2 ${
                     audience === "test"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border/60 bg-background/50 hover:bg-muted/40"
+                      ? "border-primary/50 bg-primary/[0.08] shadow-xs ring-1 ring-primary/25"
+                      : "border-border/70 bg-background/60 hover:bg-muted/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <Sparkles className="h-4 w-4 text-cyan-400" />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Send className="h-4 w-4 text-sky-400" />
                     {audience === "test" && <Check className="h-3.5 w-3.5 text-primary" />}
                   </div>
                   <div className="text-xs font-bold text-foreground">Test / Custom Email</div>
@@ -740,7 +744,7 @@ export function AdminEmailBroadcasts({
 
               {/* Sub-section: Specific User Selector Picker */}
               {audience === "specific" && (
-                <div className="p-3.5 rounded-xl border border-border/80 bg-background/80 space-y-3 animate-in fade-in">
+                <div className="p-4 rounded-2xl border border-border/80 bg-background/80 space-y-3 animate-in fade-in">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">
                       Select specific recipients ({selectedUserIds.length} chosen)
@@ -749,7 +753,7 @@ export function AdminEmailBroadcasts({
                       <button
                         type="button"
                         onClick={() => setSelectedUserIds([])}
-                        className="text-[11px] text-destructive hover:underline font-semibold"
+                        className="text-[11px] text-destructive hover:underline font-semibold cursor-pointer"
                       >
                         Clear Selection
                       </button>
@@ -757,23 +761,23 @@ export function AdminEmailBroadcasts({
                   </div>
 
                   <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                     <input
                       type="text"
                       value={userSearchText}
                       onChange={(e) => setUserSearchText(e.target.value)}
                       placeholder="Search users by name, email, or role..."
-                      className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-9 pr-3.5 py-2 text-xs rounded-full border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                     />
                   </div>
 
-                  <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 text-xs">
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 text-xs">
                     {selectableUsers.slice(0, 50).map((u) => {
                       const isChecked = selectedUserIds.includes(u.id);
                       return (
                         <label
                           key={u.id}
-                          className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${
                             isChecked
                               ? "bg-primary/10 border border-primary/30"
                               : "hover:bg-muted/60 border border-transparent"
@@ -801,7 +805,7 @@ export function AdminEmailBroadcasts({
                               </span>
                             </div>
                           </div>
-                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                          <span className="text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">
                             {u.role}
                           </span>
                         </label>
@@ -813,7 +817,7 @@ export function AdminEmailBroadcasts({
 
               {/* Sub-section: Test Email Input */}
               {audience === "test" && (
-                <div className="p-3.5 rounded-xl border border-border/80 bg-background/80 space-y-2.5 animate-in fade-in">
+                <div className="p-4 rounded-2xl border border-border/80 bg-background/80 space-y-3 animate-in fade-in">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-foreground">
                       Direct Test Email Address
@@ -825,7 +829,7 @@ export function AdminEmailBroadcasts({
                           setTestEmailAddress(currentUserEmail);
                           toast.info(`Set test email to ${currentUserEmail}`);
                         }}
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors cursor-pointer"
                       >
                         <User className="h-3 w-3" />
                         Use My Logged-in Email ({currentUserEmail})
@@ -837,7 +841,7 @@ export function AdminEmailBroadcasts({
                     value={testEmailAddress}
                     onChange={(e) => setTestEmailAddress(e.target.value)}
                     placeholder="e.g. admin@yourdomain.com or your-resend-account@gmail.com"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono shadow-2xs"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     Note: If using Resend free sandbox (<code>onboarding@resend.dev</code>), send only
@@ -848,11 +852,11 @@ export function AdminEmailBroadcasts({
             </Card>
 
             {/* Step 2: Choose Template Preset */}
-            <Card className="p-5 border-border/60 bg-card/60 backdrop-blur-sm space-y-3">
+            <Card className="p-5 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-3.5">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <span className="flex h-5 w-5 rounded-full bg-primary/20 text-primary text-xs font-black items-center justify-center">
+                    <span className="flex h-5 w-5 rounded-full bg-primary/15 text-primary text-xs font-black items-center justify-center">
                       2
                     </span>
                     Template Presets
@@ -863,7 +867,7 @@ export function AdminEmailBroadcasts({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {EMAIL_TEMPLATES.map((tpl) => {
                   const isSelected = selectedTemplateId === tpl.id;
                   return (
@@ -871,13 +875,13 @@ export function AdminEmailBroadcasts({
                       key={tpl.id}
                       type="button"
                       onClick={() => applyTemplate(tpl)}
-                      className={`p-2.5 rounded-xl border text-left transition-all group relative ${
+                      className={`p-3 rounded-2xl border text-left transition-all group relative cursor-pointer ${
                         isSelected
-                          ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/40"
-                          : "border-border/60 bg-background/50 hover:border-primary/50 hover:bg-muted/30"
+                          ? "border-primary/50 bg-primary/[0.08] shadow-xs ring-1 ring-primary/25"
+                          : "border-border/70 bg-background/60 hover:border-primary/50 hover:bg-muted/30"
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center justify-between mb-1">
                         <div
                           className={`text-xs font-bold truncate transition-colors ${
                             isSelected ? "text-primary" : "text-foreground group-hover:text-primary"
@@ -897,9 +901,9 @@ export function AdminEmailBroadcasts({
             </Card>
 
             {/* Step 3: Email Subject & Content Inputs */}
-            <Card className="p-5 border-border/60 bg-card/60 backdrop-blur-sm space-y-4">
+            <Card className="p-5 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-4">
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <span className="flex h-5 w-5 rounded-full bg-primary/20 text-primary text-xs font-black items-center justify-center">
+                <span className="flex h-5 w-5 rounded-full bg-primary/15 text-primary text-xs font-black items-center justify-center">
                   3
                 </span>
                 Email Composition
@@ -920,7 +924,7 @@ export function AdminEmailBroadcasts({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="e.g. Exciting PureLearn Platform Update..."
-                  className="w-full px-3.5 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                  className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                 />
               </div>
 
@@ -939,7 +943,7 @@ export function AdminEmailBroadcasts({
                   value={previewText}
                   onChange={(e) => setPreviewText(e.target.value)}
                   placeholder="e.g. Discover the latest tools built to enhance your learning..."
-                  className="w-full px-3.5 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                 />
               </div>
 
@@ -960,20 +964,20 @@ export function AdminEmailBroadcasts({
                   value={bodyHtml}
                   onChange={(e) => setBodyHtml(e.target.value)}
                   placeholder="<p>Write your email announcement message here...</p>"
-                  className="w-full px-3.5 py-2.5 text-xs font-mono rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+                  className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed shadow-2xs"
                 />
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>Supports HTML tags (&lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;, etc.)</span>
                   <span className="font-semibold text-foreground">
-                    White body &bull; Black text &bull; Black buttons
+                    PureLearn AI Minimal Theme &bull; App Colors &amp; Logo Included
                   </span>
                 </div>
               </div>
 
               {/* Call to Action Button Toggle */}
-              <div className="p-3.5 rounded-xl border border-border/60 bg-background/50 space-y-3">
+              <div className="p-4 rounded-2xl border border-border/70 bg-muted/20 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <input
                       type="checkbox"
                       id="cta-toggle"
@@ -985,10 +989,10 @@ export function AdminEmailBroadcasts({
                       htmlFor="cta-toggle"
                       className="text-xs font-bold text-foreground cursor-pointer select-none"
                     >
-                      Include Call-to-Action Button in Email
+                      Include Call-to-Action Pill in Email
                     </label>
                   </div>
-                  <span className="text-[11px] text-primary font-semibold">Recommended</span>
+                  <span className="text-[11px] text-primary font-bold px-2 py-0.5 rounded-full bg-primary/10">Recommended</span>
                 </div>
 
                 {includeCta && (
@@ -1002,7 +1006,7 @@ export function AdminEmailBroadcasts({
                         value={ctaText}
                         onChange={(e) => setCtaText(e.target.value)}
                         placeholder="e.g. Open PureLearn AI"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground"
+                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-border bg-background text-foreground shadow-2xs"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1014,7 +1018,7 @@ export function AdminEmailBroadcasts({
                         value={ctaUrl}
                         onChange={(e) => setCtaUrl(e.target.value)}
                         placeholder="https://purelearn.ai/app"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground"
+                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-border bg-background text-foreground shadow-2xs"
                       />
                     </div>
                   </div>
@@ -1027,7 +1031,7 @@ export function AdminEmailBroadcasts({
                   type="button"
                   onClick={handleSendTestEmail}
                   disabled={isSending || !subject.trim()}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   Send Test Email First
@@ -1037,7 +1041,7 @@ export function AdminEmailBroadcasts({
                   type="button"
                   onClick={() => setConfirmSendModalOpen(true)}
                   disabled={isSending || !subject.trim() || getTargetRecipientCount() === 0}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-600 text-primary-foreground hover:opacity-95 text-xs font-black tracking-wide uppercase transition-all shadow-md disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-primary text-white hover:opacity-95 text-xs font-black tracking-wide uppercase transition-all shadow-md cursor-pointer disabled:opacity-50"
                 >
                   <Send className={`h-3.5 w-3.5 ${isSending ? "animate-spin" : ""}`} />
                   {isSending
@@ -1050,7 +1054,7 @@ export function AdminEmailBroadcasts({
 
           {/* RIGHT COLUMN: Live Responsive Email Preview Mockup (5 cols) */}
           <div className="lg:col-span-5 space-y-4 sticky top-6">
-            <Card className="p-4 border-border/60 bg-card/60 backdrop-blur-sm space-y-3">
+            <Card className="p-5 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-3.5">
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4 text-primary" />
@@ -1058,12 +1062,12 @@ export function AdminEmailBroadcasts({
                     Live Email Preview
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center p-0.5 rounded-lg border border-border bg-muted/60 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center p-0.5 rounded-full border border-border/70 bg-muted/60 text-xs shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setPreviewDevice("desktop")}
-                      className={`px-2 py-0.5 rounded flex items-center gap-1 text-[11px] font-bold transition-all ${
+                      className={`px-3 py-1 rounded-full flex items-center gap-1.5 text-[11px] font-bold transition-all cursor-pointer ${
                         previewDevice === "desktop"
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -1076,7 +1080,7 @@ export function AdminEmailBroadcasts({
                     <button
                       type="button"
                       onClick={() => setPreviewDevice("mobile")}
-                      className={`px-2 py-0.5 rounded flex items-center gap-1 text-[11px] font-bold transition-all ${
+                      className={`px-3 py-1 rounded-full flex items-center gap-1.5 text-[11px] font-bold transition-all cursor-pointer ${
                         previewDevice === "mobile"
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -1093,7 +1097,7 @@ export function AdminEmailBroadcasts({
                       navigator.clipboard.writeText(compiledPreviewHtml);
                       toast.success("Email HTML code copied to clipboard!");
                     }}
-                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    className="p-1.5 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shadow-2xs"
                     title="Copy Email HTML"
                   >
                     <Copy className="h-3.5 w-3.5" />
@@ -1102,7 +1106,7 @@ export function AdminEmailBroadcasts({
               </div>
 
               {/* Email Envelope Header */}
-              <div className="bg-background/90 border border-border/80 rounded-xl p-3 text-xs space-y-1.5 shadow-inner">
+              <div className="bg-muted/30 border border-border/70 rounded-2xl p-3.5 text-xs space-y-1.5 shadow-2xs">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground font-semibold w-12 shrink-0">From:</span>
                   <span className="text-foreground font-mono truncate">{settings.fromEmail}</span>
@@ -1129,7 +1133,7 @@ export function AdminEmailBroadcasts({
 
               {/* Responsive Email Sandbox Rendering */}
               <div
-                className={`rounded-xl border border-border/80 overflow-hidden bg-[#f4f4f5] shadow-md transition-all duration-300 mx-auto ${
+                className={`rounded-2xl border border-border/80 overflow-hidden bg-[#f8fafc] shadow-sm transition-all duration-300 mx-auto ${
                   previewDevice === "mobile" ? "max-w-[375px]" : "w-full"
                 }`}
               >
@@ -1143,8 +1147,8 @@ export function AdminEmailBroadcasts({
 
               <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
                 <span className="flex items-center gap-1.5 font-medium text-foreground">
-                  <span className="inline-block h-2 w-2 rounded-full bg-black border border-white" />
-                  White body &bull; Black text &bull; Black buttons
+                  <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                  PureLearn AI Minimal Theme
                 </span>
                 <span>Gmail &bull; Apple Mail &bull; Outlook</span>
               </div>
@@ -1157,11 +1161,11 @@ export function AdminEmailBroadcasts({
       {/* ── 2. BROADCAST HISTORY TAB ─────────────────────────────── */}
       {/* ──────────────────────────────────────────────────────────── */}
       {activeSubTab === "history" && (
-        <Card className="p-5 border-border/60 bg-card/60 backdrop-blur-sm space-y-4">
+        <Card className="p-5 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                Email Broadcast Logs & Delivery History
+                Email Broadcast Logs &amp; Delivery History
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Complete audit trail of all messages sent through Resend Edge Functions.
@@ -1169,19 +1173,19 @@ export function AdminEmailBroadcasts({
             </div>
 
             <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Filter history by subject or audience..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full pl-9 pr-3.5 py-2 text-xs rounded-full border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
               />
             </div>
           </div>
 
           {filteredHistory.length === 0 ? (
-            <div className="py-16 text-center border border-dashed border-border/80 rounded-xl space-y-3">
+            <div className="py-16 text-center border border-dashed border-border/80 rounded-2xl space-y-3">
               <Mail className="h-10 w-10 text-muted-foreground mx-auto opacity-50" />
               <h4 className="text-sm font-bold text-foreground">No Broadcasts Logged Yet</h4>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
@@ -1191,13 +1195,13 @@ export function AdminEmailBroadcasts({
               <button
                 type="button"
                 onClick={() => setActiveSubTab("compose")}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-sm cursor-pointer"
               >
                 Compose First Broadcast
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border/60">
+            <div className="overflow-x-auto rounded-2xl border border-border/60">
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/60 text-muted-foreground font-bold border-b border-border/60 uppercase tracking-wider text-[11px]">
                   <tr>
@@ -1223,7 +1227,7 @@ export function AdminEmailBroadcasts({
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-primary/10 text-primary border border-primary/20">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-primary/10 text-primary border border-primary/20">
                           {item.target_audience}
                         </span>
                       </td>
@@ -1232,7 +1236,7 @@ export function AdminEmailBroadcasts({
                       </td>
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                             item.status === "sent"
                               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                               : item.status === "partial"
@@ -1252,7 +1256,7 @@ export function AdminEmailBroadcasts({
                         <button
                           type="button"
                           onClick={() => handleReuseInComposer(item)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold transition-colors"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold transition-colors cursor-pointer"
                           title="Copy into composer to edit or resend"
                         >
                           <RefreshCw className="h-3 w-3" />
@@ -1261,7 +1265,7 @@ export function AdminEmailBroadcasts({
                         <button
                           type="button"
                           onClick={() => setSelectedBroadcastModal(item)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-[11px] font-semibold transition-colors"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-border bg-background hover:bg-muted text-foreground text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           <Eye className="h-3 w-3" />
                           View
@@ -1282,11 +1286,11 @@ export function AdminEmailBroadcasts({
       {activeSubTab === "config" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-7 space-y-6">
-            <Card className="p-6 border-border/60 bg-card/60 backdrop-blur-sm space-y-5">
+            <Card className="p-6 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-5">
               <div>
                 <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Key className="h-4 w-4 text-primary" />
-                  Resend API Credentials & Sender Settings
+                  Resend API Credentials &amp; Sender Settings
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
                   Configure your Resend API Key to empower the Supabase Edge Functions with reliable
@@ -1315,12 +1319,12 @@ export function AdminEmailBroadcasts({
                     value={settings.apiKey}
                     onChange={(e) => setSettings((prev) => ({ ...prev, apiKey: e.target.value }))}
                     placeholder="re_123456789_abcdef..."
-                    className="w-full px-3.5 py-2 text-xs font-mono rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary pr-16"
+                    className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary pr-16 shadow-2xs"
                   />
                   <button
                     type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-2 top-2 px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-muted text-muted-foreground hover:text-foreground"
+                    className="absolute right-2.5 top-2.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     {showApiKey ? "Hide" : "Show"}
                   </button>
@@ -1345,7 +1349,7 @@ export function AdminEmailBroadcasts({
                         fromEmail: "PureLearn AI <onboarding@resend.dev>",
                       }))
                     }
-                    className="text-[11px] text-primary hover:underline font-semibold"
+                    className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
                   >
                     Reset to onboarding@resend.dev
                   </button>
@@ -1355,7 +1359,7 @@ export function AdminEmailBroadcasts({
                   value={settings.fromEmail}
                   onChange={(e) => setSettings((prev) => ({ ...prev, fromEmail: e.target.value }))}
                   placeholder="PureLearn AI <onboarding@resend.dev>"
-                  className="w-full px-3.5 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono shadow-2xs"
                 />
                 <p className="text-[11px] text-muted-foreground">
                   Using <code>onboarding@resend.dev</code> allows instant testing without domain
@@ -1373,7 +1377,7 @@ export function AdminEmailBroadcasts({
                   value={settings.replyTo}
                   onChange={(e) => setSettings((prev) => ({ ...prev, replyTo: e.target.value }))}
                   placeholder="support@purelearn.ai"
-                  className="w-full px-3.5 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                 />
               </div>
 
@@ -1383,7 +1387,7 @@ export function AdminEmailBroadcasts({
                   type="button"
                   onClick={handleSaveSettings}
                   disabled={isSavingSettings}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   <CheckCircle2 className={`h-4 w-4 ${isSavingSettings ? "animate-spin" : ""}`} />
                   {isSavingSettings ? "Saving Settings..." : "Save Resend Configuration"}
@@ -1394,14 +1398,14 @@ export function AdminEmailBroadcasts({
 
           {/* RIGHT COLUMN: Resend Sandbox & Edge Function Deployment Instructions (5 cols) */}
           <div className="lg:col-span-5 space-y-4">
-            <Card className="p-5 border-border/60 bg-card/60 backdrop-blur-sm space-y-4">
+            <Card className="p-5 border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 rounded-2xl shadow-2xs space-y-4">
               <div className="flex items-center gap-2 text-primary font-bold text-sm">
                 <Info className="h-4 w-4" />
                 Resend Sending Guide
               </div>
 
               <div className="space-y-3 text-xs text-muted-foreground leading-relaxed">
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300">
                   <div className="font-bold flex items-center gap-1.5 mb-1">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                     Sandbox Notice (onboarding@resend.dev)
@@ -1410,9 +1414,9 @@ export function AdminEmailBroadcasts({
                   <strong>only to the email address registered with your Resend account</strong>.
                 </div>
 
-                <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
+                <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
                   <div className="font-bold flex items-center gap-1.5 mb-1">
-                    <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
                     Sending to All Users
                   </div>
                   To deliver emails to any student or teacher, navigate to your{" "}
@@ -1427,7 +1431,7 @@ export function AdminEmailBroadcasts({
                   and add DNS records for your custom domain (e.g. <code>mail.purelearn.ai</code>).
                 </div>
 
-                <div className="p-3 rounded-lg bg-background border border-border/80 space-y-2">
+                <div className="p-3.5 rounded-2xl bg-background border border-border/80 space-y-2">
                   <div className="font-bold text-foreground flex items-center gap-1.5">
                     <Code className="h-3.5 w-3.5 text-primary shrink-0" />
                     Deploy Edge Function to Supabase
@@ -1437,7 +1441,7 @@ export function AdminEmailBroadcasts({
                     <code>supabase/functions/send-email/index.ts</code>. Deploy it to your remote
                     Supabase project with:
                   </p>
-                  <pre className="p-2 rounded bg-muted/80 text-[11px] font-mono text-foreground overflow-x-auto select-all">
+                  <pre className="p-2.5 rounded-xl bg-muted/80 text-[11px] font-mono text-foreground overflow-x-auto select-all">
                     npx supabase functions deploy send-email
                   </pre>
                 </div>
@@ -1452,9 +1456,9 @@ export function AdminEmailBroadcasts({
       {/* ──────────────────────────────────────────────────────────── */}
       {confirmSendModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <Card className="max-w-md w-full p-6 border-border shadow-2xl bg-card space-y-4">
+          <Card className="max-w-md w-full p-6 border-border/80 shadow-2xl bg-card rounded-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
                 <Send className="h-5 w-5" />
               </div>
               <div>
@@ -1467,7 +1471,7 @@ export function AdminEmailBroadcasts({
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-muted/50 border border-border text-xs space-y-2">
+            <div className="p-3.5 rounded-2xl bg-muted/50 border border-border/70 text-xs space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Audience:</span>
                 <span className="font-bold text-foreground uppercase">{audience}</span>
@@ -1501,7 +1505,7 @@ export function AdminEmailBroadcasts({
               <button
                 type="button"
                 onClick={() => setConfirmSendModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-xs font-bold transition-colors"
+                className="px-5 py-2.5 rounded-full border border-border hover:bg-muted text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1509,7 +1513,7 @@ export function AdminEmailBroadcasts({
               <button
                 type="button"
                 onClick={handleExecuteBroadcast}
-                className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-md"
+                className="px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-md cursor-pointer"
               >
                 Yes, Send Broadcast Now
               </button>
@@ -1523,7 +1527,7 @@ export function AdminEmailBroadcasts({
       {/* ──────────────────────────────────────────────────────────── */}
       {selectedBroadcastModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <Card className="max-w-2xl w-full p-6 border-border shadow-2xl bg-card space-y-4 max-h-[90vh] flex flex-col">
+          <Card className="max-w-2xl w-full p-6 border-border/80 shadow-2xl bg-card rounded-2xl space-y-4 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-foreground">
@@ -1537,13 +1541,13 @@ export function AdminEmailBroadcasts({
               <button
                 type="button"
                 onClick={() => setSelectedBroadcastModal(null)}
-                className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto rounded-xl border border-border/60 bg-[#f1f5f9] p-2 min-h-[350px]">
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-[#f8fafc] p-2 min-h-[350px]">
               <iframe
                 title="Broadcast Content Preview"
                 srcDoc={selectedBroadcastModal.body_html}
@@ -1556,15 +1560,15 @@ export function AdminEmailBroadcasts({
               <button
                 type="button"
                 onClick={() => handleReuseInComposer(selectedBroadcastModal)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-sm"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-sm cursor-pointer"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                Reuse & Edit in Composer
+                Reuse &amp; Edit in Composer
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedBroadcastModal(null)}
-                className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-xs font-bold"
+                className="px-5 py-2 rounded-full border border-border hover:bg-muted text-xs font-bold cursor-pointer transition-colors"
               >
                 Close View
               </button>

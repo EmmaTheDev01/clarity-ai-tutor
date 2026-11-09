@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Brain, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/blog")({
@@ -84,7 +84,7 @@ Designing for ADHD isn't just about making accommodations; it's about building f
           </Link>
             <button
               onClick={() => setSelectedPost(null)}
-              className="text-sm font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition"
+              className="text-sm font-semibold px-4 py-2 rounded-full border border-border hover:bg-muted transition"
             >
               Back to Blog
             </button>
@@ -127,7 +127,7 @@ Designing for ADHD isn't just about making accommodations; it's about building f
           <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-2 font-serif">
             <img src="/logo.png" alt="purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
           </Link>
-          <Link to="/auth/sign-in" className="text-sm font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
+          <Link to="/auth/sign-in" className="text-sm font-semibold px-4 py-2 rounded-full border border-border hover:bg-muted transition">
             Sign In
           </Link>
         </div>

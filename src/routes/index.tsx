@@ -8,14 +8,12 @@ import { useUserCount } from "@/hooks/useUserCount";
 import { HowItWorks } from "@/components/HowItWorks";
 import { HeroVideoMockup } from "@/components/HeroVideoMockup";
 import {
-  BrainCircuit,
   Plus,
   Minus,
   ArrowRight,
   Briefcase,
   GraduationCap,
   FolderHeart,
-  Brain,
   CheckCircle2,
   Headphones,
   PenTool,
@@ -107,13 +105,13 @@ function Nav() {
         <div className="flex items-center gap-2">
           <Link
             to="/auth/sign-in"
-            className="hidden rounded-md px-4 py-2 text-sm font-medium text-foreground hover:bg-muted sm:inline-flex"
+            className="hidden rounded-full px-4 py-2 text-sm font-medium text-foreground hover:bg-muted sm:inline-flex"
           >
             Sign in
           </Link>
           <Link
             to="/auth/sign-up"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
             Get the app
           </Link>
@@ -178,14 +176,14 @@ function Hero({ userCountLabel }: { userCountLabel: string }) {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row w-full max-w-[224px] sm:max-w-none mx-auto">
             <Link
               to="/auth/sign-up"
-              className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-sm whitespace-nowrap"
+              className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-sm whitespace-nowrap"
             >
-              Start learning — it&apos;s free
+              Start learning
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
             <Link
               to="/request-demo"
-              className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
+              className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
             >
               Get demo
               <ArrowRight className="h-4 w-4 shrink-0" />
@@ -232,7 +230,7 @@ function Features() {
         <ScrollReveal animation="fade-up">
           <CoverflowCarousel
             items={PURELEARN_COVERFLOW_FEATURES}
-            tagline="Interactive 3D Capabilities"
+            tagline="Capabilities"
             title="Save hours. Learn smarter."
             subtitle="Engineered for cognitive diversity: from spoken conversational podcasts to stylus scratchpad derivations and neuro-inclusive reading modes."
             defaultIndex={1}
@@ -422,14 +420,14 @@ function AppDownloadCTA() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
               href="#"
-              className="inline-flex w-56 items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
+              className="inline-flex w-56 items-center justify-center gap-2.5 rounded-full bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
               <AppleIcon />
               Download for iOS
             </a>
             <a
               href="#"
-              className="inline-flex w-56 items-center justify-center gap-2.5 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
+              className="inline-flex w-56 items-center justify-center gap-2.5 rounded-full bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
               <PlayStoreIcon />
               Download for Android
@@ -605,14 +603,14 @@ function FinalCTA({ userCountLabel }: { userCountLabel: string }) {
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row w-full max-w-[224px] sm:max-w-none mx-auto">
               <Link
                 to="/auth/sign-up"
-                className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-sm whitespace-nowrap"
+                className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-sm whitespace-nowrap"
               >
-                Start learning — it&apos;s free
+                Start learning 
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
               <Link
                 to="/request-demo"
-                className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
+                className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
               >
                 Get demo
                 <ArrowRight className="h-4 w-4 shrink-0" />

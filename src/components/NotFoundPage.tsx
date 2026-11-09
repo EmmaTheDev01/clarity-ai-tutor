@@ -28,7 +28,7 @@ export function NotFoundPage() {
         <div className="mt-8 flex items-center justify-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted text-foreground text-sm font-medium transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-border bg-background hover:bg-muted text-foreground text-sm font-medium transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Go back
@@ -36,7 +36,7 @@ export function NotFoundPage() {
           
           <Link
             to="/"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Home className="h-4 w-4" />
             Go home

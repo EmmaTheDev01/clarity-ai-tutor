@@ -23,7 +23,7 @@ import {
   BookOpen,
   Check,
   Presentation,
-  BrainCircuit,
+  Bot,
   Crown,
   LayoutDashboard,
   Users,
@@ -80,7 +80,8 @@ export function AppShell({
   actions?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const isCollapsed = !isHovered;
   const location = useRouterState({ select: (r) => r.location });
   const pathname = location.pathname;
   const currentAdminTab = (location.search as Record<string, string>)?.tab || "overview";
@@ -269,7 +270,7 @@ export function AppShell({
               title: "Open AI Study Workspace",
               subtitle: "Interactive tutoring and automated synthesis",
               badge: "AI Tutor",
-              icon: BrainCircuit,
+              icon: Bot,
               onSelect: () => {
                 navigate({ to: "/app" });
                 setIsSearchOpen(false);
@@ -297,7 +298,7 @@ export function AppShell({
               title: "AI Cognitive Study Workspace",
               subtitle: "Ask questions, review documents, and explore concepts",
               badge: "AI Tutor",
-              icon: BrainCircuit,
+              icon: Bot,
               onSelect: () => {
                 navigate({ to: "/app" });
                 setIsSearchOpen(false);
@@ -1103,58 +1104,80 @@ export function AppShell({
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 border-r border-border bg-background transition-all duration-300 lg:translate-x-0 ${
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onFocus={() => setIsHovered(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setIsHovered(false);
+          }
+        }}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-background transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden ${
           open ? "translate-x-0 w-64" : "-translate-x-full"
-        } ${isCollapsed ? "lg:w-16" : "lg:w-64"}`}
+        } ${isHovered ? "lg:w-64 lg:shadow-2xl" : "lg:w-16"}`}
       >
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link to="/app" className="flex items-center shrink-0">
-            <img src="/logo.png" alt="Purelearn.ai Logo" className="h-7 sm:h-8 w-auto lg:hidden" />
+        {/* Sidebar Brand Header */}
+        <div
+          className={`flex h-16 shrink-0 items-center border-b border-border transition-all duration-300 ${
+            isCollapsed ? "justify-center px-2" : "justify-between px-4"
+          }`}
+        >
+          <Link to="/app" className="flex items-center justify-center shrink-0">
+            {/* Collapsed desktop brand icon */}
+            <img
+              src="/favicon.png"
+              alt="PureLearn AI"
+              className={`h-8 w-8 object-contain rounded-lg shrink-0 ${
+                isCollapsed ? "hidden lg:block" : "hidden"
+              }`}
+            />
+            {/* Expanded desktop or mobile drawer brand logo */}
             <img
               src="/logo.png"
-              alt="Purelearn.ai Logo"
-              className={`h-10 w-auto hidden ${isCollapsed ? "" : "lg:block"}`}
+              alt="PureLearn AI"
+              className={`h-8 w-auto max-w-[140px] shrink-0 ${
+                isCollapsed ? "block lg:hidden" : "block"
+              }`}
             />
           </Link>
-          <div className="flex items-center gap-1">
-            <button
-              className="rounded-md p-1.5 hover:bg-muted lg:hidden"
-              onClick={() => setOpen(false)}
-              aria-label="Close sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <button
-              className="hidden lg:block rounded-md p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-          </div>
+          <button
+            className="rounded-full p-1.5 hover:bg-muted lg:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="p-3">
+        {/* Upload Material Action Button */}
+        <div className={`shrink-0 transition-all ${isCollapsed ? "p-2.5 flex justify-center" : "p-3"}`}>
           <Link
             to="/app/library"
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-all"
+            className={`flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-sm ${
+              isCollapsed
+                ? "h-10 w-10 p-0 shrink-0"
+                : "w-full gap-2 px-4 py-2.5 text-sm font-medium"
+            }`}
             title="Upload material"
           >
             <Plus className="h-4 w-4 shrink-0" />
-            <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+            <span className={`truncate ${isCollapsed ? "hidden" : "inline"}`}>
               Upload material
             </span>
           </Link>
         </div>
 
-        <nav className="px-2 space-y-4">
+        {/* Navigation items list */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 space-y-4 py-1">
           {(userRole === "admin" || pathname.startsWith("/admin")) && (
             <div>
-              <div
-                className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}
-              >
-                Admin Management
-              </div>
+              {isCollapsed ? (
+                <div className="border-t border-border/50 my-2 mx-1" />
+              ) : (
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                  Admin Management
+                </div>
+              )}
               {adminNav.map((item) => {
                 const active = pathname.startsWith("/admin") && currentAdminTab === item.tab;
                 return (
@@ -1163,17 +1186,19 @@ export function AppShell({
                     to={item.to}
                     search={{ tab: item.tab }}
                     onClick={() => setOpen(false)}
-                    className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2 text-xs font-semibold transition-all lg:justify-start ${
-                      isCollapsed ? "lg:justify-center" : "lg:justify-start"
+                    className={`mb-1 flex items-center rounded-full transition-all duration-150 ${
+                      isCollapsed
+                        ? "h-10 w-10 mx-auto justify-center p-0"
+                        : "w-full gap-3 px-3.5 py-2 text-xs font-semibold justify-start"
                     } ${
                       active
-                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                     title={item.label}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
-                    <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
+                    <span className={`truncate font-medium ${isCollapsed ? "hidden" : "inline"}`}>
                       {item.label}
                     </span>
                   </Link>
@@ -1186,24 +1211,28 @@ export function AppShell({
             <Link
               to="/teacher"
               onClick={() => setOpen(false)}
-              className={`mb-3 flex items-center gap-3 rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all border border-border bg-foreground text-background ${
-                isCollapsed ? "lg:justify-center" : "lg:justify-start"
+              className={`mb-2 flex items-center rounded-full border border-border bg-foreground text-background transition-all ${
+                isCollapsed
+                  ? "h-10 w-10 mx-auto justify-center p-0"
+                  : "w-full gap-3 px-3.5 py-2 text-xs font-bold uppercase tracking-wider justify-start"
               }`}
               title="Educator Portal"
             >
               <BookOpen className="h-4 w-4 shrink-0 text-background" />
-              <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+              <span className={`truncate ${isCollapsed ? "hidden" : "inline"}`}>
                 Educator Portal
               </span>
             </Link>
           )}
 
           <div>
-            <div
-              className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate lg:block ${isCollapsed ? "lg:hidden" : ""}`}
-            >
-              Workspace
-            </div>
+            {isCollapsed ? (
+              <div className="border-t border-border/50 my-2 mx-1" />
+            ) : (
+              <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                Workspace
+              </div>
+            )}
             {nav.map((item) => {
               const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
               return (
@@ -1211,17 +1240,19 @@ export function AppShell({
                   key={item.to}
                   to={item.to}
                   onClick={() => setOpen(false)}
-                  className={`mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all lg:justify-start ${
-                    isCollapsed ? "lg:justify-center" : "lg:justify-start"
+                  className={`mb-1 flex items-center rounded-full transition-all duration-150 ${
+                    isCollapsed
+                      ? "h-10 w-10 mx-auto justify-center p-0"
+                      : "w-full gap-3 px-3.5 py-2.5 text-sm justify-start"
                   } ${
                     active
-                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                      ? "bg-primary text-primary-foreground font-bold shadow-xs"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                   title={item.label}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2 : 1.75} />
-                  <span className={`truncate lg:inline ${isCollapsed ? "lg:hidden" : ""}`}>
+                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
+                  <span className={`truncate font-medium ${isCollapsed ? "hidden" : "inline"}`}>
                     {item.label}
                   </span>
                 </Link>
@@ -1230,46 +1261,47 @@ export function AppShell({
           </div>
         </nav>
 
-        <div className="absolute inset-x-0 bottom-0 border-t border-border p-3">
+        {/* Bottom Plan / Upgrade Container */}
+        <div className={`mt-auto shrink-0 border-t border-border transition-all ${isCollapsed ? "p-2.5" : "p-3"}`}>
           {/* Desktop Collapsed view */}
-          <div className={`hidden lg:block ${isCollapsed ? "lg:block" : "lg:hidden"}`}>
-            <Link
-              to="/pricing"
-              className="flex h-10 w-full items-center justify-center rounded-md border border-border bg-elevated hover:bg-muted text-primary"
-              title="Upgrade plan"
-            >
-              <Crown
-                className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`}
-              />
-            </Link>
-          </div>
-
-          {/* Mobile and Desktop Expanded view */}
-          <div className={`block ${isCollapsed ? "lg:hidden" : "lg:block"}`}>
-            <div className="rounded-md border border-border bg-elevated p-3">
+          {isCollapsed ? (
+            <div className="flex justify-center">
+              <Link
+                to="/pricing"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-elevated hover:bg-muted text-primary shadow-2xs transition-all"
+                title="Upgrade plan"
+              >
+                <Crown
+                  className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`}
+                />
+              </Link>
+            </div>
+          ) : (
+            /* Expanded view */
+            <div className="rounded-2xl border border-border bg-elevated p-3 space-y-2">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                 <Crown
                   className={`h-3.5 w-3.5 ${tier !== "free" ? "text-amber-500 fill-current" : ""}`}
                 />
-                <span className="capitalize">{tier} Plan</span>
+                <span className="capitalize font-bold">{tier} Plan</span>
               </div>
               {tier !== "free" ? (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Unlimited daily queries unlocked.
                 </p>
               ) : (
                 <>
-                  <p className="mt-1 text-xs text-muted-foreground">20 / 50 daily queries used.</p>
+                  <p className="text-xs text-muted-foreground">20 / 50 daily queries used.</p>
                   <Link
                     to="/pricing"
-                    className="mt-2 inline-block text-xs font-medium text-foreground underline underline-offset-2"
+                    className="inline-flex items-center justify-center w-full py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-2xs"
                   >
                     Upgrade
                   </Link>
                 </>
               )}
             </div>
-          </div>
+          )}
         </div>
       </aside>
 
@@ -1283,12 +1315,12 @@ export function AppShell({
       )}
 
       {/* Main */}
-      <div className={`transition-all duration-300 ${isCollapsed ? "lg:pl-16" : "lg:pl-64"}`}>
+      <div className="transition-all duration-300 lg:pl-16">
         <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
           <div className="flex h-16 items-center justify-between gap-4 px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
-                className="rounded-md p-1.5 hover:bg-muted lg:hidden"
+                className="rounded-full p-1.5 hover:bg-muted lg:hidden"
                 onClick={() => setOpen(true)}
                 aria-label="Open sidebar"
               >
@@ -1538,7 +1570,7 @@ export function AppShell({
                             const getNotificationIcon = (type: string) => {
                               switch (type) {
                                 case "ai_tutor":
-                                  return <BrainCircuit className="h-3.5 w-3.5 text-primary" />;
+                                  return <Bot className="h-3.5 w-3.5 text-primary" />;
                                 case "quiz":
                                   return <FileText className="h-3.5 w-3.5 text-blue-500" />;
                                 case "flashcard":
@@ -1837,7 +1869,7 @@ export function AppShell({
             </div>
             <button
               onClick={() => setShortcutModalOpen(false)}
-              className="w-full py-2 bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold rounded-lg transition"
+              className="w-full py-2 bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold rounded-full transition"
             >
               Done
             </button>

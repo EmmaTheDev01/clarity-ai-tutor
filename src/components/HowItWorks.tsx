@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import { Upload, Brain, FileCheck2, BrainCircuit } from "lucide-react";
+import { Upload, Compass, FileCheck2 } from "lucide-react";
 
 export function HowItWorks() {
   const steps = [
@@ -44,7 +44,7 @@ export function HowItWorks() {
       tagline: "Cognitive Scaffolding",
       description:
         "Instead of handing you passive answers, PureLearn asks targeted probing questions. It adapts pacing to your cognitive profile—supporting ADHD focus and dyslexia spacing.",
-      icon: Brain,
+      icon: Compass,
       preview: (
         <div className="rounded-xl border border-border bg-background/70 p-4 space-y-2.5 text-left text-xs">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border pb-1.5">
@@ -104,7 +104,7 @@ export function HowItWorks() {
         <div className="mx-auto max-w-3xl text-center">
           <ScrollReveal animation="fade-up">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
-              <BrainCircuit className="h-3.5 w-3.5" />
+              <Compass className="h-3.5 w-3.5" />
               The PureLearn Architecture
             </span>
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
@@ -167,7 +167,7 @@ export function HowItWorks() {
             </div>
             <Link
               to="/request-demo"
-              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
             >
               Request Live Demo
             </Link>

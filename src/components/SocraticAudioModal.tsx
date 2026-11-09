@@ -644,7 +644,7 @@ export function SocraticAudioMiniPopup({
             type="button"
             onClick={session.prevTurn}
             disabled={session.currentTurnIndex === 0}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition cursor-pointer"
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition cursor-pointer"
             title="Previous section"
             aria-label="Previous section"
           >
@@ -663,7 +663,7 @@ export function SocraticAudioMiniPopup({
             type="button"
             onClick={session.nextTurn}
             disabled={session.currentTurnIndex >= session.turns.length - 1}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition cursor-pointer"
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition cursor-pointer"
             title="Next section"
             aria-label="Next section"
           >
@@ -708,7 +708,7 @@ export function SocraticAudioMiniPopup({
           <button
             type="button"
             onClick={onExpand}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
             title="Expand to full explanation"
             aria-label="Expand audio"
           >
@@ -717,7 +717,7 @@ export function SocraticAudioMiniPopup({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
             title="Close audio player"
             aria-label="Close audio popup"
           >
@@ -815,7 +815,7 @@ export function SocraticAudioModal({
           <div className="flex items-center gap-1">
             <button
               onClick={() => session.setShowVoiceSettings(!session.showVoiceSettings)}
-              className={`p-2 rounded-lg border transition cursor-pointer ${
+              className={`p-2 rounded-full border transition cursor-pointer ${
                 session.showVoiceSettings
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -827,7 +827,7 @@ export function SocraticAudioModal({
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+              className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
               aria-label="Close"
               title="Close modal (minimizes to chat bar)"
             >
@@ -934,7 +934,7 @@ export function SocraticAudioModal({
               <p className="text-xs text-muted-foreground">No explanation generated yet.</p>
               <button
                 onClick={session.regenerateDialogue}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
+                className="px-4 py-2 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
               >
                 Generate Audio Notes
               </button>
@@ -1161,7 +1161,7 @@ export function SocraticAudioModal({
             <div className="flex items-center gap-1.5">
               <button
                 onClick={session.toggleMute}
-                className="p-2 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                className="p-2 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
                 title={session.isMuted ? "Unmute" : "Mute"}
               >
                 {session.isMuted ? <VolumeX className="h-4 w-4 text-destructive" /> : <Volume2 className="h-4 w-4" />}
@@ -1169,7 +1169,7 @@ export function SocraticAudioModal({
               <button
                 onClick={session.regenerateDialogue}
                 disabled={session.isLoading}
-                className="p-2 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition disabled:opacity-40 cursor-pointer"
+                className="p-2 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition disabled:opacity-40 cursor-pointer"
                 title="Regenerate Audio Explanation"
               >
                 <RotateCcw className="h-4 w-4" />

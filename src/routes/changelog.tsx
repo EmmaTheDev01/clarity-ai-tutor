@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Brain, BookmarkCheck } from "lucide-react";
+import { BookmarkCheck } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/changelog")({
@@ -99,7 +99,7 @@ function ChangelogPage() {
           <Link to="/" className="text-xl font-bold tracking-wider text-foreground flex items-center gap-2 font-serif">
             <img src="/logo.png" alt="purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
           </Link>
-          <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
+          <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-full border border-border hover:bg-muted transition">
             Sign In
           </Link>
         </div>

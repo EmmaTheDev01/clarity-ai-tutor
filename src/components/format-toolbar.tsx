@@ -121,7 +121,7 @@ export const FormatToolbar: React.FC<FormatToolbarProps> = ({
           <button
             type="button"
             onClick={() => applyFormat(btn.action)}
-            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="rounded-full p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             title={btn.label}
           >
             <btn.icon className="h-3.5 w-3.5" />

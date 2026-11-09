@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Brain, Check, ArrowRight, Loader2, Lock } from "lucide-react";
+import { Check, ArrowRight, Loader2, Lock } from "lucide-react";
 import { Card } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -107,11 +107,11 @@ function PricingPage() {
             <img src="/logo.png" alt="purelearn.ai Logo" className="h-11 w-auto sm:h-12" />
           </Link>
           {user ? (
-            <Link to="/app" className="text-xs font-semibold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition flex items-center gap-1.5">
+            <Link to="/app" className="text-xs font-semibold px-4 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition flex items-center gap-1.5">
               Go to Workspace
             </Link>
           ) : (
-            <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-lg border border-border hover:bg-muted transition">
+            <Link to="/auth/sign-in" className="text-xs font-semibold px-4 py-2 rounded-full border border-border hover:bg-muted transition">
               Sign In
             </Link>
           )}
@@ -157,12 +157,12 @@ function PricingPage() {
               <button
                 disabled={loading || currentTier === "free"}
                 onClick={() => handlePlanSelect("free")}
-                className="w-full py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 rounded-full border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
               >
                 {currentTier === "free" ? "Current Plan" : "Downgrade to Free"}
               </button>
             ) : (
-              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
+              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-full border border-border hover:bg-muted text-center text-xs font-bold transition">
                 Get Started
               </Link>
             )}
@@ -201,14 +201,14 @@ function PricingPage() {
               <button
                 disabled={loading || currentTier === "premium" || currentTier === "pro"}
                 onClick={() => handlePlanSelect("premium")}
-                className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 {currentTier === "premium" || currentTier === "pro" ? "Active Subscription" : "Upgrade Now"}
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
-              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-center text-xs font-bold transition flex items-center justify-center gap-1.5">
                 Upgrade Now
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
@@ -278,14 +278,14 @@ function PricingPage() {
                 <button
                   disabled={loading || currentTier === "educator"}
                   onClick={() => handlePlanSelect("educator")}
-                  className="w-full py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                  className="w-full py-2.5 rounded-full border border-border bg-background hover:bg-muted text-center text-xs font-bold transition disabled:opacity-50 cursor-pointer"
                 >
                   {currentTier === "educator" ? "Current Plan" : `Build Classroom ($${calculateCustomPrice(studentCount)}/mo)`}
                 </button>
               ) : (
                 <button
                   disabled
-                  className="w-full py-2.5 rounded-lg border border-border bg-muted/60 text-muted-foreground text-center text-xs font-bold transition disabled:opacity-50 cursor-not-allowed flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 rounded-full border border-border bg-muted/60 text-muted-foreground text-center text-xs font-bold transition disabled:opacity-50 cursor-not-allowed flex items-center justify-center gap-1.5"
                   title="Educator account required"
                 >
                   <Lock className="h-3.5 w-3.5" />
@@ -293,7 +293,7 @@ function PricingPage() {
                 </button>
               )
             ) : (
-              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-lg border border-border hover:bg-muted text-center text-xs font-bold transition">
+              <Link to="/auth/sign-up" className="w-full py-2.5 rounded-full border border-border hover:bg-muted text-center text-xs font-bold transition">
                 Build Classroom
               </Link>
             )}

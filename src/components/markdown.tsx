@@ -120,7 +120,7 @@ function CodeBlockContainer({ code, language }: { code: string; language?: strin
 
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:bg-white/10 hover:text-slate-100 transition"
+          className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:bg-white/10 hover:text-slate-100 transition"
         >
           {copied ? (
             <>

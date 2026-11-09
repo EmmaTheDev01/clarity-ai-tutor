@@ -3,7 +3,7 @@ import {
   Headphones,
   PenTool,
   Zap,
-  Brain,
+  SlidersHorizontal,
   Calculator,
   Flame,
   Layers,
@@ -125,13 +125,13 @@ export const PURELEARN_COVERFLOW_FEATURES: CoverflowItem[] = [
     accentColor: "#8b5cf6",
     gradientBg: "bg-gradient-to-br from-purple-100 via-fuchsia-50 to-indigo-100 dark:from-purple-950/40 dark:via-fuchsia-900/20 dark:to-indigo-950/40",
     iconBg: "bg-purple-500",
-    sealIcon: <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
+    sealIcon: <SlidersHorizontal className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
     linkTo: "/features",
     linkText: "Explore Accessibility",
     renderIllustration: () => (
       <div className="flex flex-col items-center justify-center gap-2.5 text-center px-2">
         <div className="h-14 w-14 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-inner">
-          <Brain className="h-8 w-8" />
+          <SlidersHorizontal className="h-8 w-8" />
         </div>
         <div className="p-2 rounded-lg bg-background/80 dark:bg-card/80 border border-purple-500/20 text-[10px] text-foreground leading-snug">
           <b>Neu</b>ro-<b>inc</b>lusive <b>vis</b>ual <b>anch</b>ors

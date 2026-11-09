@@ -19,7 +19,6 @@ import {
   RotateCcw,
   BookmarkPlus,
   ArrowRight,
-  BrainCircuit,
   BookmarkCheck,
   Zap,
 } from "lucide-react";
@@ -611,14 +610,20 @@ Each question must target a fundamental key concept, definition, or equation. Ea
         {/* Left column: Decks List */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
-              Decks ({visibleDecks.length})
-            </h2>
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <h2 className="text-xs font-bold tracking-wider text-foreground/90 uppercase">
+                Decks
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-bold text-muted-foreground border border-border/60">
+                {visibleDecks.length}
+              </span>
+            </div>
             <Button
               onClick={() => setShowAiModal(true)}
-              className="text-xs font-bold gap-1 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+              className="text-xs font-bold gap-1.5 px-3.5 py-1.5 rounded-full bg-primary text-primary-foreground hover:opacity-90 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              <BrainCircuit className="h-3.5 w-3.5" /> Create AI Deck
+              <Plus className="h-3.5 w-3.5" /> Create AI Deck
             </Button>
           </div>
 
@@ -626,45 +631,60 @@ Each question must target a fundamental key concept, definition, or equation. Ea
             {visibleDecks.map((deck) => {
               const activeCount = deck.cards.filter((c: { q: string; a: string }) => !deletedCardKeys.has(`${deck.id}_${c.q}`)).length;
               const isSelected = selectedDeck && selectedDeck.id === deck.id;
+              const displaySubject = deck.subject?.startsWith("http")
+                ? (() => {
+                    try {
+                      return new URL(deck.subject).hostname.replace(/^www\./, "");
+                    } catch {
+                      return sliceText(deck.subject, 18);
+                    }
+                  })()
+                : (deck.subject || "General");
+
               return (
-                <Card
+                <div
                   key={deck.id}
                   onClick={() => selectDeck(deck)}
-                  className={`relative group/deck cursor-pointer p-4 transition text-left border ${isSelected
-                      ? "border-foreground ring-1 ring-foreground bg-elevated/40"
-                      : "border-border hover:bg-elevated/20"
-                    }`}
+                  className={`group/deck relative cursor-pointer rounded-2xl p-3.5 transition-all duration-200 border text-left ${
+                    isSelected
+                      ? "border-primary/50 bg-primary/[0.07] shadow-xs ring-1 ring-primary/25"
+                      : "border-border/70 bg-card hover:bg-muted/40 hover:border-border hover:shadow-2xs"
+                  }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span
-                      className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate max-w-[140px]"
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50 truncate max-w-[150px]"
                       title={deck.subject}
                     >
-                      {sliceText(deck.subject, 18)}
+                      {displaySubject}
                     </span>
-                    <div className="flex items-center gap-1.5">
-                      <Pill className="text-[10px]">{activeCount} cards</Pill>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground font-mono">
+                        <Layers className="h-3 w-3 text-primary/70 shrink-0" />
+                        <span>{activeCount} {activeCount === 1 ? "card" : "cards"}</span>
+                      </span>
                       <button
                         onClick={(e) => handleDeleteDeck(deck.id, e)}
-                        className="opacity-60 group-hover/deck:opacity-100 p-1 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all"
+                        className="opacity-0 group-hover/deck:opacity-100 p-1 rounded-full hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all cursor-pointer"
                         title="Delete Deck"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
+
                   <h3
-                    className="mt-2 text-sm font-semibold text-foreground pr-5 truncate"
+                    className="mt-2 text-sm font-semibold text-foreground line-clamp-2 leading-snug group-hover/deck:text-primary transition-colors pr-2"
                     title={deck.title}
                   >
-                    {sliceText(deck.title, 32)}
+                    {deck.title}
                   </h3>
-                </Card>
+                </div>
               );
             })}
 
             {visibleDecks.length === 0 && (
-              <div className="text-center py-8 border border-dashed border-border rounded-xl">
+              <div className="text-center py-8 border border-dashed border-border rounded-2xl bg-card/50">
                 <p className="text-xs text-muted-foreground">No active decks remaining.</p>
               </div>
             )}
@@ -773,9 +793,9 @@ Each question must target a fundamental key concept, definition, or equation. Ea
               </p>
               <Button
                 onClick={() => setShowAiModal(true)}
-                className="gap-2 text-xs font-bold px-4 py-2 rounded-xl bg-primary text-primary-foreground"
+                className="gap-2 text-xs font-bold px-4 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90"
               >
-                <BrainCircuit className="h-4 w-4" /> Create AI Flashcards
+                <Plus className="h-4 w-4" /> Create AI Flashcards
               </Button>
             </Card>
           ) : (
@@ -848,7 +868,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                     variant="outline"
                     size="sm"
                     onClick={handlePrev}
-                    className="rounded-xl p-2.5 border border-border bg-background hover:bg-muted text-foreground"
+                    className="rounded-full p-2.5 border border-border bg-background hover:bg-muted text-foreground"
                     aria-label="Previous"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -857,7 +877,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                     variant="outline"
                     size="sm"
                     onClick={handleNext}
-                    className="rounded-xl p-2.5 border border-border bg-background hover:bg-muted text-foreground"
+                    className="rounded-full p-2.5 border border-border bg-background hover:bg-muted text-foreground"
                     aria-label="Next"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -867,7 +887,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                     size="sm"
                     onClick={exportCardToImage}
                     disabled={activeDeckCards.length === 0}
-                    className="rounded-xl inline-flex items-center gap-1.5 px-4 font-bold border border-border bg-background hover:bg-muted text-foreground text-xs"
+                    className="rounded-full inline-flex items-center gap-1.5 px-4 font-bold border border-border bg-background hover:bg-muted text-foreground text-xs"
                     title="Export Card to Image"
                   >
                     <Download className="h-3.5 w-3.5 text-primary" /> Export Image
@@ -877,7 +897,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                     size="sm"
                     onClick={handleDeleteCard}
                     disabled={activeDeckCards.length === 0}
-                    className="rounded-xl inline-flex items-center gap-1.5 px-4 font-bold border border-red-200 bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground transition text-xs"
+                    className="rounded-full inline-flex items-center gap-1.5 px-4 font-bold border border-red-200 bg-background hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-muted-foreground transition text-xs"
                     title="Delete this flashcard"
                   >
                     <Trash2 className="h-3.5 w-3.5 text-red-500" /> Delete Card
@@ -929,7 +949,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <BrainCircuit className="h-5 w-5" />
+                  <Layers className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Create AI Flashcard Deck</h3>
@@ -938,7 +958,7 @@ Each question must target a fundamental key concept, definition, or equation. Ea
               </div>
               <button
                 onClick={() => setShowAiModal(false)}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground"
+                className="p-1 rounded-full text-muted-foreground hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -978,14 +998,14 @@ Each question must target a fundamental key concept, definition, or equation. Ea
                 variant="outline"
                 onClick={() => setShowAiModal(false)}
                 disabled={isGenerating}
-                className="text-xs font-semibold rounded-xl"
+                className="text-xs font-semibold rounded-full"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleGenerateAiDeck}
                 disabled={isGenerating}
-                className="text-xs font-bold gap-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90"
+                className="text-xs font-bold gap-2 rounded-full bg-primary text-primary-foreground hover:opacity-90"
               >
                 {isGenerating ? (
                   <>

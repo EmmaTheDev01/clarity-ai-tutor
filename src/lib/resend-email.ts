@@ -330,17 +330,17 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     subject: "Exciting Platform Update: New Learning Tools Now Live on PureLearn AI",
     previewText: "Discover new features designed to help you study smarter and faster.",
     content: `
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Hello PureLearn Learner,</p>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">We are thrilled to share our latest platform update, bringing powerful new tools to elevate your personalized learning experience:</p>
-      <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-left: 4px solid #000000; padding: 18px 20px; border-radius: 8px; margin: 24px 0;">
-        <h4 style="margin: 0 0 10px; color: #000000; font-size: 15px; font-weight: 700;">What's New:</h4>
-        <ul style="margin: 0; padding-left: 20px; color: #09090b; font-size: 14px; line-height: 1.7;">
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Hello PureLearn Learner,</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">We are thrilled to share our latest platform update, bringing powerful new tools to elevate your personalized learning experience:</p>
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #09090b; padding: 18px 20px; border-radius: 12px; margin: 24px 0;">
+        <h4 style="margin: 0 0 10px; color: #09090b; font-size: 15px; font-weight: 700;">What's New:</h4>
+        <ul style="margin: 0; padding-left: 20px; color: #27272a; font-size: 14px; line-height: 1.75;">
           <li><strong>Smart Tablet Scratchpad:</strong> Draw, sketch math equations, and receive instant AI step-by-step socratic breakdown.</li>
           <li><strong>Audio Socratic Tutor:</strong> Real-time voice interaction with active pacing adapted to your learning style.</li>
           <li><strong>Enhanced Memory Retention:</strong> Upgraded flashcard scheduling based on active cognitive recall.</li>
         </ul>
       </div>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Log in now to test out these updates and continue progressing through your learning goals!</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Log in now to test out these updates and continue progressing through your learning goals!</p>
     `,
     buttonText: "Open PureLearn Dashboard",
     buttonUrl: "https://purelearn.ai/app",
@@ -354,13 +354,13 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     previewText:
       "Planned maintenance scheduled for this weekend. Brief service interruption expected.",
     content: `
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Dear PureLearn Member,</p>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">To ensure maximum platform speed, database security, and AI inference performance, our infrastructure team will be performing scheduled maintenance.</p>
-      <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-left: 4px solid #000000; padding: 18px 20px; border-radius: 8px; margin: 24px 0;">
-        <p style="margin: 0 0 8px; color: #000000; font-weight: 700; font-size: 15px;">Maintenance Window:</p>
-        <p style="margin: 0; color: #09090b; font-size: 14px; line-height: 1.6;"><strong>Date:</strong> Sunday, 02:00 AM – 03:00 AM UTC<br><strong>Expected Impact:</strong> Brief read-only access to study materials for approximately 15 minutes.</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Dear PureLearn Member,</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">To ensure maximum platform speed, database security, and AI inference performance, our infrastructure team will be performing scheduled maintenance.</p>
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #09090b; padding: 18px 20px; border-radius: 12px; margin: 24px 0;">
+        <p style="margin: 0 0 8px; color: #09090b; font-weight: 700; font-size: 15px;">Maintenance Window:</p>
+        <p style="margin: 0; color: #27272a; font-size: 14px; line-height: 1.6;"><strong>Date:</strong> Sunday, 02:00 AM – 03:00 AM UTC<br><strong>Expected Impact:</strong> Brief read-only access to study materials for approximately 15 minutes.</p>
       </div>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">All your notes, flashcards, streaks, and quiz progress remain completely safe. We appreciate your patience as we make PureLearn even better.</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">All your notes, flashcards, streaks, and quiz progress remain completely safe. We appreciate your patience as we make PureLearn even better.</p>
     `,
     buttonText: "Check System Status",
     buttonUrl: "https://purelearn.ai",
@@ -373,13 +373,13 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     subject: "Keep Your Study Streak Alive! Your Weekly PureLearn Check-in",
     previewText: "10 minutes of daily active recall beats 5 hours of cramming.",
     content: `
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Hi there,</p>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Consistency is the secret to mastering difficult concepts. Did you know that reviewing just <strong>5 flashcards a day</strong> reinforces long-term memory retention by over 80%?</p>
-      <div style="background-color: #fafafa; border: 1px solid #e4e4e7; padding: 22px; border-radius: 8px; margin: 24px 0; text-align: center;">
-        <h3 style="margin: 0 0 8px; color: #000000; font-size: 17px; font-weight: 700;">Your Weekly Challenge</h3>
-        <p style="margin: 0; color: #52525b; font-size: 14px; line-height: 1.5;">Complete 1 quick quiz or review 10 cards to maintain your learning streak and earn bonus XP.</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Hi there,</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Consistency is the secret to mastering difficult concepts. Did you know that reviewing just <strong>5 flashcards a day</strong> reinforces long-term memory retention by over 80%?</p>
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 22px; border-radius: 12px; margin: 24px 0; text-align: center;">
+        <h3 style="margin: 0 0 8px; color: #09090b; font-size: 17px; font-weight: 700;">Your Weekly Challenge</h3>
+        <p style="margin: 0; color: #71717a; font-size: 14px; line-height: 1.6;">Complete 1 quick quiz or review 10 cards to maintain your learning streak and earn bonus XP.</p>
       </div>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Take a 5-minute study break now and test your understanding with your AI tutor.</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Take a 5-minute study break now and test your understanding with your AI tutor.</p>
     `,
     buttonText: "Start 5-Minute Session",
     buttonUrl: "https://purelearn.ai/app",
@@ -392,17 +392,17 @@ export const EMAIL_TEMPLATES: EmailTemplatePreset[] = [
     subject: "Welcome to PureLearn AI — Your Personalized AI Socratic Tutor",
     previewText: "Here is your 3-step quick start guide to mastering any subject.",
     content: `
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Welcome to <strong>PureLearn AI / Clarity AI Tutor</strong>!</p>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">We are thrilled to have you here. PureLearn adapts specifically to how your brain learns best — whether you have ADHD, dyslexia, or prefer high-focus visual cards.</p>
-      <div style="background-color: #fafafa; border: 1px solid #e4e4e7; border-left: 4px solid #000000; padding: 18px 22px; border-radius: 8px; margin: 24px 0;">
-        <h4 style="margin: 0 0 12px; color: #000000; font-size: 15px; font-weight: 700;">3 Steps to Get Started:</h4>
-        <ol style="margin: 0; padding-left: 20px; color: #09090b; font-size: 14px; line-height: 1.75;">
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Welcome to <strong>PureLearn AI / Clarity AI Tutor</strong>!</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">We are thrilled to have you here. PureLearn adapts specifically to how your brain learns best — whether you have ADHD, dyslexia, or prefer high-focus visual cards.</p>
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #09090b; padding: 18px 22px; border-radius: 12px; margin: 24px 0;">
+        <h4 style="margin: 0 0 12px; color: #09090b; font-size: 15px; font-weight: 700;">3 Steps to Get Started:</h4>
+        <ol style="margin: 0; padding-left: 20px; color: #27272a; font-size: 14px; line-height: 1.8;">
           <li><strong>Upload your course material:</strong> Upload PDFs, slide decks, or lecture notes.</li>
           <li><strong>Generate Flashcards & Quizzes:</strong> Let AI create instant active recall decks grounded strictly in your syllabus.</li>
           <li><strong>Ask Socratic Questions:</strong> Instead of giving away answers, your AI tutor guides your reasoning step by step.</li>
         </ol>
       </div>
-      <p style="font-size: 15px; color: #09090b; line-height: 1.6; margin: 0 0 16px;">Jump right in and start your first session today!</p>
+      <p style="font-size: 15px; color: #27272a; line-height: 1.7; margin: 0 0 16px;">Jump right in and start your first session today!</p>
     `,
     buttonText: "Go to My Dashboard",
     buttonUrl: "https://purelearn.ai/app",
@@ -445,8 +445,8 @@ export function formatPureLearnEmailTemplate({
   const ctaButtonHtml =
     buttonText && buttonUrl
       ? `<div style="text-align: center; margin: 32px 0 16px;">
-           <a href="${escapeHtml(buttonUrl)}" style="display: inline-block; padding: 14px 32px; background-color: #000000; color: #ffffff !important; font-size: 14px; font-weight: 700; text-decoration: none !important; border-radius: 8px; border: 1px solid #000000; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); letter-spacing: 0.2px;">
-             ${escapeHtml(buttonText)}
+           <a href="${escapeHtml(buttonUrl)}" style="display: inline-block; padding: 13px 32px; background-color: #09090b; color: #ffffff !important; font-size: 14px; font-weight: 700; text-decoration: none !important; border-radius: 9999px; border: 1px solid #09090b; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); letter-spacing: 0.2px;">
+             ${escapeHtml(buttonText)} &rarr;
            </a>
          </div>`
       : "";
@@ -470,73 +470,95 @@ export function formatPureLearnEmailTemplate({
     body {
       margin: 0;
       padding: 0;
-      background-color: #f4f4f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: #09090b;
+      background-color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
+      color: #27272a;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
-      background-color: #f4f4f5;
+      background-color: #f8fafc;
       padding: 40px 16px;
     }
     .container {
-      max-width: 600px;
+      max-width: 580px;
       margin: 0 auto;
       background-color: #ffffff;
-      border: 1px solid #e4e4e7;
-      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.04);
     }
     .header {
-      padding: 32px 32px 24px;
+      padding: 36px 32px 24px;
       background-color: #ffffff;
-      border-bottom: 1px solid #f4f4f5;
+      border-bottom: 1px solid #f1f5f9;
       text-align: center;
     }
-    .brand-badge {
+    .logo-container {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+    .brand-logo {
       display: inline-block;
-      padding: 5px 14px;
-      background-color: #000000;
-      border: 1px solid #000000;
+      max-height: 34px;
+      width: auto;
+      border: 0;
+      outline: none;
+    }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background-color: #f4f4f5;
+      border: 1px solid #e4e4e7;
       border-radius: 9999px;
-      color: #ffffff;
-      font-size: 11px;
+      color: #18181b;
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
       text-transform: uppercase;
       margin-bottom: 14px;
     }
+    .badge-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #09090b;
+    }
     .title {
-      margin: 0 0 6px;
-      font-size: 22px;
+      margin: 0;
+      font-size: 21px;
       font-weight: 800;
-      color: #000000;
+      color: #09090b;
       line-height: 1.35;
       letter-spacing: -0.3px;
     }
     .body-content {
       padding: 32px;
       background-color: #ffffff;
-      color: #09090b;
+      color: #27272a;
       font-size: 15px;
-      line-height: 1.65;
+      line-height: 1.7;
     }
     .body-content h1, .body-content h2, .body-content h3, .body-content h4 {
-      color: #000000;
+      color: #09090b;
       margin-top: 24px;
       margin-bottom: 12px;
       font-weight: 700;
+      letter-spacing: -0.2px;
     }
     .body-content a {
-      color: #000000;
+      color: #09090b;
       text-decoration: underline;
+      text-underline-offset: 3px;
       font-weight: 600;
     }
     .body-content p {
       margin: 0 0 16px;
-      color: #09090b;
+      color: #27272a;
     }
     .btn-container {
       text-align: center;
@@ -544,39 +566,45 @@ export function formatPureLearnEmailTemplate({
     }
     .btn {
       display: inline-block;
-      padding: 14px 32px;
-      background-color: #000000 !important;
+      padding: 13px 32px;
+      background-color: #09090b !important;
       color: #ffffff !important;
       font-size: 14px;
       font-weight: 700;
       text-decoration: none !important;
-      border-radius: 8px;
-      border: 1px solid #000000;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      border-radius: 9999px !important;
+      border: 1px solid #09090b;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
       letter-spacing: 0.2px;
     }
     .footer {
       padding: 24px 32px;
       background-color: #fafafa;
-      border-top: 1px solid #e4e4e7;
+      border-top: 1px solid #f1f5f9;
       text-align: center;
       font-size: 12px;
-      color: #52525b;
+      color: #71717a;
       line-height: 1.6;
     }
     .footer a {
-      color: #000000;
+      color: #18181b;
       text-decoration: underline;
+      text-underline-offset: 2px;
       font-weight: 600;
     }
   </style>
 </head>
 <body>
-  ${previewText ? `<div style="display:none;font-size:1px;color:#f4f4f5;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${escapeHtml(previewText)}</div>` : ""}
+  ${previewText ? `<div style="display:none;font-size:1px;color:#f8fafc;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${escapeHtml(previewText)}</div>` : ""}
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <div class="brand-badge">PureLearn AI Platform Notice</div>
+        <div class="logo-container">
+          <img src="https://purelearn.vigilance.rw/logo.png" alt="PureLearn AI Logo" class="brand-logo" width="130" />
+        </div>
+        <div class="brand-badge">
+          <span class="badge-dot"></span> PureLearn AI Notice
+        </div>
         <h1 class="title">${escapeHtml(title)}</h1>
       </div>
       <div class="body-content">
@@ -584,11 +612,11 @@ export function formatPureLearnEmailTemplate({
         ${ctaButtonHtml}
       </div>
       <div class="footer">
-        <p style="margin: 0 0 8px;">
-          You received this announcement because you are an active member of <strong>PureLearn AI / Clarity AI Tutor</strong>.
+        <p style="margin: 0 0 6px;">
+          You received this announcement because you are an active member of <strong>PureLearn AI</strong>.
         </p>
-        <p style="margin: 0;">
-          PureLearn AI &bull; Personalized Cognitive Education &bull; <a href="https://purelearn.ai">purelearn.ai</a>
+        <p style="margin: 0; color: #a1a1aa; font-size: 11px;">
+          PureLearn AI &bull; Personalized Cognitive Socratic Learning &bull; <a href="https://purelearn.ai">purelearn.ai</a>
         </p>
       </div>
     </div>

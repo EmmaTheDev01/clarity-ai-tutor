@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, BrainCircuit, Bot, Target, Headphones, Volume2 } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, Bot, Target, Headphones, Volume2, Trophy, Award, Compass, Clock } from "lucide-react";
 import { triggerCelebration, unlockBadge } from "@/lib/celebration";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
@@ -2149,7 +2149,7 @@ You write responses that read like **award-winning, comprehensive university lec
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted"
+                className="rounded-full border border-border px-4 py-2 text-xs font-bold text-muted-foreground transition hover:bg-muted"
               >
                 Cancel
               </button>
@@ -2157,7 +2157,7 @@ You write responses that read like **award-winning, comprehensive university lec
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
                 autoFocus
-                className="flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-red-600"
+                className="flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-red-600"
               >
                 {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Delete
@@ -2274,7 +2274,7 @@ You write responses that read like **award-winning, comprehensive university lec
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setOnboardingStep((prev) => Math.max(0, prev - 1))}
-                  className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition hover:text-foreground"
+                  className="rounded-full border border-border px-3 py-2 text-sm text-muted-foreground transition hover:text-foreground"
                   disabled={onboardingStep === 0}
                 >
                   Back
@@ -2282,14 +2282,14 @@ You write responses that read like **award-winning, comprehensive university lec
                 {onboardingStep < 2 ? (
                   <button
                     onClick={() => setOnboardingStep((prev) => prev + 1)}
-                    className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                    className="rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
                   >
                     Next
                   </button>
                 ) : (
                   <button
                     onClick={finishOnboarding}
-                    className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+                    className="rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
                   >
                     Start learning
                   </button>
@@ -2647,10 +2647,7 @@ You write responses that read like **award-winning, comprehensive university lec
               <div className={`flex items-center justify-between border-b px-5 py-3 transition-colors ${activeDoc ? "bg-primary/10 border-primary/20" : "bg-elevated/30 border-border"
                 }`}>
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors ${activeDoc ? "bg-primary text-primary-foreground shadow-xs" : "bg-primary/10 text-primary"
-                    }`}>
-                    <BrainCircuit className="h-3.5 w-3.5" />
-                  </div>
+
                   <div className="min-w-0">
                     <h3 className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug">
                       {activeDoc ? `Working on: ${activeDoc.title}` : "General Library Chat"}
@@ -2846,7 +2843,7 @@ You write responses that read like **award-winning, comprehensive university lec
                                   });
                                   setIsQuizModalOpen(true);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer shadow-xs"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer shadow-xs"
                               >
                                 <HelpCircle className="h-3.5 w-3.5" />
                                 <span>Launch Material Quiz</span>
@@ -2855,7 +2852,7 @@ You write responses that read like **award-winning, comprehensive university lec
                             {msg.commandAction.showFlashcards && (
                               <Link
                                 to="/app/flashcards"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted hover:bg-muted/80 border border-border text-foreground transition"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-muted hover:bg-muted/80 border border-border text-foreground transition"
                               >
                                 <Layers className="h-3.5 w-3.5 text-foreground" />
                                 <span>Practice Flashcards</span>
@@ -2870,7 +2867,7 @@ You write responses that read like **award-winning, comprehensive university lec
                                     id: msg.commandAction?.materialId || activeDoc?.id,
                                   });
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer shadow-xs"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition cursor-pointer shadow-xs"
                               >
                                 <Headphones className="h-3.5 w-3.5" />
                                 <span>Listen to Notes</span>
@@ -3029,7 +3026,7 @@ You write responses that read like **award-winning, comprehensive university lec
                 {isTyping && (
                   <div className="flex gap-3">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/5 text-primary text-xs">
-                      <BrainCircuit className="h-3.5 w-3.5 animate-pulse" />
+                      <Bot className="h-3.5 w-3.5 animate-pulse" />
                     </div>
                     <div className="max-w-[85%] rounded-lg border border-border bg-background p-3.5">
                       {cognitiveProfile === "sensory" ? (
@@ -3328,69 +3325,128 @@ You write responses that read like **award-winning, comprehensive university lec
           {/* Sidebar: Gamification, Reminders & Focus Checkpoints (Hidden by default on mobile) */}
           <div className="hidden xl:flex w-full shrink-0 flex-col gap-4 xl:w-72">
             {/* Gamification & Understanding Dashboard Card */}
-            <Card className="p-5 border-primary/20 bg-elevated/50 flex flex-col">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center justify-between">
-                <span>Study progress</span>
-                <span className="text-[10px] text-primary font-semibold">
-                  {dailyBonusTokens > 0 ? `+${dailyBonusTokens} bonus tokens` : ""}
-                </span>
-              </h3>
+            <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-card via-card/95 to-card/90 p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/30 group/gamify">
+              {/* Ambient atmospheric glows */}
+              <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-primary/10 blur-3xl transition-opacity group-hover/gamify:bg-primary/15" />
+              <div className="pointer-events-none absolute -bottom-10 -left-10 h-28 w-28 rounded-full bg-amber-500/5 blur-2xl" />
+
+              {/* Card Header */}
+              <div className="relative z-10 flex items-center justify-between pb-3 border-b border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Compass className="h-3.5 w-3.5" />
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/90">
+                    Study Progress
+                  </h3>
+                </div>
+                {dailyBonusTokens > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-[10px] font-bold shadow-xs">
+                    <Zap className="h-2.5 w-2.5 fill-primary text-primary" />
+                    <span>+{dailyBonusTokens} bonus</span>
+                  </span>
+                )}
+              </div>
 
               {/* Prominent Student Understanding Collegiate Crest */}
-              <div className="mt-3 p-4 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col items-center text-center">
-                <div className="p-2 rounded-2xl bg-card border border-border/80 shadow-md flex items-center justify-center transition-transform hover:scale-105">
-                  <SvgBadge type={getUnderstandingCategory(quizzesMastered).badgeType} size={88} className="drop-shadow-sm" />
+              <div className="relative z-10 mt-3 flex flex-col items-center text-center p-3.5 rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/[0.08] via-primary/[0.02] to-transparent shadow-xs overflow-hidden">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/15 via-transparent to-transparent opacity-60" />
+
+                {/* Crest Pedestal */}
+                <div className="relative flex items-center justify-center p-2.5 rounded-2xl bg-card border border-border/80 shadow-md ring-4 ring-primary/10 transition-transform duration-300 hover:scale-105">
+                  <SvgBadge
+                    type={getUnderstandingCategory(quizzesMastered).badgeType}
+                    size={76}
+                    className="drop-shadow-sm"
+                  />
                 </div>
-                <div className="mt-3">
-                  <div className="text-sm font-black text-foreground tracking-tight">
+
+                {/* Title & Quizzes Count */}
+                <div className="mt-2.5 flex flex-col items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary/80">
+                    Scholar Rank
+                  </span>
+                  <h4 className="mt-0.5 text-sm font-black tracking-tight text-foreground">
                     {understandingLevel}
-                  </div>
-                  <div className="text-[11px] font-semibold text-primary mt-0.5">
-                    {quizzesCompleted} {quizzesCompleted === 1 ? "quiz" : "quizzes"} completed
+                  </h4>
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-background/80 border border-border/60 text-[11px] font-medium text-muted-foreground shadow-2xs backdrop-blur-xs">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                    <span>{quizzesCompleted} {quizzesCompleted === 1 ? "quiz" : "quizzes"} completed</span>
                   </div>
                 </div>
               </div>
 
-              {/* Level & Streak */}
-              <div className="mt-3 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Scholar Level {Math.floor((isHydrated ? xp : 0) / 300) + 1}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {isHydrated ? xp : 0} total XP
-                  </p>
+              {/* Stats Split Grid: Level & Streak */}
+              <div className="relative z-10 mt-3 grid grid-cols-2 gap-2 text-xs">
+                {/* Level Tile */}
+                <div className="flex flex-col justify-between rounded-xl border border-border/70 bg-muted/40 p-2.5 transition-colors hover:bg-muted/60">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Level</span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-sm font-extrabold text-foreground tracking-tight">
+                      Level {Math.floor((isHydrated ? xp : 0) / 300) + 1}
+                    </div>
+                    <div className="text-[11px] font-medium text-muted-foreground">
+                      {(isHydrated ? xp : 0).toLocaleString()} total XP
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                  <Flame className="w-3.5 h-3.5 fill-amber-500/30 text-amber-500" />
-                  <span>{isHydrated ? streak : 0} day streak</span>
+
+                {/* Streak Tile */}
+                <div className="flex flex-col justify-between rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-2.5 transition-colors hover:bg-amber-500/[0.12]">
+                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                    <Flame className="h-3.5 w-3.5 fill-amber-500 text-amber-500 shrink-0" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Streak</span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-sm font-extrabold text-foreground tracking-tight">
+                      {isHydrated ? streak : 0} {streak === 1 ? "Day" : "Days"}
+                    </div>
+                    <div className="text-[11px] font-medium text-amber-700/80 dark:text-amber-400/80">
+                      Daily momentum
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Progress Bar to next level */}
-              <div className="mt-3">
-                <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
-                  <span>Progress to next Rank</span>
-                  <span>{(isHydrated ? xp : 0) % 300} / 300 XP</span>
+              {/* Progress Bar to next rank */}
+              <div className="relative z-10 mt-3 rounded-xl border border-border/60 bg-muted/30 p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Target className="h-3 w-3 text-primary/70" />
+                    Next Rank
+                  </span>
+                  <span className="text-[11px] font-bold text-foreground font-mono">
+                    {(isHydrated ? xp : 0) % 300} <span className="text-muted-foreground font-normal">/ 300 XP</span>
+                  </span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-border overflow-hidden">
+                <div className="relative h-2 w-full rounded-full bg-border/60 overflow-hidden">
                   <div
-                    className="h-full bg-primary rounded-full transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-700 shadow-xs"
                     style={{ width: `${(((isHydrated ? xp : 0) % 300) / 300) * 100}%` }}
                   />
                 </div>
+                <div className="flex justify-between items-center text-[10px] text-muted-foreground font-medium pt-0.5">
+                  <span>{300 - ((isHydrated ? xp : 0) % 300)} XP to Level {Math.floor((isHydrated ? xp : 0) / 300) + 2}</span>
+                  <span>{Math.round((((isHydrated ? xp : 0) % 300) / 300) * 100)}%</span>
+                </div>
               </div>
 
-              {/* Earned Badges on 1 Row with Avatar Stacking if > 3 */}
-              <div className="mt-4 pt-3 border-t border-border/50">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground uppercase font-bold">
-                    Earned Badges
-                  </Label>
+              {/* Earned Badges Showcase */}
+              <div className="relative z-10 mt-3.5 pt-3 border-t border-border/50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Award className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Earned Badges
+                    </span>
+                  </div>
                   <Link
                     to="/app/settings"
                     hash="badges"
-                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5"
+                    className="inline-flex items-center gap-0.5 text-[11px] font-bold text-primary hover:text-primary/80 transition-colors"
                     title="View all achievement badges in Profile"
                   >
                     <span>{unlockedBadges.length} Badges</span>
@@ -3401,17 +3457,17 @@ You write responses that read like **award-winning, comprehensive university lec
                 <Link
                   to="/app/settings"
                   hash="badges"
-                  className="mt-2 flex items-center justify-between gap-2 p-1 -mx-1 rounded-xl transition-all hover:bg-primary/5 cursor-pointer group/badge-row"
+                  className="group/badge-row flex items-center justify-between gap-2 p-2 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-all cursor-pointer"
                   title="Click to view all earned badges in your Profile"
                 >
-                  <div className="flex items-center -space-x-2 overflow-visible">
+                  <div className="flex items-center -space-x-2 overflow-visible py-0.5">
                     {(unlockedBadges.length > 3
                       ? unlockedBadges.slice(0, 3)
                       : unlockedBadges
                     ).map((badge) => (
                       <div
                         key={badge}
-                        className="relative group/badge inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-background bg-card border border-border/80 shadow-sm transition-transform group-hover/badge-row:scale-105"
+                        className="relative inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-card bg-card border border-border/80 shadow-xs transition-transform duration-200 group-hover/badge-row:scale-105"
                         title={badge}
                       >
                         <SvgBadge type={getBadgeTypeFromName(badge)} size={22} />
@@ -3420,7 +3476,7 @@ You write responses that read like **award-winning, comprehensive university lec
 
                     {unlockedBadges.length > 3 && (
                       <div
-                        className="relative inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-background bg-primary/15 border border-primary/30 text-primary text-[10px] font-black shadow-sm transition-transform group-hover/badge-row:scale-105"
+                        className="relative inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-card bg-primary/15 border border-primary/30 text-primary text-[10px] font-black shadow-xs transition-transform duration-200 group-hover/badge-row:scale-105"
                         title={unlockedBadges.slice(3).join(", ")}
                       >
                         +{unlockedBadges.length - 3}
@@ -3428,35 +3484,39 @@ You write responses that read like **award-winning, comprehensive university lec
                     )}
                   </div>
 
-                  <span className="text-[11px] font-semibold text-primary group-hover/badge-row:underline flex items-center gap-0.5 shrink-0">
-                    View profile <ChevronRight className="h-3 w-3" />
-                  </span>
+                  <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary group-hover/badge-row:translate-x-0.5 transition-transform">
+                    <span>View all</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </div>
                 </Link>
               </div>
-            </Card>
+            </div>
 
             {/* Daily Reminders Nudge Card */}
-            <Card className="p-5 border-border bg-card flex flex-col">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border pb-2 flex items-center gap-1.5">
-                Study reminders
+            <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-2xs flex flex-col">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/90 border-b border-border/50 pb-2.5 flex items-center gap-2">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Clock className="h-3 w-3" />
+                </div>
+                <span>Study Reminders</span>
               </h3>
               <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                 {reminderItems.map((item) => (
-                  <div key={item} className="flex items-start gap-1.5 leading-normal">
-                    <span className="mt-0.5 text-primary">•</span>
+                  <div key={item} className="flex items-start gap-2 leading-relaxed">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                     <span>{item}</span>
                   </div>
                 ))}
                 {(isHydrated ? xp : 0) < 1000 && (
-                  <div className="flex items-start gap-1.5 leading-normal font-medium text-amber-500">
-                    <span className="mt-0.5">•</span>
+                  <div className="flex items-start gap-2 leading-relaxed font-medium text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl text-[11px]">
+                    <Flame className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500 fill-amber-500/20" />
                     <span>
                       Only {1000 - (isHydrated ? xp : 0)} XP needed to reach the next milestone.
                     </span>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
 
             {/* Focus Checkpoints (ADHD Dopaminergic Loop) */}
             {cognitiveProfile === "adhd" && (

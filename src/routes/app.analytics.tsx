@@ -6,7 +6,7 @@ import {
   MessageSquare,
   FileCheck2,
   Calendar,
-  Brain,
+  Clock,
   History,
   BookOpen,
   Star,
@@ -320,7 +320,7 @@ function AnalyticsPage() {
           note_created: { icon: BookOpen, title: "Note created" },
           note_starred: { icon: Star, title: "Note starred" },
           user_login: { icon: TrendingUp, title: "Signed in" },
-          study_session_start: { icon: Brain, title: "Study session started" },
+          study_session_start: { icon: Clock, title: "Study session started" },
           study_session_end: { icon: History, title: "Study session ended" },
         };
 
@@ -482,7 +482,7 @@ function AnalyticsPage() {
               </div>
             ) : subjectData.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-background text-center gap-2 px-4">
-                <Brain className="h-6 w-6 text-muted-foreground/30" />
+                <BookOpen className="h-6 w-6 text-muted-foreground/30" />
                 <p className="text-sm text-muted-foreground">Subject distribution will appear as you upload materials.</p>
               </div>
             ) : (
@@ -538,7 +538,7 @@ function AnalyticsPage() {
         {/* ── Performance & Confidence Correlation ───────────────────────── */}
         <Card className="p-6">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5 border-b border-border/50 pb-3">
-            <Brain className="h-4 w-4 text-foreground" />
+            <TrendingUp className="h-4 w-4 text-foreground" />
             Performance &amp; Confidence Correlation Analysis
           </h3>
           <p className="text-xs text-muted-foreground mt-2 mb-5">

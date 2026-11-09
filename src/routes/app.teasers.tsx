@@ -495,8 +495,8 @@ function BrainTeasersPage() {
           </div>
           
           {/* Level Progress Widget */}
-          <div className="bg-background/60 backdrop-blur border border-border/80 px-5 py-4 rounded-xl min-w-[200px] flex items-center gap-4 hover:border-primary/30 transition shadow-inner">
-            <div className="h-10 w-10 shrink-0 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
+          <div className="px-5 py-4 rounded-xl min-w-[200px] flex items-center gap-4">
+            <div className="h-10 w-10 shrink-0 flex items-center justify-center">
               <Award className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
@@ -527,7 +527,7 @@ function BrainTeasersPage() {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id as any)}
-              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg whitespace-nowrap shrink-0 flex items-center gap-2 ${
+              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-full whitespace-nowrap shrink-0 flex items-center gap-2 ${
                 activeTab === t.id
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-[1.02]"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -596,7 +596,7 @@ function BrainTeasersPage() {
                       />
                       <button
                         type="submit"
-                        className="bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-xl text-xs hover:opacity-95 transition shadow-md shadow-primary/10 active:scale-[0.98]"
+                        className="bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-full text-xs hover:opacity-95 transition shadow-md shadow-primary/10 active:scale-[0.98]"
                       >
                         Verify
                       </button>
@@ -623,14 +623,14 @@ function BrainTeasersPage() {
                             toast.error("Could not save to notes.");
                           }
                         }}
-                        className="flex-1 min-h-[44px] rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        className="flex-1 min-h-[44px] rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <BookmarkPlus className="h-3.5 w-3.5 text-primary" /> Save to Notes
                       </button>
                       <button
                         type="button"
                         onClick={handleNext}
-                        className="flex-1 min-h-[44px] bg-emerald-500 text-white font-extrabold rounded-xl text-xs hover:opacity-95 transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
+                        className="flex-1 min-h-[44px] bg-emerald-500 text-white font-extrabold rounded-full text-xs hover:opacity-95 transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
                       >
                         Next Riddle <ChevronRight className="h-4 w-4" />
                       </button>
@@ -825,7 +825,7 @@ function BrainTeasersPage() {
                     </p>
                     <button
                       onClick={startReflexGame}
-                      className="mt-2 bg-primary text-primary-foreground font-extrabold px-6 py-2.5 rounded-xl text-xs hover:opacity-95 transition flex items-center gap-1.5 shadow-md shadow-primary/10 active:scale-[0.98]"
+                      className="mt-2 bg-primary text-primary-foreground font-extrabold px-6 py-2.5 rounded-full text-xs hover:opacity-95 transition flex items-center gap-1.5 shadow-md shadow-primary/10 active:scale-[0.98]"
                     >
                       <Play className="h-3.5 w-3.5 fill-current" /> Begin Challenge
                     </button>
@@ -882,7 +882,7 @@ function BrainTeasersPage() {
                         />
                         <button
                           type="submit"
-                          className="bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-xl text-xs hover:opacity-95 transition shrink-0 shadow-md shadow-primary/10"
+                          className="bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-full text-xs hover:opacity-95 transition shrink-0 shadow-md shadow-primary/10"
                         >
                           Guess
                         </button>
@@ -890,7 +890,7 @@ function BrainTeasersPage() {
                     ) : (
                       <button
                         onClick={nextScrambleWord}
-                        className="w-full bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl text-xs hover:opacity-95 transition flex items-center justify-center gap-1.5 shadow-md"
+                        className="w-full bg-emerald-500 text-white font-extrabold py-2.5 rounded-full text-xs hover:opacity-95 transition flex items-center justify-center gap-1.5 shadow-md"
                       >
                         Next Word <ChevronRight className="h-4 w-4" />
                       </button>
