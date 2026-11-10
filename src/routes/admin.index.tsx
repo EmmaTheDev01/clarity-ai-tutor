@@ -179,7 +179,7 @@ export function AdminPortal() {
 
   // System Settings States (Synced directly to Supabase system_settings table)
   const [systemApiKey, setSystemApiKey] = useState("");
-  const [aiModel, setAiModel] = useState("gemini-2.5-flash");
+  const [aiModel, setAiModel] = useState("gemini-3.5-flash-lite");
   const [aiTemperature, setAiTemperature] = useState("0.7");
 
   const [teacherApprovalMode, setTeacherApprovalMode] = useState("manual");
@@ -408,7 +408,18 @@ export function AdminPortal() {
       if (settingsData) {
         settingsData.forEach((s) => {
           if (s.key === "system_api_key" && s.value) setSystemApiKey(s.value);
-          if (s.key === "ai_model") setAiModel(s.value);
+          if (s.key === "ai_model") {
+            const val = s.value;
+            const valid =
+              val === "gemini-2.5-flash" ||
+              val === "gemini-flash-latest" ||
+              val === "gemini-1.5-pro" ||
+              val === "gemini-2.0-flash" ||
+              val === "gemini-2.5-flash-lite"
+                ? "gemini-3.5-flash-lite"
+                : val;
+            setAiModel(valid);
+          }
           if (s.key === "ai_temperature") setAiTemperature(s.value);
           if (s.key === "teacher_approval_mode") setTeacherApprovalMode(s.value);
           if (s.key === "default_cognitive_profile") setDefaultCognitiveProfile(s.value);
@@ -2918,13 +2929,18 @@ export function AdminPortal() {
                         onChange={(e) => setAiModel(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-foreground"
                       >
-                        <option value="gemini-2.5-flash">
-                          Gemini 2.5 Flash (Recommended & Fast)
+                        <option value="gemini-3.5-flash-lite">
+                          Gemini 3.5 Flash Lite (Recommended • Ultra Fast &lt;1s Latency)
                         </option>
-                        <option value="gemini-1.5-pro">
-                          Gemini 1.5 Pro (Deep Reasoning & Analysis)
+                        <option value="gemini-flash-lite-latest">
+                          Gemini Flash Lite Latest (Fast &amp; Responsive)
                         </option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash Experimental</option>
+                        <option value="gemini-3.1-flash-lite">
+                          Gemini 3.1 Flash Lite (High Reliability)
+                        </option>
+                        <option value="gemini-3.5-flash">
+                          Gemini 3.5 Flash (Deep Multimodal Tutoring)
+                        </option>
                       </select>
                     </div>
 

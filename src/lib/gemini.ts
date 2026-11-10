@@ -1,10 +1,47 @@
 import { supabase } from "@/lib/supabase";
 
+function isValidWorkingModel(m?: string | null): boolean {
+  if (!m) return false;
+  const lower = m.toLowerCase().trim();
+  // Filter out legacy models that 404, hang, or are discontinued
+  return (
+    lower !== "gemini-2.5-flash" &&
+    lower !== "gemini-flash-latest" &&
+    lower !== "gemini-1.5-pro" &&
+    lower !== "gemini-2.0-flash" &&
+    lower !== "gemini-2.5-flash-lite"
+  );
+}
+
 const configuredModel = import.meta.env.VITE_GEMINI_MODEL?.trim();
 
-export const geminiModel = configuredModel || "gemini-2.5-flash";
+export const geminiModel = isValidWorkingModel(configuredModel) ? configuredModel! : "gemini-3.5-flash-lite";
 
-const fallbackModels = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"];
+let cachedDbModel: string | null = null;
+
+export const fallbackModels = [
+  "gemini-3.5-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash",
+];
+
+export function getActiveGeminiModel(): string {
+  if (cachedDbModel && isValidWorkingModel(cachedDbModel)) {
+    return cachedDbModel;
+  }
+  if (typeof localStorage !== "undefined") {
+    const local = localStorage.getItem("system_ai_model");
+    if (local && isValidWorkingModel(local)) {
+      return local;
+    }
+  }
+  const envModel = import.meta.env.VITE_GEMINI_MODEL?.trim();
+  if (envModel && isValidWorkingModel(envModel)) {
+    return envModel;
+  }
+  return "gemini-3.5-flash-lite";
+}
 
 let cachedDbApiKey: string | null = null;
 
@@ -46,20 +83,37 @@ export function isAdminUser(): boolean {
 }
 
 /**
- * Fetches the system API key asynchronously from Supabase `system_settings` table.
+ * Fetches the system API key and configured model asynchronously from Supabase `system_settings` table.
  */
 export async function fetchSystemApiKeyFromDb(): Promise<string | null> {
   try {
     const { data, error } = await supabase
       .from("system_settings")
-      .select("value")
-      .eq("key", "gemini_api_key")
-      .maybeSingle();
+      .select("key, value")
+      .in("key", ["gemini_api_key", "system_api_key", "ai_model"]);
 
-    if (!error && data?.value) {
-      cachedDbApiKey = data.value.trim();
-      if (typeof localStorage !== "undefined" && cachedDbApiKey) {
-        localStorage.setItem("system_gemini_api_key", cachedDbApiKey);
+    if (!error && data) {
+      for (const row of data) {
+        if ((row.key === "gemini_api_key" || row.key === "system_api_key") && row.value) {
+          cachedDbApiKey = row.value.trim();
+          if (typeof localStorage !== "undefined" && cachedDbApiKey) {
+            localStorage.setItem("system_gemini_api_key", cachedDbApiKey);
+          }
+        }
+        if (row.key === "ai_model" && row.value) {
+          const val = row.value.trim();
+          if (isValidWorkingModel(val)) {
+            cachedDbModel = val;
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem("system_ai_model", val);
+            }
+          } else {
+            cachedDbModel = "gemini-3.5-flash-lite";
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem("system_ai_model", "gemini-3.5-flash-lite");
+            }
+          }
+        }
       }
       return cachedDbApiKey;
     }
@@ -166,32 +220,51 @@ MANDATORY PEDAGOGICAL & ACCURACY RULES:
 
 /**
  * Fetch wrapper with exponential backoff and randomized jitter for 429 and transient errors.
+ * Includes timeout control so unresponsive models never hang indefinitely.
  */
 async function fetchWithBackoff(
   url: string,
   options: RequestInit,
-  retries = 3,
-  initialDelayMs = 1000,
+  retries = 1,
+  initialDelayMs = 400,
+  timeoutMs = 8000,
 ): Promise<Response> {
   let attempt = 0;
   while (attempt <= retries) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    if (options.signal) {
+      options.signal.addEventListener("abort", () => controller.abort());
+    }
+
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       if (response.ok) return response;
 
-      // Rate limit or server error: retry
-      if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+      // Rate limit (429): do a single fast retry with jitter
+      if (response.status === 429 && attempt < retries) {
         attempt++;
-        const jitter = Math.random() * 500;
+        const jitter = Math.random() * 200;
         const delay = initialDelayMs * Math.pow(2, attempt - 1) + jitter;
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
+
+      // On 404 (model deprecated), 400 (bad parameter), or 503 (model overloaded),
+      // DO NOT waste time retrying the same broken model - return immediately so caller
+      // instantly fails over to the next candidate model!
       return response;
     } catch (err) {
-      if (attempt < retries) {
+      clearTimeout(timeoutId);
+      if (attempt < retries && !(err instanceof DOMException && err.name === "AbortError")) {
         attempt++;
-        const jitter = Math.random() * 500;
+        const jitter = Math.random() * 200;
         const delay = initialDelayMs * Math.pow(2, attempt - 1) + jitter;
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
@@ -245,24 +318,21 @@ function buildPayload(options: GeminiOptions) {
     generationConfig,
   };
 
-  // Ensure a default Socratic teaching system instruction is applied when none is provided.
-  if (!options.systemInstruction) {
+  // Ensure a default Socratic teaching system instruction is applied when none is provided and not in structured JSON mode.
+  if (!options.systemInstruction && !options.responseSchema) {
     options.systemInstruction = DEFAULT_TEACHING_SYSTEM_INSTRUCTION;
   }
 
   if (options.systemInstruction) {
-    // Merge default teaching instruction with any caller-provided instruction so
-    // the Socratic teaching rules are always present. Caller text is appended
-    // to allow context-specific guidance but cannot override the core rules.
-    payload.systemInstruction = {
-      parts: [
-        { text: `${DEFAULT_TEACHING_SYSTEM_INSTRUCTION}\n\n${options.systemInstruction}` },
-      ],
-    };
-  } else {
-    payload.systemInstruction = { parts: [{ text: DEFAULT_TEACHING_SYSTEM_INSTRUCTION }] };
-  }
+    // Avoid duplicating default instruction if caller already included it
+    const finalInstruction = options.systemInstruction.includes("PureLearn AI")
+      ? options.systemInstruction
+      : `${DEFAULT_TEACHING_SYSTEM_INSTRUCTION}\n\n${options.systemInstruction}`;
 
+    payload.systemInstruction = {
+      parts: [{ text: finalInstruction }],
+    };
+  }
 
   return payload;
 }
@@ -285,7 +355,8 @@ export async function generateGeminiText(
       ? { prompt: promptOrOptions, maxOutputTokens: maxTokens }
       : promptOrOptions;
 
-  const models = Array.from(new Set([geminiModel, ...fallbackModels]));
+  const activeModel = getActiveGeminiModel();
+  const models = Array.from(new Set([activeModel, ...fallbackModels]));
   const failures: string[] = [];
 
   const bodyPayload = buildPayload(options);
@@ -299,6 +370,9 @@ export async function generateGeminiText(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyPayload),
         },
+        1,
+        300,
+        8000,
       );
 
       const data = await response.json().catch(() => ({}));
@@ -348,7 +422,8 @@ export async function streamGeminiText(
     throw new Error("Missing VITE_GEMINI_API_KEY in system environment (.env) or database. Restart dev server or add it via Admin Settings.");
   }
 
-  const models = Array.from(new Set([geminiModel, ...fallbackModels]));
+  const activeModel = getActiveGeminiModel();
+  const models = Array.from(new Set([activeModel, ...fallbackModels]));
   const failures: string[] = [];
 
   const bodyPayload = buildPayload(options);
@@ -362,6 +437,9 @@ export async function streamGeminiText(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyPayload),
         },
+        1,
+        300,
+        8000,
       );
 
       if (!response.ok) {
