@@ -15,15 +15,15 @@ function isValidWorkingModel(m?: string | null): boolean {
 
 const configuredModel = import.meta.env.VITE_GEMINI_MODEL?.trim();
 
-export const geminiModel = isValidWorkingModel(configuredModel) ? configuredModel! : "gemini-3.5-flash-lite";
+export const geminiModel = isValidWorkingModel(configuredModel) ? configuredModel! : "gemini-3.5-flash";
 
 let cachedDbModel: string | null = null;
 
 export const fallbackModels = [
+  "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
   "gemini-flash-lite-latest",
   "gemini-3.1-flash-lite",
-  "gemini-3.5-flash",
 ];
 
 export function getActiveGeminiModel(): string {
@@ -40,7 +40,7 @@ export function getActiveGeminiModel(): string {
   if (envModel && isValidWorkingModel(envModel)) {
     return envModel;
   }
-  return "gemini-3.5-flash-lite";
+  return "gemini-3.5-flash";
 }
 
 let cachedDbApiKey: string | null = null;
@@ -361,6 +361,9 @@ export async function generateGeminiText(
 
   const bodyPayload = buildPayload(options);
 
+  const isMultimodal = Boolean(options.images || options.mimeType);
+  const requestTimeout = isMultimodal ? 45000 : 15000;
+
   for (const model of models) {
     try {
       const response = await fetchWithBackoff(
@@ -372,7 +375,7 @@ export async function generateGeminiText(
         },
         1,
         300,
-        8000,
+        requestTimeout,
       );
 
       const data = await response.json().catch(() => ({}));

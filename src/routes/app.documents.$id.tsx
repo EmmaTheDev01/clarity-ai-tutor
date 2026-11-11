@@ -14,11 +14,12 @@ import {
   Bot,
   FileCheck2,
   Wand2,
+  X,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Pill } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
-import { LearningMaterial, mapMaterialRow, uploadLearningMaterial } from "@/lib/learning-materials";
+import { LearningMaterial, mapMaterialRow, uploadLearningMaterial, appendFileToCurrentMaterial } from "@/lib/learning-materials";
 import { generateGeminiText, streamGeminiText, generateGeminiStructured, GeminiContent } from "@/lib/gemini";
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
@@ -403,16 +404,23 @@ function Stat({ k, v }: { k: string; v: string }) {
 
 function ChatPanel({ material }: { material: LearningMaterial | null }) {
   const [messages, setMessages] = useState<
-    Array<{ from: "user" | "ai"; text: string; citation?: string }>
+    Array<{ from: "user" | "ai"; text: string; citation?: string; attachedFiles?: Array<{ name: string; size?: string }> }>
   >([
     {
       from: "ai",
-      text: "Ask a question about this material. You can also attach another file to make it the active context.",
+      text: "Ask a question about this material. You can also attach supplemental files directly into this study session.",
     },
   ]);
   const [input, setInput] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
 
   // Load chat session history from database whenever the material is selected/changed
   useEffect(() => {
@@ -442,11 +450,44 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
 
   const sendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
-    const nextMessages = [...messages, { from: "user" as const, text: trimmed }];
-    setMessages(nextMessages);
+    const filesToSend = [...pendingFiles];
+    if ((!trimmed && filesToSend.length === 0) || isSending) return;
+
     setInput("");
+    setPendingFiles([]);
     setIsSending(true);
+
+    if (material && filesToSend.length > 0) {
+      const toastId = toast.loading(`Adding ${filesToSend[0].name} to ${material.title}...`);
+      try {
+        let currentContent = material.content || "";
+        for (const file of filesToSend) {
+          const { updatedContent } = await appendFileToCurrentMaterial({
+            file,
+            materialId: material.id,
+            currentContent,
+            currentTitle: material.title,
+          });
+          currentContent = updatedContent;
+        }
+        material.content = currentContent;
+        toast.success(`Incorporated "${filesToSend[0].name}" into "${material.title}".`, { id: toastId });
+      } catch (err) {
+        console.warn("Failed incorporating file:", err);
+        toast.error("Could not incorporate file into this material.", { id: toastId });
+      }
+    }
+
+    const userText = trimmed || (filesToSend.length > 0 ? `Attached ${filesToSend.map(f => f.name).join(", ")} to ${material?.title || "this document"}.` : "");
+    const nextMessages = [
+      ...messages,
+      {
+        from: "user" as const,
+        text: userText,
+        attachedFiles: filesToSend.map((f) => ({ name: f.name, size: formatFileSize(f.size) })),
+      },
+    ];
+    setMessages(nextMessages);
 
     try {
       // Build conversation history excluding initial greeting
@@ -482,32 +523,38 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
 
 You write responses that read like **award-winning university lecture notes** — comprehensive, deeply intuitive, mathematically rigorous, and pedagogically structured. You NEVER give superficial summaries or brief one-paragraph brush-offs.
 
-### MANDATORY 5-STAGE LECTURE ARCHITECTURE (Follow this structure in order):
+## MANDATORY 5-STAGE LECTURE ARCHITECTURE (Follow this structure in order):
 
-1. **## 1. Intuitive Foundations & Real-World Motivation**
+## 1. Intuitive Foundations & Real-World Motivation
    - Begin with the *why* before introducing any mechanics. What physical mystery, engineering roadblock, or human problem gave rise to this concept?
    - Anchor the idea in an intuitive real-world mental model.
    - Use **bold** for key terms upon first introduction and *italics* for critical distinctions.
 
-2. **## 2. Theoretical Rigor & First-Principles Mechanics**
+## 2. Theoretical Rigor & First-Principles Mechanics
    - Unpack the governing principles from first principles. Explain the underlying *mechanism*: how and why does the concept work?
    - Define all variables, parameters, and terminology clearly.
 
-3. **## 3. Deep-Dive Teaching by Examples (MANDATORY: Minimum 2 Distinct Worked Examples)**
+## 3. Deep-Dive Teaching by Examples (MANDATORY: Minimum 2 Distinct Worked Examples)
    - When teaching or prompted for examples/clarity, provide at least **two fully developed, step-by-step worked examples of increasing complexity**:
-     * **### Example 1: Foundational Concrete Case** — Explicit numbers, step-by-step calculation, and physical interpretation.
-     * **### Example 2: Applied Real-World / Non-Trivial Case** — Dynamic constraints, edge cases, and real-world system behavior.
+     ## Example 1: Foundational Concrete Case
+     - Explicit numbers, step-by-step calculation, and physical interpretation.
+     ## Example 2: Applied Real-World / Non-Trivial Case
+     - Dynamic constraints, edge cases, and real-world system behavior.
 
-4. **## 4. Common Pitfalls, Traps & Misconceptions**
+## 4. Common Pitfalls, Traps & Misconceptions
    - Explicitly highlight common student traps, typical misapplications, or confusing subtleties.
 
-5. **## 5. Guided Socratic Discovery & Practice Challenge**
+## 5. Guided Socratic Discovery & Practice Challenge
    - Conclude with an active, thought-provoking Socratic challenge that puts the student in the driver's seat.
 
-### CRITICAL LATEX & MATHEMATICAL FORMATTING COMMANDS (ZERO BROKEN MATH):
+## CRITICAL LATEX & MATHEMATICAL FORMATTING RULES (ZERO BROKEN MATH):
+- **CLEAN SECTION HEADERS**: Always use \`## Section Title\` for major headings and example headers. NEVER use \`###\` when \`##\` is appropriate. NEVER put \`##\` or \`###\` inside bullet points or bold asterisks (never write \`* **### Header**\` or \`**## Header**\`). Put headings on their own clean line: \`## Example 1: ...\`
 - **Single-Line Block Equations**: ALL standalone display equations MUST be enclosed in \`$$ ... $$\` on a clean, single line or uninterrupted block with NO raw line breaks inside LaTeX macros.
-- **Single-Line Inline Math**: ALL variables, parameters, and inline formulas MUST be enclosed in single \`$ ... $\`.
-- **ABSOLUTE PROHIBITION AGAINST PLAIN-TEXT FRACTIONS**: NEVER output raw multiline text pretending to be fractions (e.g., writing \`d\`, \`y\`, \`/\`, \`d\`, \`x\` on separate vertical lines). Every formula must be syntactically valid KaTeX.
+- **Single-Line Inline Math**: ALL variables, parameters, and inline formulas MUST be enclosed in matching \`$ ... $\`:
+  e.g., \`$h(t) = 10\\sin(t)$\`, \`$\\omega$\`, \`$t$\`, \`$\\Delta x \\to 0$\`, \`$50\\text{ ms}$\`, \`$(\\text{Cosine Similarity})$\`.
+- **Valid KaTeX Operators Only**: Never use raw TeX primitives like \`\\penalty\`. Use standard functions or \`\\operatorname{...}\` / \`\\text{...}\` (e.g. \`\\operatorname{penalty}(\\text{Bias}, \\text{Drift})\`).
+- **Escaped Currency Dollars**: When writing dollar figures in math, always escape as \`\\$\` (e.g., \`$\\mu_1 = \\$63,000$\`), and ensure all braces \`{ ... }\` and parentheses \`( ... )\` are strictly balanced.
+- **ABSOLUTE PROHIBITION AGAINST PLAIN-TEXT FRACTIONS**: NEVER output raw multiline text pretending to be fractions. Every formula must be syntactically valid KaTeX.
 
 ### DEPTH & PEDAGOGICAL REQUIREMENTS:
 - **Comprehensive Exhaustiveness**: Provide a complete, master-level explanation that leaves zero confusion.
@@ -714,58 +761,99 @@ You write responses that read like **award-winning university lecture notes** �
     }
   };
 
-  const attachFile = async (file?: File | null) => {
+  const attachFile = (file?: File | null) => {
     if (!file) return;
-    try {
-      const uploaded = await uploadLearningMaterial({ file });
-      setMessages((prev) => [
-        ...prev,
-        {
-          from: "ai",
-          text: `${uploaded.title} was uploaded. Open it from the library or ask a question about it here.`,
-        },
-      ]);
-    } catch (err: unknown) {
-      setMessages((prev) => [
-        ...prev,
-        { from: "ai", text: getErrorMessage(err, "Could not upload that file.") },
-      ]);
-    }
+    setPendingFiles((prev) => [...prev, file]);
+    toast.info(`Attached "${file.name}" to ${material?.title || "this document"}. Press Enter or click Send to add.`);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
     <Card className="flex h-[600px] flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-6 hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden materials-container">
         {messages.map((message, index) => (
-          <Message
-            key={index}
-            from={message.from}
-            text={message.text}
-            citation={message.citation}
-          />
+          <div key={index} className="space-y-1.5">
+            {message.attachedFiles && message.attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pb-0.5 justify-end">
+                {message.attachedFiles.map((f, fIdx) => (
+                  <div key={fIdx} className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background px-2.5 py-1 text-xs font-semibold text-foreground shadow-xs">
+                    <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="truncate max-w-[200px]">{f.name}</span>
+                    {f.size && <span className="text-[10px] text-muted-foreground font-normal">({f.size})</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <Message
+              from={message.from}
+              text={message.text}
+              citation={message.citation}
+            />
+          </div>
         ))}
         {isSending && (
           <Message from="ai" text="Thinking through the material..." citation={material?.title} />
         )}
       </div>
       <div className="border-t border-border p-3">
+        {pendingFiles.length > 0 && (
+          <div className="mb-2.5 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5 backdrop-blur animate-fade-in">
+            <div className="w-full flex items-center justify-between pb-1 border-b border-primary/10 text-[11px]">
+              <span className="font-semibold text-primary flex items-center gap-1.5">
+                <Paperclip className="h-3 w-3" />
+                <span>Attaching to: <strong className="font-bold underline underline-offset-2">{material?.title || "Active Document"}</strong></span>
+              </span>
+              <span className="text-[10px] text-muted-foreground font-medium">Will be added on send</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {pendingFiles.map((f, idx) => (
+                <div key={idx} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground shadow-xs">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  <span className="truncate max-w-[200px]">{f.name}</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">({formatFileSize(f.size)})</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    className="rounded-full p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
             accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,image/*,audio/*,video/*"
-            onChange={(event) => attachFile(event.target.files?.[0])}
+            multiple
+            onChange={(event) => {
+              if (event.target.files) {
+                const arr = Array.from(event.target.files);
+                setPendingFiles((prev) => [...prev, ...arr]);
+                toast.info(`Attached ${arr.length === 1 ? `"${arr[0].name}"` : `${arr.length} files`} to ${material?.title || "this document"}. Press Enter or click Send to add.`);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }
+            }}
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-md border border-border p-2 hover:bg-muted"
-            aria-label="Attach"
+            className="rounded-full border border-border p-2.5 hover:bg-muted text-muted-foreground hover:text-foreground transition shrink-0 cursor-pointer"
+            aria-label="Attach file to this document"
+            title="Attach file to this document"
           >
             <Paperclip className="h-4 w-4" />
           </button>
           <Textarea
-            placeholder="Ask a question grounded in this document…"
+            placeholder={
+              pendingFiles.length > 0
+                ? `Ask about ${pendingFiles.length === 1 ? `"${pendingFiles[0].name}"` : `${pendingFiles.length} attached files`} in ${material?.title || "this document"} or press Enter to add & study…`
+                : "Ask a question grounded in this document…"
+            }
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
@@ -778,8 +866,8 @@ You write responses that read like **award-winning university lecture notes** �
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || isSending}
-            className="rounded-full bg-primary p-2.5 text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            disabled={(!input.trim() && pendingFiles.length === 0) || isSending}
+            className="rounded-full bg-primary p-2.5 text-primary-foreground hover:opacity-90 disabled:opacity-60 transition cursor-pointer"
             aria-label="Send"
           >
             <Send className="h-4 w-4" />

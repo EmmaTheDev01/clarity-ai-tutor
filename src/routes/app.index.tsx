@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, Bot, Target, Headphones, Volume2, Trophy, Award, Compass, Clock } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, Bot, Target, Headphones, Volume2, Trophy, Award, Compass, Clock, BookOpen } from "lucide-react";
 import { triggerCelebration, unlockBadge } from "@/lib/celebration";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
 import { MaterialQuizModal } from "@/components/MaterialQuizModal";
-import { SocraticAudioModal, SocraticAudioMiniPopup, useSocraticAudio } from "@/components/SocraticAudioModal";
+import { MaterialContextModal } from "@/components/MaterialContextModal";
+import { SocraticAudioModal, SocraticAudioMiniPopup } from "@/components/SocraticAudioModal";
+import { useSocraticAudio } from "@/hooks/use-socratic-audio";
 import { SvgBadge, getUnderstandingCategory, getBadgeTypeFromName, computeUnlockedBadges, ALL_PLATFORM_BADGES } from "@/components/ui/svg-badges";
 import { calculateDailyStreak, syncStreakWithDatabase } from "@/lib/streak";
 import { supabase } from "@/lib/supabase";
@@ -22,6 +24,9 @@ import {
   renameMaterial,
   togglePinMaterial,
   uploadLearningMaterial,
+  appendFileToCurrentMaterial,
+  getMaterialAttachments,
+  getBaseMaterialContent,
 } from "@/lib/learning-materials";
 import { geminiModel, generateGeminiText, streamGeminiText, generateGeminiStructured, GeminiContent, GeminiContentPart } from "@/lib/gemini";
 import { DragDropOverlay } from "@/components/drag-drop-overlay";
@@ -108,16 +113,27 @@ const loadSessionMessages = async (studentId: string, activeMaterialId: string |
     if (dbMessages) {
       return {
         sessionId,
-        messages: dbMessages.map((m) => ({
-          from: m.sender_role === "student" ? ("user" as const) : ("ai" as const),
-          text: decryptText(m.encrypted_content),
-          citation: m.citation || undefined,
-          timestamp: new Date(m.created_at).toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
-          }),
-          images: m.images || undefined,
-        })),
+        messages: dbMessages.map((m) => {
+          let attachedFiles: Array<{ name: string; size?: string; type?: string }> | undefined;
+          if (m.citation?.startsWith("[ATTACHED_FILES]: ")) {
+            try {
+              attachedFiles = JSON.parse(m.citation.replace("[ATTACHED_FILES]: ", ""));
+            } catch {
+              // ignore parse errors
+            }
+          }
+          return {
+            from: m.sender_role === "student" ? ("user" as const) : ("ai" as const),
+            text: decryptText(m.encrypted_content),
+            citation: m.citation || undefined,
+            timestamp: new Date(m.created_at).toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
+            images: m.images || undefined,
+            attachedFiles,
+          };
+        }),
       };
     }
   }
@@ -140,6 +156,7 @@ type Message = {
   timestamp?: string;
   image?: string;
   images?: string[];
+  attachedFiles?: Array<{ name: string; size?: string; type?: string }>;
   commandAction?: {
     showQuiz?: boolean;
     showFlashcards?: boolean;
@@ -216,6 +233,7 @@ function Dashboard() {
 
 
   const [attachmentMessage, setAttachmentMessage] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [attachedFilePreview, setAttachedFilePreview] = useState<{ name: string; size: string; type: string } | null>(null);
   const [attachedImages, setAttachedImages] = useState<Array<{ base64: string; mimeType: string; name: string; size: string }>>([]);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
@@ -268,6 +286,7 @@ function Dashboard() {
   const [understandingLevel, setUnderstandingLevel] = useState("Novice Explorer");
   const [dailyBonusTokens, setDailyBonusTokens] = useState(0);
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [isContextModalOpen, setIsContextModalOpen] = useState(false);
   const [quizModalMaterial, setQuizModalMaterial] = useState<{
     title: string;
     content: string;
@@ -407,17 +426,7 @@ function Dashboard() {
     if (files.length === 0) return;
     setIsDropUploading(true);
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const material = await uploadLearningMaterial({ file });
-        setMaterials((prev) => [material, ...prev]);
-        setActiveDoc(material);
-        setInputText((prev) => prev || `Help me study ${material.title}`);
-        setAttachedFilePreview({ name: file.name, size: formatFileSize(file.size), type: file.type });
-      }
-      CacheManager.invalidate("index_dashboard_");
-      CacheManager.invalidate("materials_");
-      toast.success(`${files.length} file(s) attached as chat context.`);
+      await handleAttachFiles(files);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Could not attach dropped file(s)."));
     } finally {
@@ -1186,7 +1195,17 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
 
   const handleSend = async (textToSend = inputText) => {
     const trimmed = textToSend.trim();
-    if (!trimmed) return;
+    const filesToSend = [...pendingFiles];
+    const imagesToSend = [...attachedImages];
+
+    if (!trimmed && filesToSend.length === 0 && imagesToSend.length === 0) return;
+
+    // Reset attachment states from form immediately so input is freed up
+    setInputText("");
+    setPendingFiles([]);
+    setAttachedFilePreview(null);
+    setAttachedImages([]);
+    if (attachInputRef.current) attachInputRef.current.value = "";
 
     // Detect in-chat material commands: @quiz, @flashcards, @audio, @all
     const isAllCmd = /@all\b/i.test(trimmed) || (/@quiz\b/i.test(trimmed) && /@flashcards\b/i.test(trimmed) && /@audio\b/i.test(trimmed));
@@ -1209,6 +1228,12 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
         from: "user",
         text: trimmed,
         timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        images: imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`),
+        attachedFiles: filesToSend.map((f) => ({
+          name: f.name,
+          size: formatFileSize(f.size),
+          type: f.type,
+        })),
       };
 
       const docId = resolvedDoc.id;
@@ -1223,7 +1248,6 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
         ...prev,
         [docId]: [...targetHistory, userMessage],
       }));
-      setInputText("");
 
       const extraInstructions = trimmed
         .replace(/@(all|quiz|flashcards|audio|listen)\b/gi, "")
@@ -1246,6 +1270,60 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
     const urlMatches = trimmed.match(urlRegex);
     let resolvedDoc: LearningMaterial | null = activeDoc;
     let linkPromptOverride = "";
+
+    // Incorporate attached document files directly into the study material
+    if (filesToSend.length > 0) {
+      if (resolvedDoc && resolvedDoc.id !== "general") {
+        const toastId = toast.loading(`Adding ${filesToSend.length === 1 ? `"${filesToSend[0].name}"` : `${filesToSend.length} files`} to ${resolvedDoc.title}...`);
+        try {
+          let currentContent = resolvedDoc.content || "";
+          for (const file of filesToSend) {
+            const { updatedContent } = await appendFileToCurrentMaterial({
+              file,
+              materialId: resolvedDoc.id,
+              currentContent,
+              currentTitle: resolvedDoc.title,
+            });
+            currentContent = updatedContent;
+          }
+          const updatedDoc = { ...resolvedDoc, content: currentContent };
+          resolvedDoc = updatedDoc;
+          setActiveDoc(updatedDoc);
+          setMaterials((prev) => prev.map((m) => (m.id === updatedDoc.id ? updatedDoc : m)));
+          toast.success(`Incorporated ${filesToSend.length === 1 ? `"${filesToSend[0].name}"` : `${filesToSend.length} files`} into "${updatedDoc.title}".`, { id: toastId });
+        } catch (fileErr) {
+          console.warn("Failed incorporating attached files:", fileErr);
+          toast.error("Could not fully incorporate attached file.", { id: toastId });
+        }
+      } else {
+        const toastId = toast.loading(`Uploading "${filesToSend[0].name}" as new study material...`);
+        try {
+          let primaryMat = await uploadLearningMaterial({ file: filesToSend[0] });
+          if (filesToSend.length > 1) {
+            let currentContent = primaryMat.content || "";
+            for (let i = 1; i < filesToSend.length; i++) {
+              const { updatedContent } = await appendFileToCurrentMaterial({
+                file: filesToSend[i],
+                materialId: primaryMat.id,
+                currentContent,
+                currentTitle: primaryMat.title,
+              });
+              currentContent = updatedContent;
+            }
+            primaryMat = { ...primaryMat, content: currentContent };
+          }
+          resolvedDoc = primaryMat;
+          setActiveDoc(primaryMat);
+          setMaterials((prev) => [primaryMat, ...prev]);
+          CacheManager.invalidate("index_dashboard_");
+          CacheManager.invalidate("materials_");
+          toast.success(`Created material "${primaryMat.title}" from attached file.`, { id: toastId });
+        } catch (uploadErr) {
+          console.warn("Failed creating material from attached file:", uploadErr);
+          toast.error("Could not upload attached file.", { id: toastId });
+        }
+      }
+    }
 
     if (urlMatches && urlMatches.length > 0) {
       const url = urlMatches[0];
@@ -1352,20 +1430,23 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
 
     if (!resolvedDoc) return;
 
+    const userMessageText = trimmed || (filesToSend.length > 0
+      ? `Attached ${filesToSend.map((f) => f.name).join(", ")} for our study session.`
+      : "Attached image(s) for our study session.");
+
     // Encrypt the chat message block before database write log simulation
-    const encryptedPayload = encryptText(trimmed);
-
-    const imagesToSend = [...attachedImages];
-
-    // Reset attachment states
-    setAttachedFilePreview(null);
-    setAttachedImages([]);
+    const encryptedPayload = encryptText(userMessageText);
 
     const userMessage: Message = {
       from: "user",
-      text: trimmed,
+      text: userMessageText,
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
       images: imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`),
+      attachedFiles: filesToSend.map((f) => ({
+        name: f.name,
+        size: formatFileSize(f.size),
+        type: f.type,
+      })),
     };
     const targetHistory = chatHistories[resolvedDoc.id] || [
       {
@@ -1398,7 +1479,7 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
           await supabase.from("user_logs").insert({
             user_id: data.user.id,
             action_type: "chat_query_submitted",
-            details: `Asked: "${trimmed.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
+            details: `Asked: "${userMessageText.substring(0, 40)}..." (Encrypted: ${encryptedPayload.cipher.substring(0, 15)}...)`,
           });
         }
       } catch { }
@@ -1443,12 +1524,16 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
         sId = currentSId || null;
 
         if (sId) {
+          const filesMeta = filesToSend.length > 0
+            ? `[ATTACHED_FILES]: ${JSON.stringify(filesToSend.map((f) => ({ name: f.name, size: formatFileSize(f.size), type: f.type })))}`
+            : null;
           await supabase.from("messages").insert([
             {
               session_id: sId,
               sender_role: "student",
               encrypted_content: encryptedPayload.cipher,
               encryption_iv: encryptedPayload.iv,
+              citation: filesMeta,
               images: imagesToSend.map((img) => `data:${img.mimeType};base64,${img.base64}`),
             }
           ]);
@@ -1466,43 +1551,46 @@ The student you are teaching is at the ${studentProfile.educationLevel || "Under
 
 You write responses that read like **award-winning, comprehensive university lecture notes** — extensive, beautifully structured, deeply intuitive, and intellectually stimulating. You NEVER give superficial summaries, brief one-paragraph brush-offs, or fragmented formulas. When a student asks you to teach them, explain a concept, or provide examples, you deliver an exhaustive, master-level breakdown that leaves zero room for confusion.
 
-### MANDATORY 5-STAGE LECTURE ARCHITECTURE (Follow this structure in order):
+## MANDATORY 5-STAGE LECTURE ARCHITECTURE (Follow this structure in order):
 
-1. **## 1. Intuitive Foundations & Real-World Motivation**
+## 1. Intuitive Foundations & Real-World Motivation
    - Begin with the *why* before introducing any mechanics. What physical mystery, engineering roadblock, or mathematical limitation forced thinkers to discover this concept?
    - Anchor the idea in a vivid, intuitive real-world mental model (e.g., dynamic motion, fluid flow, electrical currents, orbital mechanics, machine learning gradients, or acoustic waves).
    - Use **bold** for key terms upon their first introduction and *italics* for critical conceptual distinctions. Use markdown headings and subheadings to maintain crystal-clear organization.
 
-2. **## 2. Theoretical Rigor & First-Principles Mechanics**
+## 2. Theoretical Rigor & First-Principles Mechanics
    - Unpack the governing principles from first principles rather than stating rules as arbitrary facts. Explain the underlying *mechanism*: how and why does the math, logic, or phenomenon work?
    - Define every variable, parameter, and constant explicitly with their physical units and conceptual role.
 
-3. **## 3. Deep-Dive Teaching by Examples (MANDATORY: Minimum 2 Distinct Worked Examples)**
+## 3. Deep-Dive Teaching by Examples (MANDATORY: Minimum 2 Distinct Worked Examples)
    - When teaching any topic or when the student requests examples or clarity, you MUST provide at least **two fully developed, step-by-step worked examples of increasing complexity**:
-     * **### Example 1: Foundational Concrete Case**
-       - Setup with clear, concrete numbers and transparent initial conditions.
-       - Walk through every single calculation step-by-step with explicit intermediate algebra and calculus, showing what is happening at each transition.
-       - Include an *Intuitive Interpretation*: What does the numerical answer physically tell us about the system?
-     * **### Example 2: Applied Real-World / Non-Trivial Dynamic Case**
-       - A richer applied scenario (e.g. oscillating springs, electrical AC circuits, orbital velocity, audio sound waves, marginal revenue, or damping).
-       - Walk through how changing parameters (like frequency $\\omega$, amplitude $A$, or boundary conditions) dynamically scales the behavior.
-       - Analyze critical points or boundary behavior (e.g. what happens at $t = 0$, at extreme peaks, or at equilibrium?).
+     ## Example 1: Foundational Concrete Case
+     - Setup with clear, concrete numbers and transparent initial conditions.
+     - Walk through every single calculation step-by-step with explicit intermediate algebra and calculus, showing what is happening at each transition.
+     - Include an *Intuitive Interpretation*: What does the numerical answer physically tell us about the system?
+     ## Example 2: Applied Real-World / Non-Trivial Dynamic Case
+     - A richer applied scenario (e.g. oscillating springs, electrical AC circuits, orbital velocity, audio sound waves, marginal revenue, or damping).
+     - Walk through how changing parameters (like frequency $\\omega$, amplitude $A$, or boundary conditions) dynamically scales the behavior.
+     - Analyze critical points or boundary behavior (e.g. what happens at $t = 0$, at extreme peaks, or at equilibrium?).
 
-4. **## 4. Common Pitfalls, Edge Cases & Student Misconceptions**
+## 4. Common Pitfalls, Edge Cases & Student Misconceptions
    - Explicitly highlight 1–2 common traps or cognitive mistakes students frequently make (e.g., confusing rate of change with position, misapplying the chain rule to angle arguments, confusing average vs. instantaneous rates, or sign errors).
 
-5. **## 5. Guided Socratic Discovery & Practice Challenge**
+## 5. Guided Socratic Discovery & Practice Challenge
    - Conclude with an active, thought-provoking Socratic challenge that puts the student in the driver's seat:
      * Pose a targeted "what-if" question that modifies one of the worked examples (e.g., "If the angular frequency is doubled, how does that scale the peak velocity? Test your intuition using the derivative formula!").
      * Prompt the student to explain the mechanism or calculate the next step in their own words before moving on.
 
-### CRITICAL LATEX & MATHEMATICAL FORMATTING COMMANDS (ZERO BROKEN MATH):
+## CRITICAL LATEX & MATHEMATICAL FORMATTING RULES (ZERO BROKEN MATH):
+- **CLEAN SECTION HEADINGS**: Always use \`## Section Title\` for major headings and example headers. NEVER use \`###\` when \`##\` is appropriate. NEVER put \`##\` or \`###\` inside bullet points or bold asterisks (never write \`* **### Header**\` or \`**## Header**\`). Put headings on their own clean line.
 - **Single-Line Block Equations**: ALL standalone display equations MUST be enclosed in \`$$ ... $$\` on a clean, single line or uninterrupted block with NO raw line breaks inside LaTeX macros:
   $$ \\frac{dy}{dx} = \\lim_{\\Delta x \\to 0} \\frac{f(x + \\Delta x) - f(x)}{\\Delta x} $$
-  $$ \\frac{d}{dt}\\left[A \\sin(\\omega t + \\phi)\\right] = A\\omega \\cos(\\omega t + \\phi) $$
-- **Single-Line Inline Math**: ALL variables, parameters, symbols, and inline formulas MUST be enclosed in single \`$ ... $\`:
-  e.g., \`$h(t) = 10\\sin(t)$\`, \`$\\omega$\`, \`$t$\`, \`$\\Delta x \\to 0$\`.
-- **ABSOLUTE PROHIBITION AGAINST PLAIN-TEXT FRACTIONS**: NEVER output raw multiline text pretending to be fractions (e.g., writing \`d\`, \`y\`, \`/\`, \`d\`, \`x\` or \`\\Delta x\` on separate vertical lines). Every formula must be syntactically valid KaTeX.
+  $$ \\text{Cosine Similarity}(v_q, m_i) = \\frac{v_q \\cdot m_i}{\\|v_q\\| \\|m_i\\|} $$
+- **Single-Line Inline Math**: ALL variables, parameters, symbols, and inline formulas MUST be enclosed in matching \`$ ... $\`:
+  e.g., \`$h(t) = 10\\sin(t)$\`, \`$\\omega$\`, \`$t$\`, \`$\\Delta x \\to 0$\`, \`$50\\text{ ms}$\`, \`$(\\text{Cosine Similarity})$\`.
+- **Valid KaTeX Operators Only**: Never use raw TeX primitives like \`\\penalty\`. Use standard functions or \`\\operatorname{...}\` / \`\\text{...}\` (e.g. \`\\operatorname{penalty}(\\text{Bias}, \\text{Drift})\`).
+- **Escaped Currency Dollars**: When writing dollar figures in math, always escape as \`\\$\` (e.g., \`$\\mu_1 = \\$63,000$\`), and ensure all braces \`{ ... }\` and parentheses \`( ... )\` are strictly balanced.
+- **ABSOLUTE PROHIBITION AGAINST PLAIN-TEXT FRACTIONS**: NEVER output raw multiline text pretending to be fractions. Every formula must be syntactically valid KaTeX.
 
 ### DEPTH & RICHNESS REQUIREMENTS:
 - **Comprehensive Exhaustiveness**: Every response must be substantive, in-depth, and self-contained. Do not rush to finish. Cover theory, derivation, multiple concrete examples, pitfalls, and guided questions thoroughly.
@@ -1549,13 +1637,37 @@ You write responses that read like **award-winning, comprehensive university lec
           parts: [{ text: msg.text }],
         }));
 
+      // Grounding context injection from active document & attachments
+      let materialContextInjection = "";
+      if (activeDocForResponse && activeDocForResponse.content) {
+        const baseContent = getBaseMaterialContent(activeDocForResponse.content);
+        const attachments = getMaterialAttachments(activeDocForResponse.content);
+
+        materialContextInjection = `[ACTIVE STUDY MATERIAL CONTEXT]
+Title: ${activeDocForResponse.title}
+Type: ${activeDocForResponse.type}
+
+=== CORE MATERIAL CONTENT ===
+${baseContent || "None provided."}
+`;
+        if (attachments.length > 0) {
+          materialContextInjection += `\n=== SUPPLEMENTAL ATTACHED DOCUMENTS (${attachments.length}) ===\n`;
+          attachments.forEach((att, idx) => {
+            materialContextInjection += `--- ATTACHMENT ${idx + 1}: ${att.name} ---\n${att.content}\n\n`;
+          });
+        }
+        materialContextInjection += `\n[MANDATORY PEDAGOGICAL GROUNDING]: Heavily ground your response, examples, and Socratic guidance in both the core material and supplemental attached documents above. If the student refers to the uploaded document or asks questions related to it, synthesize these materials directly.\n\n`;
+      }
+
       const currentUserParts: GeminiContentPart[] = [];
       if (imagesToSend.length > 0) {
         imagesToSend.forEach((img) => {
           currentUserParts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
         });
       }
-      currentUserParts.push({ text: `${linkPromptOverride ? linkPromptOverride + "\n\n" : ""}${trimmed}` });
+      currentUserParts.push({
+        text: `${materialContextInjection}${filesToSend.length > 0 ? `[STUDENT ATTACHED FILE(S)]: ${filesToSend.map((f) => f.name).join(", ")}\n\n` : ""}${linkPromptOverride ? linkPromptOverride + "\n\n" : ""}${userMessageText}`,
+      });
       contentsPayload.push({ role: "user", parts: currentUserParts });
 
       let generatedText = "";
@@ -1979,41 +2091,21 @@ You write responses that read like **award-winning, comprehensive university lec
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
+    const nonImageFiles = fileList.filter((f) => !f.type.startsWith("image/"));
+    const imageFiles = fileList.filter((f) => f.type.startsWith("image/"));
 
-    // If there is only one file and it's not an image, use the normal upload flow
-    if (fileList.length === 1 && !fileList[0].type.startsWith("image/")) {
-      const file = fileList[0];
-      setAttachedFilePreview({ name: file.name, size: formatFileSize(file.size), type: file.type });
-      setAttachmentMessage("Uploading attachment...");
-      try {
-        const material = await uploadLearningMaterial({ file });
-        CacheManager.invalidate("index_dashboard_");
-        CacheManager.invalidate("materials_");
-        setMaterials((prev) => [material, ...prev]);
-        setActiveDoc(material);
-        setInputText((prev) => prev || `Help me study ${material.title}`);
-        setAttachmentMessage("");
-        toast.success(`"${material.title}" attached as chat context.`);
-      } catch (err: unknown) {
-        toast.error(getErrorMessage(err, "Could not attach this file."));
-        setAttachedFilePreview(null);
-        setAttachmentMessage("");
-      } finally {
-        if (attachInputRef.current) attachInputRef.current.value = "";
-      }
-      return;
+    if (nonImageFiles.length > 0) {
+      setPendingFiles((prev) => [...prev, ...nonImageFiles]);
+      const targetDesc = activeDoc && activeDoc.id !== "general" ? `"${activeDoc.title}"` : "study material";
+      toast.info(
+        nonImageFiles.length === 1
+          ? `Attached "${nonImageFiles[0].name}" to ${targetDesc}. Press Enter or click Send to add it.`
+          : `Attached ${nonImageFiles.length} files to ${targetDesc}. Press Enter or click Send to add them.`
+      );
     }
 
-    // Otherwise, filter for images and load them as base64 array
-    const imageFiles = fileList.filter((f) => f.type.startsWith("image/"));
     if (imageFiles.length > 0) {
       setAttachmentMessage("Reading images...");
-      setAttachedFilePreview({
-        name: imageFiles.length === 1 ? imageFiles[0].name : `${imageFiles.length} images selected`,
-        size: formatFileSize(imageFiles.reduce((acc, f) => acc + f.size, 0)),
-        type: "image/multiple",
-      });
-
       try {
         const loadedImages: Array<{ base64: string; mimeType: string; name: string; size: string }> = [];
 
@@ -2037,19 +2129,18 @@ You write responses that read like **award-winning, comprehensive university lec
         }
 
         setAttachedImages((prev) => [...prev, ...loadedImages]);
-        setAttachmentMessage("");
-        toast.success(`${imageFiles.length} image(s) attached to current chat.`);
+        toast.info(`${imageFiles.length} image(s) attached to current message.`);
       } catch (err: unknown) {
         toast.error(getErrorMessage(err, "Could not attach images."));
-        setAttachedFilePreview(null);
-        setAttachmentMessage("");
       } finally {
-        if (attachInputRef.current) attachInputRef.current.value = "";
+        setAttachmentMessage("");
       }
-    } else {
-      toast.error("Only image uploads support multiple files at once.");
-      if (attachInputRef.current) attachInputRef.current.value = "";
     }
+
+    if (attachInputRef.current) attachInputRef.current.value = "";
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 50);
   };
 
   if (teacherBlockStatus === "pending") {
@@ -2649,9 +2740,26 @@ You write responses that read like **award-winning, comprehensive university lec
                 <div className="flex items-center gap-2.5 min-w-0">
 
                   <div className="min-w-0">
-                    <h3 className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug">
-                      {activeDoc ? `Working on: ${activeDoc.title}` : "General Library Chat"}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="break-words whitespace-normal text-xs font-semibold text-foreground leading-snug">
+                        {activeDoc ? `Working on: ${activeDoc.title}` : "General Library Chat"}
+                      </h3>
+                      {activeDoc && (() => {
+                        const attachments = getMaterialAttachments(activeDoc.content);
+                        if (attachments.length === 0) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setIsContextModalOpen(true)}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 transition cursor-pointer"
+                            title="Click to view attached documents and extracted text"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            <span>{attachments.length} attached {attachments.length === 1 ? "file" : "files"}</span>
+                          </button>
+                        );
+                      })()}
+                    </div>
                     <p className="text-xs break-words whitespace-normal text-muted-foreground">
                       {activeDoc
                         ? `Grounded in ${activeDoc.type} source`
@@ -2660,12 +2768,25 @@ You write responses that read like **award-winning, comprehensive university lec
                   </div>
                 </div>
                 {activeDoc && (
-                  <button
-                    onClick={() => setActiveDoc(null)}
-                    className="rounded border border-primary/30 bg-background text-foreground hover:bg-muted px-2.5 py-1 text-xs font-semibold transition"
-                  >
-                    Clear focus
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsContextModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background hover:bg-muted text-foreground px-2.5 py-1 text-xs font-semibold transition cursor-pointer"
+                      title="Inspect extracted notes and attached files"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">View Context & Notes</span>
+                      <span className="sm:hidden">Context</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDoc(null)}
+                      className="rounded-full border border-primary/30 bg-background text-foreground hover:bg-muted px-2.5 py-1 text-xs font-semibold transition"
+                    >
+                      Clear focus
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -2772,6 +2893,26 @@ You write responses that read like **award-winning, comprehensive university lec
                             <MarkdownRenderer content={msg.text} cognitiveProfile={cognitiveProfile} />
                           ) : (
                             <div className="flex flex-col gap-2">
+                              {/* Attached document badges */}
+                              {msg.attachedFiles && msg.attachedFiles.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pb-1">
+                                  {msg.attachedFiles.map((file, fIdx) => (
+                                    <div
+                                      key={fIdx}
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1 text-xs font-semibold text-foreground backdrop-blur-sm shadow-xs"
+                                    >
+                                      <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                                      <span className="truncate max-w-[200px] sm:max-w-[260px]">{file.name}</span>
+                                      {file.size && (
+                                        <span className="text-[10px] text-muted-foreground font-normal shrink-0">
+                                          ({file.size})
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
                               {/* Multiple images grid */}
                               {msg.images && msg.images.length > 0 && (
                                 <div className={`grid gap-1 max-w-[280px] ${msg.images.length === 1 ? "grid-cols-1" :
@@ -3099,10 +3240,97 @@ You write responses that read like **award-winning, comprehensive university lec
                     </div>
                   )}
 
+                  {/* Attached Documents & Images Preview on Form */}
+                  {(pendingFiles.length > 0 || attachedImages.length > 0) && (
+                    <div className="mx-2 mb-2 mt-1 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5 backdrop-blur animate-fade-in">
+                      {/* Active target banner */}
+                      <div className="w-full flex items-center justify-between pb-1.5 border-b border-primary/10 text-[11px]">
+                        <span className="font-semibold text-primary flex items-center gap-1.5">
+                          <Paperclip className="h-3 w-3" />
+                          {activeDoc && activeDoc.id !== "general" ? (
+                            <span>
+                              Attaching to active material: <strong className="font-bold underline underline-offset-2">{activeDoc.title}</strong>
+                            </span>
+                          ) : (
+                            <span>Attaching document as study context</span>
+                          )}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          Will be added to material on send
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {pendingFiles.map((file, idx) => (
+                        <div
+                          key={`pending-doc-${idx}`}
+                          className="inline-flex items-center gap-2 rounded-lg border border-border/80 bg-background px-2.5 py-1.5 shadow-xs max-w-full"
+                        >
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 max-w-[200px] sm:max-w-[280px]">
+                            <p className="truncate text-xs font-semibold text-foreground leading-snug">{file.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition shrink-0 cursor-pointer"
+                            aria-label={`Remove ${file.name}`}
+                            title="Remove attachment"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {attachedImages.map((img, idx) => (
+                        <div
+                          key={`pending-img-${idx}`}
+                          className="relative h-12 w-12 rounded-lg border border-border overflow-hidden bg-background shrink-0"
+                        >
+                          <img
+                            src={`data:${img.mimeType};base64,${img.base64}`}
+                            alt={img.name}
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAttachedImages((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="absolute top-0.5 right-0.5 rounded-full bg-black/70 p-0.5 text-white hover:bg-black/90 transition cursor-pointer"
+                            aria-label={`Remove ${img.name}`}
+                            title="Remove image"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {attachmentMessage && (
+                        <div className="flex items-center gap-1.5 text-xs text-primary font-medium pl-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>{attachmentMessage}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                   <Textarea
                     id="chat-input"
                     ref={chatInputRef}
-                    placeholder="Ask anything across your entire library… (Type @quiz, @flashcards, @audio, @all)"
+                    placeholder={
+                      pendingFiles.length > 0
+                        ? `Ask a question about ${pendingFiles.length === 1 ? `"${pendingFiles[0].name}"` : `${pendingFiles.length} attached documents`} ${activeDoc ? `in ${activeDoc.title}` : ""} or press Enter to add & study…`
+                        : activeDoc
+                        ? `Ask anything about ${activeDoc.title}… (Type @quiz, @flashcards, @audio, @all)`
+                        : "Ask anything across your entire library… (Type @quiz, @flashcards, @audio, @all)"
+                    }
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {
@@ -3194,18 +3422,23 @@ You write responses that read like **award-winning, comprehensive university lec
                       </button>
                     </div>
 
-                    <button
-                      onClick={() => handleSend()}
-                      disabled={!inputText.trim()}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition shrink-0 ${inputText.trim()
-                        ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
-                        : "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                        }`}
-                      aria-label="Send message"
-                    >
-                      <span>Send</span>
-                      <Send className="h-3 w-3" />
-                    </button>
+                    {(() => {
+                      const canSend = inputText.trim().length > 0 || pendingFiles.length > 0 || attachedImages.length > 0;
+                      return (
+                        <button
+                          onClick={() => handleSend()}
+                          disabled={!canSend}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition shrink-0 ${canSend
+                            ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-xs"
+                            : "bg-muted text-muted-foreground/60 cursor-not-allowed"
+                            }`}
+                          aria-label="Send message"
+                        >
+                          <span>Send</span>
+                          <Send className="h-3 w-3" />
+                        </button>
+                      );
+                    })()}
                   </div>
 
                   {/* Progressive Disclosure: Secondary Study Toolkit (Interface Clarity & Hick's Law) */}
@@ -3244,77 +3477,6 @@ You write responses that read like **award-winning, comprehensive university lec
                           </button>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  {/* File preview chip */}
-                  {attachedFilePreview && (
-                    <div className="mx-2 mb-2 mt-1 flex flex-col gap-2 rounded-xl border border-border bg-elevated/60 backdrop-blur px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background overflow-hidden">
-                          {attachedImages.length > 0 ? (
-                            <img
-                              src={`data:${attachedImages[0].mimeType};base64,${attachedImages[0].base64}`}
-                              alt="Attached preview"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : attachedFilePreview.type.startsWith("image/") ? (
-                            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                          ) : (
-                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-foreground">{attachedFilePreview.name}</p>
-                          <p className="text-xs text-muted-foreground">{attachedFilePreview.size}</p>
-                        </div>
-                        {attachmentMessage ? (
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setAttachedFilePreview(null);
-                              setAttachedImages([]);
-                            }}
-                            className="rounded p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground transition"
-                            aria-label="Remove attachment"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Display small thumbnails of all attached images */}
-                      {attachedImages.length > 1 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/20">
-                          {attachedImages.map((img, idx) => (
-                            <div key={idx} className="relative h-10 w-10 rounded border border-border overflow-hidden bg-background">
-                              <img
-                                src={`data:${img.mimeType};base64,${img.base64}`}
-                                alt={img.name}
-                                className="h-full w-full object-cover"
-                              />
-                              <button
-                                onClick={() => {
-                                  const updated = attachedImages.filter((_, i) => i !== idx);
-                                  setAttachedImages(updated);
-                                  if (updated.length === 0) {
-                                    setAttachedFilePreview(null);
-                                  } else {
-                                    setAttachedFilePreview({
-                                      name: updated.length === 1 ? updated[0].name : `${updated.length} images selected`,
-                                      size: formatFileSize(updated.length * 150 * 1024), // display approximate size
-                                      type: "image/multiple",
-                                    });
-                                  }
-                                }}
-                                className="absolute top-0.5 right-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80 transition"
-                              >
-                                <X className="h-2 w-2" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -3615,6 +3777,29 @@ You write responses that read like **award-winning, comprehensive university lec
         isOpen={audioSession.isModalOpen}
         onClose={() => audioSession.closeModal()}
         session={audioSession}
+      />
+
+      {/* Material Context & Attachments Modal */}
+      <MaterialContextModal
+        isOpen={isContextModalOpen}
+        onClose={() => setIsContextModalOpen(false)}
+        material={activeDoc}
+        onAddAttachment={async (file) => {
+          if (!activeDoc) return;
+          const { updatedContent } = await appendFileToCurrentMaterial({
+            file,
+            materialId: activeDoc.id,
+            currentContent: activeDoc.content,
+            currentTitle: activeDoc.title,
+          });
+          const updated = { ...activeDoc, content: updatedContent };
+          setActiveDoc(updated);
+          setMaterials((prev) => prev.map((m) => (m.id === activeDoc.id ? updated : m)));
+          toast.success(`Attached "${file.name}" to ${activeDoc.title}`);
+        }}
+        onAskAboutContext={(promptText) => {
+          setInputText(promptText);
+        }}
       />
 
       {/* Material Understanding Quiz Modal */}

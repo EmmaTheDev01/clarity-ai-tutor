@@ -81,7 +81,16 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const isCollapsed = !isHovered;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const isCollapsed = !isMobile && !isHovered;
   const location = useRouterState({ select: (r) => r.location });
   const pathname = location.pathname;
   const currentAdminTab = (location.search as Record<string, string>)?.tab || "overview";
@@ -1106,12 +1115,6 @@ export function AppShell({
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onFocus={() => setIsHovered(true)}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) {
-            setIsHovered(false);
-          }
-        }}
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-background transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden ${
           open ? "translate-x-0 w-64" : "-translate-x-full"
         } ${isHovered ? "lg:w-64 lg:shadow-2xl" : "lg:w-16"}`}
@@ -1122,23 +1125,25 @@ export function AppShell({
             isCollapsed ? "justify-center px-2" : "justify-between px-4"
           }`}
         >
-          <Link to="/app" className="flex items-center justify-center shrink-0">
-            {/* Collapsed desktop brand icon */}
-            <img
-              src="/favicon.png"
-              alt="PureLearn AI"
-              className={`h-8 w-8 object-contain rounded-lg shrink-0 ${
-                isCollapsed ? "hidden lg:block" : "hidden"
-              }`}
-            />
-            {/* Expanded desktop or mobile drawer brand logo */}
-            <img
-              src="/logo.png"
-              alt="PureLearn AI"
-              className={`h-8 w-auto max-w-[140px] shrink-0 ${
-                isCollapsed ? "block lg:hidden" : "block"
-              }`}
-            />
+          <Link
+            to="/app"
+            className="flex items-center justify-center shrink-0 min-w-0"
+            title="Purelearn.ai"
+          >
+            {isCollapsed ? (
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-sm tracking-tight shadow-xs select-none">
+                P
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-xs tracking-tight shadow-xs select-none">
+                  P
+                </div>
+                <span className="font-bold text-base tracking-tight text-foreground truncate">
+                  Purelearn<span className="text-primary/70 text-xs font-semibold">.ai</span>
+                </span>
+              </div>
+            )}
           </Link>
           <button
             className="rounded-full p-1.5 hover:bg-muted lg:hidden"
@@ -1150,12 +1155,12 @@ export function AppShell({
         </div>
 
         {/* Upload Material Action Button */}
-        <div className={`shrink-0 transition-all ${isCollapsed ? "p-2.5 flex justify-center" : "p-3"}`}>
+        <div className={`shrink-0 transition-all ${isCollapsed ? "py-3 px-2 flex justify-center" : "p-3"}`}>
           <Link
             to="/app/library"
             className={`flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-sm ${
               isCollapsed
-                ? "h-10 w-10 p-0 shrink-0"
+                ? "h-10 w-10 p-0 shrink-0 mx-auto"
                 : "w-full gap-2 px-4 py-2.5 text-sm font-medium"
             }`}
             title="Upload material"
@@ -1168,12 +1173,10 @@ export function AppShell({
         </div>
 
         {/* Navigation items list */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 space-y-4 py-1">
+        <nav className={`flex-1 overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2 space-y-1.5 py-2" : "px-3 space-y-3 py-2"}`}>
           {(userRole === "admin" || pathname.startsWith("/admin")) && (
             <div>
-              {isCollapsed ? (
-                <div className="border-t border-border/50 my-2 mx-1" />
-              ) : (
+              {!isCollapsed && (
                 <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                   Admin Management
                 </div>
@@ -1188,7 +1191,7 @@ export function AppShell({
                     onClick={() => setOpen(false)}
                     className={`mb-1 flex items-center rounded-full transition-all duration-150 ${
                       isCollapsed
-                        ? "h-10 w-10 mx-auto justify-center p-0"
+                        ? "h-10 w-10 mx-auto justify-center p-0 shrink-0"
                         : "w-full gap-3 px-3.5 py-2 text-xs font-semibold justify-start"
                     } ${
                       active
@@ -1213,7 +1216,7 @@ export function AppShell({
               onClick={() => setOpen(false)}
               className={`mb-2 flex items-center rounded-full border border-border bg-foreground text-background transition-all ${
                 isCollapsed
-                  ? "h-10 w-10 mx-auto justify-center p-0"
+                  ? "h-10 w-10 mx-auto justify-center p-0 shrink-0"
                   : "w-full gap-3 px-3.5 py-2 text-xs font-bold uppercase tracking-wider justify-start"
               }`}
               title="Educator Portal"
@@ -1226,9 +1229,10 @@ export function AppShell({
           )}
 
           <div>
-            {isCollapsed ? (
+            {(userRole === "admin" || pathname.startsWith("/admin") || (userRole === "teacher" && !pathname.startsWith("/admin"))) && (
               <div className="border-t border-border/50 my-2 mx-1" />
-            ) : (
+            )}
+            {!isCollapsed && (
               <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                 Workspace
               </div>
@@ -1242,7 +1246,7 @@ export function AppShell({
                   onClick={() => setOpen(false)}
                   className={`mb-1 flex items-center rounded-full transition-all duration-150 ${
                     isCollapsed
-                      ? "h-10 w-10 mx-auto justify-center p-0"
+                      ? "h-10 w-10 mx-auto justify-center p-0 shrink-0"
                       : "w-full gap-3 px-3.5 py-2.5 text-sm justify-start"
                   } ${
                     active
@@ -1262,17 +1266,17 @@ export function AppShell({
         </nav>
 
         {/* Bottom Plan / Upgrade Container */}
-        <div className={`mt-auto shrink-0 border-t border-border transition-all ${isCollapsed ? "p-2.5" : "p-3"}`}>
+        <div className={`mt-auto shrink-0 border-t border-border transition-all ${isCollapsed ? "py-3 px-2 flex justify-center items-center" : "p-3"}`}>
           {/* Desktop Collapsed view */}
           {isCollapsed ? (
-            <div className="flex justify-center">
+            <div className="flex justify-center w-full">
               <Link
                 to="/pricing"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-elevated hover:bg-muted text-primary shadow-2xs transition-all"
+                className="flex h-10 w-10 shrink-0 mx-auto items-center justify-center rounded-full border border-border bg-elevated hover:bg-muted text-primary shadow-2xs transition-all"
                 title="Upgrade plan"
               >
                 <Crown
-                  className={`h-4 w-4 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`}
+                  className={`h-4 w-4 shrink-0 ${tier !== "free" ? "text-amber-500 fill-current animate-pulse" : "text-primary"}`}
                 />
               </Link>
             </div>

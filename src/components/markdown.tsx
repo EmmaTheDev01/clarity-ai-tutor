@@ -4,21 +4,42 @@ import { Copy, Check } from "lucide-react";
 
 export function cleanLatexMathSyntax(text: string): string {
   if (!text) return text;
-  return text
+  let s = text
     .replace(/│/g, "|")
     .replace(/—/g, "-")
     .replace(/′/g, "'")
     .replace(/∥/g, "\\|")
     .replace(/\u00A0/g, " ")
-    .replace(/\u200B/g, "")
-    .replace(/\u200C/g, "")
-    .replace(/\u200D/g, "")
-    .replace(/\uFEFF/g, "")
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/(?<!\\)Δ/g, "\\Delta ")
     .replace(/(?<!\\)∂/g, "\\partial ")
     .replace(/(?<!\\)×/g, "\\times ");
+
+  // Map undefined TeX macros and common AI pseudo-commands to valid KaTeX
+  const undefinedMacros = [
+    "penalty", "loss", "reward", "cost", "util", "utility", "score",
+    "softmax", "sigmoid", "relu", "gelu", "attn", "attention", "bias",
+    "drift", "error", "accuracy", "precision", "recall"
+  ];
+  for (const macro of undefinedMacros) {
+    const re = new RegExp("\\\\" + macro + "(?![a-zA-Z])", "g");
+    s = s.replace(re, "\\operatorname{" + macro + "}");
+  }
+
+  // Balance unclosed braces { ... }
+  let openBraces = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "{" && (i === 0 || s[i - 1] !== "\\")) openBraces++;
+    else if (s[i] === "}" && (i === 0 || s[i - 1] !== "\\")) openBraces--;
+  }
+  while (openBraces > 0) {
+    s += "}";
+    openBraces--;
+  }
+
+  return s;
 }
 
 // Tokenize and color-code code syntax
@@ -271,14 +292,49 @@ function preProcessRawLatex(text: string): string {
 
   const lines = normalized.split("\n");
   const processedLines = lines.map((line) => {
-    const trimmed = line.trim();
+    let trimmed = line.trim();
     if (!trimmed) return line;
+
+    // Normalise heading markers stuck inside bold or list bullets:
+    // e.g. "* **### Example 1**" -> "## Example 1"
+    // e.g. "**### Example 1**" -> "## Example 1"
+    // e.g. "1. **## Section**" -> "## Section"
+    trimmed = trimmed.replace(/^([*\-]\s+|\d+\.\s+)?\*\*(#{1,6}\s+.*?)\*\*$/, "$2");
+    trimmed = trimmed.replace(/^\*\*(#{1,6}\s+.*?)\*\*$/, "$1");
+    // Ensure space after hash marks: e.g. "###Title" -> "### Title"
+    trimmed = trimmed.replace(/^(#{1,6})([^#\s])/, "$1 $2");
+
+    // Repair unclosed or misplaced dollars in common AI math patterns:
+    // e.g. "(\text{Cosine Similarity})$" -> "$(\text{Cosine Similarity})$"
+    if (/^\([^$]*\\text\{[^}]+\}[^$]*\)\$$/.test(trimmed)) {
+      trimmed = "$" + trimmed.slice(0, -1) + "$";
+    }
+    // e.g. "$50\text{ ms}" -> "$50\text{ ms}$"
+    if (/^\$[^$\n]+\\text\{[^}]+\}[^$\n]*$/.test(trimmed) && !trimmed.endsWith("$")) {
+      trimmed = trimmed + "$";
+    }
 
     // Check if line is already wrapped in $$ or $
     const hasBlockWrap = trimmed.startsWith("$$") && trimmed.endsWith("$$");
     const hasInlineWrap = trimmed.startsWith("$") && trimmed.endsWith("$");
     if (hasBlockWrap || hasInlineWrap) {
-      return line;
+      return trimmed;
+    }
+
+    // Standalone LaTeX equation line detection:
+    // e.g. \text{Cosine Similarity}(v_q, m_i) = \frac{v_q \cdot m_i}{\|v_q\| \|m_i\|
+    // e.g. \text{System Utility} = f(\text{Throughput}, \text{Latency}) - \penalty(\text{Bias}, \text{Drift})
+    const isLikelyMathEquation =
+      (trimmed.startsWith("\\") || /^[a-zA-Z0-9_\^]+\s*=\s*\\/.test(trimmed) || /\\text\{.*\}\s*=\s*/.test(trimmed)) &&
+      (/=|<|>|\\le|\\ge|\\approx|\\sim|\\equiv/.test(trimmed)) &&
+      (/\\(frac|text|operatorname|cdot|sum|prod|int|sqrt|partial|nabla|penalty)\b|\|\||\^|_/.test(trimmed));
+
+    if (isLikelyMathEquation) {
+      const strippedOfText = trimmed.replace(/\\text\{[^}]*\}/g, "").replace(/\\operatorname\{[^}]*\}/g, "");
+      const remainingWords = strippedOfText.split(/[^a-zA-Z]/).filter((w) => w.length > 3 && !/^(frac|dfrac|cdot|sqrt|sum|prod|int|lim|partial|nabla|theta|alpha|beta|gamma|delta|Delta|lambda|sigma|Sigma|penalty|loss|bias|drift)$/i.test(w));
+      if (remainingWords.length <= 2) {
+        return `$$${trimmed}$$`;
+      }
     }
 
     // Check if the line is a standalone math line:
@@ -301,7 +357,7 @@ function preProcessRawLatex(text: string): string {
     }
 
     // Otherwise, replace loose macros (like \Delta t, \theta_1, \alpha, \dots) with $...$
-    let lineText = line;
+    let lineText = trimmed;
     lineText = lineText.replace(
       /(?<!\$)\\(?:theta|alpha|beta|gamma|delta|Delta|lambda|sigma|Sigma|mu|nu|xi|pi|rho|tau|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|in|notin|subset|supset|cup|cap|dots|cdot|partial|nabla|times|div|approx|neq|le|leq|ge|geq|propto|equiv|to|rightarrow)\b(?:_[a-zA-Z0-9]|_{[^}]+})?(?:\^[a-zA-Z0-9]|^{[^}]+})?(?!\$)/g,
       (match) => {
@@ -348,8 +404,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     };
 
     const formatInline = (lineText: string): React.ReactNode[] => {
-      // Parse inline blocks: code, bold, math, italics, or explicit LaTeX expressions
-      const regex = /(`[^`]+`|\*\*[^*]+\*\*|\$[^\$]+\$|\*[^*]+\*|f\([a-zA-Z0-9_^{}\-+=/*\\]+\)\s*=\s*[a-zA-Z0-9_^{}\-+=/*\\]+|[a-zA-Z0-9\-+/*=()]+(?:_\{[^{}]+\}|_[a-zA-Z0-9]+|\^\{[^{}]+\}|\^[a-zA-Z0-9]+)+|\\(?:mu|Sigma|frac|mathbf|alpha|beta|theta|lambda|pi|phi|sigma|delta|gamma|omega|Sigma|Pi|Delta|Gamma|Omega|ln|log|left|right|[a-zA-Z]+)(?:\{[^{}]+\})*(?:\^[^{}]+|\^T|\^\{[^{}]+\})?(?:_[^{}]+|_[a-zA-Z0-9]+|_(?:\{[^{}]+\}))?)/g;
+      // Parse inline blocks: code, bold, math with escaped \$ support, italics, or explicit LaTeX expressions
+      const regex = /(`[^`]+`|\*\*[^*]+\*\*|(?<!\\)\$(?:\\\$|[^\$])+(?<!\\)\$|\*[^*]+\*|f\([a-zA-Z0-9_^{}\-+=/*\\]+\)\s*=\s*[a-zA-Z0-9_^{}\-+=/*\\]+|[a-zA-Z0-9\-+/*=()]+(?:_\{[^{}]+\}|_[a-zA-Z0-9]+|\^\{[^{}]+\}|\^[a-zA-Z0-9]+)+|\\(?:mu|Sigma|frac|mathbf|alpha|beta|theta|lambda|pi|phi|sigma|delta|gamma|omega|Sigma|Pi|Delta|Gamma|Omega|ln|log|left|right|[a-zA-Z]+)(?:\{[^{}]+\})*(?:\^[^{}]+|\^T|\^\{[^{}]+\})?(?:_[^{}]+|_[a-zA-Z0-9]+|_(?:\{[^{}]+\}))?)/g;
       const subTokens = lineText.split(regex);
 
       return subTokens.map((token, i) => {
@@ -368,24 +424,22 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return <code key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">{token.slice(1, -1)}</code>;
         }
         if (token.startsWith("$") && token.endsWith("$")) {
-          const formula = cleanLatexMathSyntax(token.slice(1, -1)).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+          const formula = cleanLatexMathSyntax(token.slice(1, -1)).replace(/\n/g, ' ');
           try {
             const html = katex.renderToString(formula, { displayMode: false, throwOnError: true, strict: "ignore" });
             return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
           } catch {
-            const cleanFallback = formula.replace(/\\[a-zA-Z]+/g, "").replace(/[{}]/g, "");
-            return <span key={i} className="font-serif italic text-foreground select-all">{cleanFallback || formula}</span>;
+            return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
           }
         }
 
         // If it reaches here and it's a matched token (i % 2 === 1), it must be one of the math/LaTeX branches of the regex
-        const safeToken = cleanLatexMathSyntax(token).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ').replace(/\n/g, ' ');
+        const safeToken = cleanLatexMathSyntax(token).replace(/\n/g, ' ');
         try {
           const html = katex.renderToString(safeToken, { displayMode: false, throwOnError: true, strict: "ignore" });
           return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
         } catch {
-          const cleanFallback = safeToken.replace(/\\[a-zA-Z]+/g, "").replace(/[{}]/g, "");
-          return <span key={i} className="font-serif italic text-foreground select-all">{cleanFallback || token}</span>;
+          return <span key={i} className="font-serif italic text-foreground select-all">{token}</span>;
         }
       });
     };
@@ -408,7 +462,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       const isMathBlock = bIdx % 2 === 1 && !containsCodeOrText;
 
       if (isMathBlock) {
-        const rawMath = cleanLatexMathSyntax(trimmedBlock).replace(/\\?\$/g, '\\$').replace(/∂/g, '\\partial ');
+        const rawMath = cleanLatexMathSyntax(trimmedBlock);
         try {
           const html = katex.renderToString(rawMath, { displayMode: true, throwOnError: true, strict: "ignore" });
           elements.push(
@@ -424,7 +478,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               key={`mathblock-${bIdx}`}
               className="my-3 py-2 text-center overflow-x-auto font-serif text-[15px] italic text-foreground select-all whitespace-pre-wrap leading-relaxed min-h-[2rem] flex items-center justify-center hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden break-words"
             >
-              {trimmedBlock}
+              {rawMath}
             </div>
           );
         }
@@ -641,12 +695,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             const level = matchHeader[1].length;
             const textContent = matchHeader[2];
             const headerClasses = [
-              "text-lg font-black text-foreground mt-6 mb-3",
-              "text-base font-bold text-foreground mt-5 mb-2.5",
-              "text-sm font-extrabold uppercase tracking-wider text-foreground mt-4 mb-2",
-              "text-xs font-black uppercase tracking-wider text-foreground/90 mt-4 mb-1.5",
-              "text-xs font-bold text-foreground/80 mt-3.5 mb-1",
-              "text-xs font-medium text-foreground/75 mt-3 mb-1"
+              "text-xl font-bold text-foreground mt-6 mb-3",
+              "text-lg font-bold text-foreground mt-5 mb-2.5 pb-1 border-b border-border/40",
+              "text-base font-semibold text-foreground mt-4 mb-2",
+              "text-sm font-semibold text-foreground mt-3.5 mb-1.5",
+              "text-xs font-semibold text-foreground mt-3 mb-1",
+              "text-xs font-medium text-muted-foreground mt-2 mb-1"
             ];
             const ClassName = headerClasses[level - 1] || headerClasses[2];
             const Tag = `h${level}` as any;
