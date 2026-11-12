@@ -15,6 +15,8 @@ import {
   FileCheck2,
   Wand2,
   X,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Pill } from "@/components/ui-kit";
@@ -24,6 +26,8 @@ import { generateGeminiText, streamGeminiText, generateGeminiStructured, GeminiC
 import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { detectVoiceCommand } from "@/lib/voice-commands";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
@@ -448,8 +452,19 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
     fetchHistory();
   }, [material]);
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  const speech = useSpeechRecognition({
+    onTranscriptChange: (text) => {
+      setInput(text);
+    },
+    onComplete: (finalText) => {
+      // Auto-send when user finishes speaking
+      sendMessage(finalText);
+    },
+    silenceTimeoutMs: 1400,
+  });
+
+  const sendMessage = async (textToSend?: string) => {
+    const trimmed = (typeof textToSend === "string" ? textToSend : input).trim();
     const filesToSend = [...pendingFiles];
     if ((!trimmed && filesToSend.length === 0) || isSending) return;
 
@@ -475,6 +490,24 @@ function ChatPanel({ material }: { material: LearningMaterial | null }) {
       } catch (err) {
         console.warn("Failed incorporating file:", err);
         toast.error("Could not incorporate file into this material.", { id: toastId });
+      }
+    }
+
+    // Check for hands-free voice commands
+    const voiceCmd = trimmed ? detectVoiceCommand(trimmed) : null;
+    let voiceCmdDirective = "";
+    if (voiceCmd) {
+      toast.info(`Voice command recognized: ${voiceCmd.actionLabel}`);
+      if (voiceCmd.type === "quiz") {
+        voiceCmdDirective = `\n\n[USER COMMAND: GENERATE PRACTICE QUIZ]: The student requested "${voiceCmd.actionLabel}"${voiceCmd.cleanedText ? ` on topic: "${voiceCmd.cleanedText}"` : ""}. Formulate an interactive, comprehensive 5-question Socratic multiple-choice practice quiz with options (A, B, C, D), explanations, and the answer key based on this document.`;
+      } else if (voiceCmd.type === "flashcards") {
+        voiceCmdDirective = `\n\n[USER COMMAND: GENERATE FLASHCARD DECK]: The student requested "${voiceCmd.actionLabel}"${voiceCmd.cleanedText ? ` on topic: "${voiceCmd.cleanedText}"` : ""}. Generate a high-yield study flashcard deck (5-8 Q&A cards) covering essential formulas, core concepts, and definitions from this document.`;
+      } else if (voiceCmd.type === "audio") {
+        voiceCmdDirective = `\n\n[USER COMMAND: AUDIO/PODCAST BREAKDOWN]: The student requested "${voiceCmd.actionLabel}"${voiceCmd.cleanedText ? ` on topic: "${voiceCmd.cleanedText}"` : ""}. Generate an engaging, spoken-audio educational podcast script featuring two curious co-hosts ("Alex" and "Dr. Taylor") explaining the core concepts of this document conversationally, intuitively, and vividly.`;
+      } else if (voiceCmd.type === "all") {
+        voiceCmdDirective = `\n\n[USER COMMAND: ALL-IN-ONE STUDY PACK]: The student requested "${voiceCmd.actionLabel}". Provide a complete study pack: 1) Executive Summary, 2) Key Revision Flashcards, 3) 5-Question Socratic Practice Quiz with answers, and 4) Podcast Audio Dialogue Script.`;
+      } else if (voiceCmd.type === "tone") {
+        voiceCmdDirective = `\n\n[USER COMMAND: PEDAGOGICAL STYLE SWITCH]: Adjust your pedagogical style: ${voiceCmd.actionLabel}. ${voiceCmd.cleanedText ? `Focus on: "${voiceCmd.cleanedText}"` : ""}.`;
       }
     }
 
@@ -564,7 +597,8 @@ You write responses that read like **award-winning university lecture notes** â€
         role: m.from === "user" ? ("user" as const) : ("model" as const),
         parts: [{ text: m.text }],
       }));
-      contentsHistory.push({ role: "user", parts: [{ text: trimmed }] });
+      const promptWithDirective = voiceCmdDirective ? `${trimmed || userText}\n\n${voiceCmdDirective}` : (trimmed || userText);
+      contentsHistory.push({ role: "user", parts: [{ text: promptWithDirective }] });
 
       let text = "";
       setMessages([...nextMessages, { from: "ai", text: "Thinking...", citation: material?.title }]);
@@ -824,6 +858,76 @@ You write responses that read like **award-winning university lecture notes** â€
             </div>
           </div>
         )}
+
+        {/* Speech Recognition Active Indicator & Voice Command Shortcuts */}
+        {speech.isListening && (
+          <div className="mb-2 rounded-xl border border-red-500/25 bg-red-500/5 p-2.5 text-xs backdrop-blur animate-fade-in space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-medium">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                </span>
+                <Mic className="h-3.5 w-3.5 animate-pulse" />
+                <span className="text-[11px] font-semibold">Listeningâ€¦ Speak your question or a voice command</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => speech.stopListening(true)}
+                className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition cursor-pointer"
+                title="Cancel speech recognition"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* Accessible Voice Command shortcuts */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-red-500/10">
+              <span className="text-[10px] text-muted-foreground font-medium">Try saying:</span>
+              <button
+                type="button"
+                onClick={() => sendMessage("by audio")}
+                className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                title="Say or click: by audio"
+              >
+                "by audio"
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("make a quiz")}
+                className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                title="Say or click: make a quiz"
+              >
+                "make a quiz"
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("podcast")}
+                className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                title="Say or click: podcast"
+              >
+                "podcast"
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("make flashcards")}
+                className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                title="Say or click: make flashcards"
+              >
+                "make flashcards"
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("generate all")}
+                className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                title="Say or click: generate all"
+              >
+                "generate all"
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
@@ -848,9 +952,24 @@ You write responses that read like **award-winning university lecture notes** â€
           >
             <Paperclip className="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            onClick={speech.toggleListening}
+            className={`rounded-full border p-2.5 transition shrink-0 cursor-pointer ${
+              speech.isListening
+                ? "bg-red-500 text-white border-red-500 shadow-xs animate-pulse ring-2 ring-red-500/30"
+                : "border-border hover:bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+            aria-label={speech.isListening ? "Stop speech recognition" : "Speech to text input (auto-sends on pause)"}
+            title={speech.isListening ? "Listeningâ€¦ (Will send when done speaking) Click to stop" : "Speech to text (Auto-sends when done speaking)"}
+          >
+            {speech.isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
           <Textarea
             placeholder={
-              pendingFiles.length > 0
+              speech.isListening
+                ? "Listeningâ€¦ Speak your question now (automatically sends when you stop talking)â€¦"
+                : pendingFiles.length > 0
                 ? `Ask about ${pendingFiles.length === 1 ? `"${pendingFiles[0].name}"` : `${pendingFiles.length} attached files`} in ${material?.title || "this document"} or press Enter to add & studyâ€¦`
                 : "Ask a question grounded in this documentâ€¦"
             }
@@ -865,7 +984,7 @@ You write responses that read like **award-winning university lecture notes** â€
             className="min-h-11 flex-1"
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={(!input.trim() && pendingFiles.length === 0) || isSending}
             className="rounded-full bg-primary p-2.5 text-primary-foreground hover:opacity-90 disabled:opacity-60 transition cursor-pointer"
             aria-label="Send"

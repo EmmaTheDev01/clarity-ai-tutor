@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, Bot, Target, Headphones, Volume2, Trophy, Award, Compass, Clock, BookOpen } from "lucide-react";
+import { ArrowUpRight, Search, Send, Paperclip, ChevronRight, Plus, Loader2, X, FileText, Image as ImageIcon, MoreHorizontal, Pin, PinOff, PencilLine, Trash2, Copy, MessageSquarePlus, BookmarkPlus, Lock, Menu, SlidersHorizontal, Zap, Gamepad2, Layers, CheckCircle2, HelpCircle, Flame, Bot, Target, Headphones, Volume2, Trophy, Award, Compass, Clock, BookOpen, Mic, MicOff } from "lucide-react";
 import { triggerCelebration, unlockBadge } from "@/lib/celebration";
 import { AppShell } from "@/components/app-shell";
 import { Card, Textarea, Label } from "@/components/ui-kit";
@@ -8,6 +8,7 @@ import { MaterialQuizModal } from "@/components/MaterialQuizModal";
 import { MaterialContextModal } from "@/components/MaterialContextModal";
 import { SocraticAudioModal, SocraticAudioMiniPopup } from "@/components/SocraticAudioModal";
 import { useSocraticAudio } from "@/hooks/use-socratic-audio";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { SvgBadge, getUnderstandingCategory, getBadgeTypeFromName, computeUnlockedBadges, ALL_PLATFORM_BADGES } from "@/components/ui/svg-badges";
 import { calculateDailyStreak, syncStreakWithDatabase } from "@/lib/streak";
 import { supabase } from "@/lib/supabase";
@@ -34,6 +35,7 @@ import { toast } from "sonner";
 import { MarkdownRenderer } from "@/components/markdown";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 import { ListSkeleton } from "@/components/ui/data-skeleton";
+import { detectVoiceCommand, VOICE_COMMAND_EXAMPLES } from "@/lib/voice-commands";
 
 const getStoredItem = (key: string, fallback = "") => {
   if (typeof window === "undefined" || !window.localStorage) return fallback;
@@ -1207,13 +1209,29 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
     setAttachedImages([]);
     if (attachInputRef.current) attachInputRef.current.value = "";
 
-    // Detect in-chat material commands: @quiz, @flashcards, @audio, @all
-    const isAllCmd = /@all\b/i.test(trimmed) || (/@quiz\b/i.test(trimmed) && /@flashcards\b/i.test(trimmed) && /@audio\b/i.test(trimmed));
-    const isQuizCmd = /@quiz\b/i.test(trimmed);
-    const isFlashcardsCmd = /@flashcards\b/i.test(trimmed);
-    const isAudioCmd = /@audio\b/i.test(trimmed) || /@listen\b/i.test(trimmed);
+    // Detect natural voice commands or in-chat material commands:
+    // e.g., "by audio", "using just audio", "podcast", "make a quiz", "by quiz", "by flashcards", "generate all", "@quiz", etc.
+    const voiceCmd = detectVoiceCommand(trimmed);
+
+    // If a teaching style/tone voice command was issued (e.g. "simplify this", "exam prep", "socratic mode")
+    if (voiceCmd.type === "tone" && voiceCmd.toneStyle) {
+      setStudyTone(voiceCmd.toneStyle);
+      toast.success(`Voice command: Switched to ${voiceCmd.label}`);
+      // If there was no other text besides the tone change, return early
+      if (!voiceCmd.cleanedText) {
+        return;
+      }
+    }
+
+    const isAllCmd = voiceCmd.type === "all" || /@all\b/i.test(trimmed) || (/@quiz\b/i.test(trimmed) && /@flashcards\b/i.test(trimmed) && /@audio\b/i.test(trimmed));
+    const isQuizCmd = voiceCmd.type === "quiz" || /@quiz\b/i.test(trimmed);
+    const isFlashcardsCmd = voiceCmd.type === "flashcards" || /@flashcards\b/i.test(trimmed);
+    const isAudioCmd = voiceCmd.type === "audio" || /@audio\b/i.test(trimmed) || /@listen\b/i.test(trimmed);
 
     if (isAllCmd || isQuizCmd || isFlashcardsCmd || isAudioCmd) {
+      if (voiceCmd.matchedPhrase) {
+        toast.info(`Voice command recognized: "${voiceCmd.matchedPhrase}" → ${voiceCmd.label}`);
+      }
       let resolvedDoc: LearningMaterial | null = activeDoc;
       if (!resolvedDoc || resolvedDoc.title === "General Academic Workspace") {
         const generalDoc = await createGeneralChatMaterial();
@@ -1249,7 +1267,7 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
         [docId]: [...targetHistory, userMessage],
       }));
 
-      const extraInstructions = trimmed
+      const extraInstructions = voiceCmd.cleanedText || trimmed
         .replace(/@(all|quiz|flashcards|audio|listen)\b/gi, "")
         .trim();
 
@@ -1992,6 +2010,17 @@ ${baseContent || "None provided."}
   const handleSuggestionClick = (suggestion: string) => {
     handleSend(suggestion);
   };
+
+  const speech = useSpeechRecognition({
+    onTranscriptChange: (text) => {
+      setInputText(text);
+    },
+    onComplete: (finalText) => {
+      // Auto-send when user finishes speaking
+      handleSend(finalText);
+    },
+    silenceTimeoutMs: 1400,
+  });
 
   const finishOnboarding = () => {
     setStoredItem("clarity_onboarding_complete", "true");
@@ -3321,11 +3350,82 @@ ${baseContent || "None provided."}
                   </div>
                 )}
 
+                  {/* Speech Recognition Active Wave Indicator & Voice Command Suggestions */}
+                  {speech.isListening && (
+                    <div className="mx-2 mb-2 mt-1 rounded-xl border border-red-500/25 bg-red-500/5 p-2.5 text-xs backdrop-blur animate-fade-in space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-medium">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                          </span>
+                          <Mic className="h-3.5 w-3.5 animate-pulse" />
+                          <span className="text-[11px] font-semibold">Listening… Speak your question or a voice command</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => speech.stopListening(true)}
+                          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition cursor-pointer"
+                          title="Cancel speech recognition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      {/* Accessible Voice Command shortcuts */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-red-500/10">
+                        <span className="text-[10px] text-muted-foreground font-medium">Try saying:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleSend("by audio")}
+                          className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                          title="Say or click: by audio"
+                        >
+                          "by audio"
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSend("make a quiz")}
+                          className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                          title="Say or click: make a quiz"
+                        >
+                          "make a quiz"
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSend("podcast")}
+                          className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                          title="Say or click: podcast"
+                        >
+                          "podcast"
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSend("make flashcards")}
+                          className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                          title="Say or click: make flashcards"
+                        >
+                          "make flashcards"
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSend("generate all")}
+                          className="px-2 py-0.5 rounded-full bg-background hover:bg-muted border border-border/70 text-[10px] font-mono text-foreground/80 shadow-2xs transition cursor-pointer"
+                          title="Say or click: generate all"
+                        >
+                          "generate all"
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <Textarea
                     id="chat-input"
                     ref={chatInputRef}
                     placeholder={
-                      pendingFiles.length > 0
+                      speech.isListening
+                        ? "Listening… Speak your question now (automatically sends when you stop talking)…"
+                        : pendingFiles.length > 0
                         ? `Ask a question about ${pendingFiles.length === 1 ? `"${pendingFiles[0].name}"` : `${pendingFiles.length} attached documents`} ${activeDoc ? `in ${activeDoc.title}` : ""} or press Enter to add & study…`
                         : activeDoc
                         ? `Ask anything about ${activeDoc.title}… (Type @quiz, @flashcards, @audio, @all)`
@@ -3402,16 +3502,31 @@ ${baseContent || "None provided."}
                         onChange={(event) => handleAttachFiles(event.target.files)}
                       />
                       <button
+                        type="button"
                         onClick={() => attachInputRef.current?.click()}
-                        className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition shrink-0"
+                        className="rounded-full p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition shrink-0 cursor-pointer"
                         aria-label="Attach file"
                         title="Attach file"
                       >
                         <Paperclip className="h-3.5 w-3.5" />
                       </button>
                       <button
+                        type="button"
+                        onClick={speech.toggleListening}
+                        className={`rounded-full p-1.5 transition shrink-0 cursor-pointer ${
+                          speech.isListening
+                            ? "bg-red-500 text-white shadow-xs animate-pulse ring-2 ring-red-500/30"
+                            : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                        aria-label={speech.isListening ? "Stop speech recognition" : "Speech to text input (auto-sends on pause)"}
+                        title={speech.isListening ? "Listening… (Will send when done speaking) Click to stop" : "Speech to text (Auto-sends when done speaking)"}
+                      >
+                        {speech.isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setShowStudyTools(!showStudyTools)}
-                        className={`rounded-lg p-1.5 transition shrink-0 ${showStudyTools
+                        className={`rounded-full p-1.5 transition shrink-0 cursor-pointer ${showStudyTools
                           ? "bg-primary text-primary-foreground font-bold shadow-xs"
                           : "hover:bg-muted text-muted-foreground hover:text-foreground"
                           }`}
@@ -3468,7 +3583,7 @@ ${baseContent || "None provided."}
                               setStudyTone(t.id as any);
                               toast.success(`Tutor style: ${t.label}`);
                             }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${studyTone === t.id
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition cursor-pointer ${studyTone === t.id
                               ? "bg-primary text-primary-foreground shadow-xs"
                               : "bg-muted text-muted-foreground hover:text-foreground"
                               }`}
@@ -3476,6 +3591,31 @@ ${baseContent || "None provided."}
                             {t.label}
                           </button>
                         ))}
+                      </div>
+
+                      {/* Accessible Hands-Free Voice Commands Cheat Sheet */}
+                      <div className="pt-2 border-t border-border/40 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <Mic className="h-3 w-3 text-primary" /> Hands-Free Voice Commands:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 p-1 rounded-md bg-muted/40">
+                            <Headphones className="h-3 w-3 text-primary shrink-0" />
+                            <span><strong>Audio / Podcast:</strong> "by audio", "using audio", "podcast"</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 p-1 rounded-md bg-muted/40">
+                            <HelpCircle className="h-3 w-3 text-primary shrink-0" />
+                            <span><strong>Quiz:</strong> "make a quiz", "by quiz", "quiz me"</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 p-1 rounded-md bg-muted/40">
+                            <Layers className="h-3 w-3 text-primary shrink-0" />
+                            <span><strong>Flashcards:</strong> "make flashcards", "by flashcards"</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 p-1 rounded-md bg-muted/40">
+                            <Zap className="h-3 w-3 text-primary shrink-0" />
+                            <span><strong>Mastery Pack:</strong> "generate all", "study pack"</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
