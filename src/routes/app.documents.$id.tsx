@@ -28,6 +28,7 @@ import { MarkdownRenderer } from "@/components/markdown";
 import { useCognitiveMode } from "@/hooks/use-cognitive-mode";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { detectVoiceCommand } from "@/lib/voice-commands";
+import { CacheManager } from "@/lib/cache";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
@@ -94,8 +95,21 @@ function DocumentWorkspace() {
 
   useEffect(() => {
     const loadMaterial = async () => {
-      const { data } = await supabase.from("materials").select("*").eq("id", id).single();
-      if (data) setMaterial(mapMaterialRow(data));
+      // 1. Immediately display cached material if available (for instant & offline reading)
+      const cached = CacheManager.get(`material_${id}`) || CacheManager.getOfflineBackup(`material_${id}`);
+      if (cached) {
+        setMaterial(cached);
+      }
+      try {
+        const { data } = await supabase.from("materials").select("*").eq("id", id).maybeSingle();
+        if (data) {
+          const mapped = mapMaterialRow(data);
+          setMaterial(mapped);
+          CacheManager.set(`material_${id}`, mapped, 300000);
+        }
+      } catch (err) {
+        console.warn("Could not fetch material online, relying on offline cache:", err);
+      }
     };
     loadMaterial();
   }, [id]);

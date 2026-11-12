@@ -667,9 +667,13 @@ export const notifyMaterialsUpdated = () => {
  */
 export async function fetchStudentAccessibleMaterials(userId: string): Promise<LearningMaterial[]> {
   const cacheKey = `materials_user_strict_${userId}`;
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
   const cached = CacheManager.get(cacheKey);
-  if (cached && Array.isArray(cached)) {
-    return cached;
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    if (isOffline) {
+      return cached;
+    }
   }
 
   try {
@@ -693,11 +697,15 @@ export async function fetchStudentAccessibleMaterials(userId: string): Promise<L
     });
 
     const mapped = sorted.map(mapMaterialRow);
-    CacheManager.set(cacheKey, mapped, 15000);
+    CacheManager.set(cacheKey, mapped, 60000);
     return mapped;
   } catch (err) {
-    console.warn("[learning-materials] Error fetching user materials:", err);
-    return [];
+    console.warn("[learning-materials] Error fetching user materials (falling back to offline cache):", err);
+    const offlineMats = CacheManager.getOfflineBackup(cacheKey);
+    if (offlineMats && Array.isArray(offlineMats) && offlineMats.length > 0) {
+      return offlineMats;
+    }
+    return cached && Array.isArray(cached) ? cached : [];
   }
 }
 

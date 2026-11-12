@@ -15,7 +15,15 @@ export function cleanLatexMathSyntax(text: string): string {
     .replace(/[“”]/g, '"')
     .replace(/(?<!\\)Δ/g, "\\Delta ")
     .replace(/(?<!\\)∂/g, "\\partial ")
-    .replace(/(?<!\\)×/g, "\\times ");
+    .replace(/(?<!\\)×/g, "\\times ")
+    .replace(/(?<!\\)%/g, "\\%")
+    .replace(/\\operatorname\{%\}/g, "\\%");
+
+  // If text is pure English words with spaces (e.g. "Positive Predictive Value"), format with \text{}
+  const trimmed = s.trim();
+  if (/^[a-zA-Z0-9\s,.:;!?'"()\-]+$/.test(trimmed) && trimmed.includes(" ") && !trimmed.startsWith("\\text{")) {
+    s = `\\text{${trimmed}}`;
+  }
 
   // Map undefined TeX macros and common AI pseudo-commands to valid KaTeX
   const undefinedMacros = [
@@ -411,14 +419,28 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       return subTokens.map((token, i) => {
         if (!token) return null;
         if (i % 2 === 0) {
+          // Format plain percentages e.g. "5%", "15%", "99.5%"
+          if (/\b\d+(?:\.\d+)?%/.test(token)) {
+            const pParts = token.split(/(\b\d+(?:\.\d+)?%)/g);
+            return pParts.map((pp, pIdx) => {
+              if (pIdx % 2 === 1) {
+                return (
+                  <span key={`${i}-p-${pIdx}`} className="font-semibold text-foreground tracking-tight whitespace-nowrap">
+                    {pp}
+                  </span>
+                );
+              }
+              return cognitiveProfile === "adhd" ? <React.Fragment key={`${i}-p-${pIdx}`}>{toBionic(pp)}</React.Fragment> : pp;
+            });
+          }
           return cognitiveProfile === "adhd" ? <React.Fragment key={i}>{toBionic(token)}</React.Fragment> : token;
         }
 
         if (token.startsWith("**") && token.endsWith("**")) {
-          return <strong key={i} className="font-black text-foreground">{token.slice(2, -2)}</strong>;
+          return <strong key={i} className="font-black text-foreground">{formatInline(token.slice(2, -2))}</strong>;
         }
         if (token.startsWith("*") && token.endsWith("*")) {
-          return <em key={i} className="italic font-semibold text-foreground/90">{token.slice(1, -1)}</em>;
+          return <em key={i} className="italic font-semibold text-foreground/90">{formatInline(token.slice(1, -1))}</em>;
         }
         if (token.startsWith("`") && token.endsWith("`")) {
           return <code key={i} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">{token.slice(1, -1)}</code>;
@@ -429,7 +451,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             const html = katex.renderToString(formula, { displayMode: false, throwOnError: true, strict: "ignore" });
             return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
           } catch {
-            return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
+            try {
+              const html = katex.renderToString(`\\text{${formula}}`, { displayMode: false, throwOnError: true, strict: "ignore" });
+              return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+            } catch {
+              return <span key={i} className="font-serif italic text-foreground select-all">{formula}</span>;
+            }
           }
         }
 

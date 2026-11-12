@@ -39,6 +39,7 @@ import {
   ArrowRight,
   LogOut,
   Mail,
+  WifiOff,
 } from "lucide-react";
 import { Kbd } from "./ui-kit";
 import { toast } from "sonner";
@@ -82,6 +83,30 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Online / Offline Network Status Monitor
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== "undefined" ? navigator.onLine : true;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success("Internet reconnected — You're back online!", { id: "network-status", duration: 3000 });
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.warning("Internet disconnected — Offline reading mode active.", { id: "network-status", duration: 4000 });
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -1715,6 +1740,21 @@ export function AppShell({
                 )}
               </div>
 
+              {/* Offline Network Pill Indicator */}
+              {!isOnline && (
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-500/15 border border-amber-500/35 text-amber-700 dark:text-amber-300 shadow-2xs select-none animate-fade-in"
+                  title="Internet connection is unavailable. Offline reading mode is active."
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                  <WifiOff className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Offline Mode</span>
+                </div>
+              )}
+
               {actions}
 
               {/* User Dropdown Menu */}
@@ -1803,6 +1843,26 @@ export function AppShell({
             </div>
           </div>
         </header>
+
+        {/* Offline Network Warning Banner */}
+        {!isOnline && (
+          <div className="w-full bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-800 dark:text-amber-300 backdrop-blur z-20 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+                <WifiOff className="h-3.5 w-3.5" />
+              </div>
+              <span className="font-semibold">Internet Unavailable — Offline Reading Mode</span>
+              <span className="text-muted-foreground hidden md:inline">
+                · You can continue reading your saved materials, study notes, and flashcard decks. Live AI generations will resume once you reconnect.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/30 font-medium">
+                Offline Cache Active
+              </span>
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-6 pb-24 lg:pb-6">
           {children}

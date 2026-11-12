@@ -347,7 +347,12 @@ function NotesPage() {
         notes: allUserNotes,
       }, 30000);
     } catch (err) {
-      console.warn("Failed to fetch notes from Supabase:", err);
+      console.warn("Failed to fetch notes from Supabase (falling back to offline cache):", err);
+      const fallback = CacheManager.getOfflineBackup(`notes_data_${currentUid}`);
+      if (fallback && fallback.notes && fallback.notes.length > 0) {
+        setNotes(fallback.notes);
+        if (!selectedNote && fallback.notes.length > 0) setSelectedNote(fallback.notes[0]);
+      }
     }
     setLoading(false);
   };
