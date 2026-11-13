@@ -20,7 +20,7 @@ const DEFAULT_DESCRIPTION =
   "Purelearn.ai is an AI tutor for personalised, Socratic learning. Turn study materials into guided chats, notes, flashcards, and practice questions.";
 
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: any; reset: () => void }) {
   
   const router = useRouter();
 

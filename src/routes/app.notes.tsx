@@ -206,16 +206,16 @@ function NotesPage() {
 
   const fetchSupabaseNotes = async (uid?: string) => {
     setLoading(true);
+    let currentUid = uid || currentUserId || "";
     try {
       // Use provided uid, or try to get it from current session/user
-      let currentUid = uid;
       if (!currentUid) {
         // Try getSession first (synchronous localStorage read), then getUser as fallback
         const { data: sessionData } = await supabase.auth.getSession();
-        currentUid = sessionData?.session?.user?.id;
+        currentUid = sessionData?.session?.user?.id || "";
         if (!currentUid) {
           const { data: userData } = await supabase.auth.getUser();
-          currentUid = userData?.user?.id;
+          currentUid = userData?.user?.id || "";
         }
       }
 

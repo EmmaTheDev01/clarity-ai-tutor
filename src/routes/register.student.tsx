@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button, Input, Label } from "@/components/ui-kit";
 import { supabase } from "@/lib/supabase";
+import { sendRegistrationVerificationEmail } from "@/lib/resend-email";
 import { Eye, EyeOff } from "lucide-react";
 import { GoogleIcon } from "@/components/icons";
 

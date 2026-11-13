@@ -152,6 +152,7 @@ const onboardingPrompt =
   "Welcome to your study workspace. Add a lesson or link, then ask your first question to begin.";
 
 type Message = {
+  id?: string;
   from: "user" | "ai";
   text: string;
   citation?: string;
@@ -1169,7 +1170,11 @@ ${(targetDoc.content || "").slice(0, 4000)}`;
         }
 
         toast.success("Complete mastery pack created! Audio launched.", { id: toastId });
-        setIsAudioModalOpen(true);
+        audioSession.openModal({
+          title: targetDoc.title,
+          content: targetDoc.content || "",
+          id: targetDoc.id,
+        });
 
         const aiMsg: Message = {
           from: "ai",
@@ -2855,7 +2860,8 @@ ${baseContent || "None provided."}
                 <button
                   onClick={() => {
                     const docId = activeDoc?.id || "general";
-                    const lastAiMsg = (chatHistories[docId] || []).findLast((m) => m.from === "ai" && m.text.length > 20);
+                    const history = chatHistories[docId] || [];
+                    const lastAiMsg = [...history].reverse().find((m: Message) => m.from === "ai" && m.text.length > 20);
                     const combinedContent = [
                       activeDoc?.content || "",
                       lastAiMsg ? `Recent Chat Explanation:\n${lastAiMsg.text}` : "",
@@ -3070,7 +3076,7 @@ ${baseContent || "None provided."}
                                   audioSession.openModal({
                                     title: activeDoc?.title ? `${activeDoc.title} • Explanation` : "Tutor Response Explanation",
                                     content: msg.text,
-                                    id: `chat_resp_${msg.id || msg.timestamp.replace(/[^a-zA-Z0-9]/g, "_")}`,
+                                    id: `chat_resp_${msg.id || (msg.timestamp ? msg.timestamp.replace(/[^a-zA-Z0-9]/g, "_") : String(i))}`,
                                   });
                                 }}
                                 className="hover:text-foreground transition cursor-pointer flex items-center gap-1.5 font-medium hover:bg-muted/60 px-2 py-1 rounded-md text-xs text-muted-foreground"

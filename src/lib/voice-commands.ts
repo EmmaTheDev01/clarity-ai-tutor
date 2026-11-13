@@ -8,6 +8,7 @@ export interface VoiceCommandMatch {
   originalText: string;
   matchedPhrase?: string;
   label: string;
+  actionLabel: string;
 }
 
 export const VOICE_COMMAND_EXAMPLES = [
@@ -48,6 +49,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: allMatch ? allMatch[0] : "@all",
       label: "Complete Study Pack",
+      actionLabel: "Complete Study Pack",
     };
   }
 
@@ -67,6 +69,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: audioMatch ? audioMatch[0] : "@audio",
       label: "Audio Breakdown",
+      actionLabel: "Audio Breakdown",
     };
   }
 
@@ -85,6 +88,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: quizMatch ? quizMatch[0] : "@quiz",
       label: "Material Quiz",
+      actionLabel: "Material Quiz",
     };
   }
 
@@ -103,6 +107,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: flashcardsMatch ? flashcardsMatch[0] : "@flashcards",
       label: "Study Flashcards",
+      actionLabel: "Study Flashcards",
     };
   }
 
@@ -118,6 +123,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: "simplify",
       label: "Direct Simplification",
+      actionLabel: "Direct Simplification",
     };
   }
 
@@ -132,6 +138,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: "exam prep",
       label: "Exam Revision",
+      actionLabel: "Exam Revision",
     };
   }
 
@@ -146,6 +153,7 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
       originalText: trimmed,
       matchedPhrase: "socratic",
       label: "Socratic Inquirer",
+      actionLabel: "Socratic Inquirer",
     };
   }
 
@@ -154,5 +162,6 @@ export function detectVoiceCommand(rawText: string): VoiceCommandMatch {
     cleanedText: trimmed,
     originalText: trimmed,
     label: "",
+    actionLabel: "",
   };
 }
