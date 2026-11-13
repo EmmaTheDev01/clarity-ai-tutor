@@ -82,6 +82,47 @@ export function isAdminUser(): boolean {
   return false;
 }
 
+export interface ApiTelemetryRecord {
+  id: string;
+  timestamp: string;
+  model: string;
+  latencyMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  status: "success" | "error";
+  endpoint: string;
+  feature: string;
+}
+
+const TELEMETRY_KEY = "purelearn_api_telemetry";
+const MAX_TELEMETRY_RECORDS = 300;
+
+export function recordApiTelemetry(record: ApiTelemetryRecord) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    const raw = localStorage.getItem(TELEMETRY_KEY);
+    const records: ApiTelemetryRecord[] = raw ? JSON.parse(raw) : [];
+    records.push(record);
+    if (records.length > MAX_TELEMETRY_RECORDS) {
+      records.splice(0, records.length - MAX_TELEMETRY_RECORDS);
+    }
+    localStorage.setItem(TELEMETRY_KEY, JSON.stringify(records));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+export function getStoredApiTelemetry(): ApiTelemetryRecord[] {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+  try {
+    const raw = localStorage.getItem(TELEMETRY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Fetches the system API key and configured model asynchronously from Supabase `system_settings` table.
  */
@@ -365,6 +406,7 @@ export async function generateGeminiText(
   const requestTimeout = isMultimodal ? 45000 : 15000;
 
   for (const model of models) {
+    const startTime = performance.now();
     try {
       const response = await fetchWithBackoff(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
@@ -378,15 +420,61 @@ export async function generateGeminiText(
         requestTimeout,
       );
 
+      const latencyMs = Math.round(performance.now() - startTime);
       const data = await response.json().catch(() => ({}));
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
       if (response.ok && text) {
+        const promptTokens =
+          data.usageMetadata?.promptTokenCount ||
+          Math.ceil((typeof promptOrOptions === "string" ? promptOrOptions.length : (options.prompt?.length || 450)) / 3.8);
+        const completionTokens =
+          data.usageMetadata?.candidatesTokenCount || Math.ceil(text.length / 3.8);
+
+        recordApiTelemetry({
+          id: `tel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: new Date().toISOString(),
+          model,
+          latencyMs,
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+          status: "success",
+          endpoint: "generateContent",
+          feature: options.responseSchema ? "Structured Output" : "AI Tutor Query",
+        });
+
         return { text, model };
       }
 
+      recordApiTelemetry({
+        id: `tel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: new Date().toISOString(),
+        model,
+        latencyMs,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        status: "error",
+        endpoint: "generateContent",
+        feature: "AI Tutor Query",
+      });
+
       failures.push(`${model}: ${getGeminiError(data, response.status, "Gemini returned no text.")}`);
     } catch (err) {
+      const latencyMs = Math.round(performance.now() - startTime);
+      recordApiTelemetry({
+        id: `tel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: new Date().toISOString(),
+        model,
+        latencyMs,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        status: "error",
+        endpoint: "generateContent",
+        feature: "AI Tutor Query",
+      });
       failures.push(`${model}: ${err instanceof Error ? err.message : "Network request failed."}`);
     }
   }
@@ -432,6 +520,7 @@ export async function streamGeminiText(
   const bodyPayload = buildPayload(options);
 
   for (const model of models) {
+    const startTime = performance.now();
     try {
       const response = await fetchWithBackoff(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${apiKey}`,
@@ -446,6 +535,19 @@ export async function streamGeminiText(
       );
 
       if (!response.ok) {
+        const latencyMs = Math.round(performance.now() - startTime);
+        recordApiTelemetry({
+          id: `tel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: new Date().toISOString(),
+          model,
+          latencyMs,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          status: "error",
+          endpoint: "streamGenerateContent",
+          feature: "Realtime Streaming Tutor",
+        });
         const errorData = await response.json().catch(() => ({}));
         failures.push(`${model}: ${getGeminiError(errorData, response.status, "Stream connection failed")}`);
         continue;
@@ -488,7 +590,24 @@ export async function streamGeminiText(
         }
       }
 
+      const latencyMs = Math.round(performance.now() - startTime);
+
       if (fullText.trim()) {
+        const promptTokens = Math.ceil((options.prompt?.length || 450) / 3.8);
+        const completionTokens = Math.ceil(fullText.length / 3.8);
+        recordApiTelemetry({
+          id: `tel_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: new Date().toISOString(),
+          model,
+          latencyMs,
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+          status: "success",
+          endpoint: "streamGenerateContent",
+          feature: "Realtime Streaming Tutor",
+        });
+
         return { text: fullText, model };
       }
 
