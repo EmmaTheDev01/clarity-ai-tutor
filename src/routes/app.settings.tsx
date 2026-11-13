@@ -1337,8 +1337,12 @@ function DangerSection() {
   const handleSignOut = async () => {
     setIsWorking(true);
     try {
+      const tourCompleted = localStorage.getItem("purelearn_tour_completed");
+      const tourDismissed = localStorage.getItem("purelearn_tour_dismissed");
       await supabase.auth.signOut();
       localStorage.clear();
+      if (tourCompleted) localStorage.setItem("purelearn_tour_completed", tourCompleted);
+      if (tourDismissed) localStorage.setItem("purelearn_tour_dismissed", tourDismissed);
       toast.success("Signed out successfully.");
       window.location.href = "/auth/sign-in";
     } catch {

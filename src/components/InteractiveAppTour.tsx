@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   Bot,
   Library,
@@ -92,6 +93,50 @@ const TOUR_STEPS: TourStep[] = [
   },
 ];
 
+export function isTourPermanentlyCompleted(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    if (localStorage.getItem("purelearn_tour_completed") === "true") return true;
+    if (localStorage.getItem("purelearn_tour_dismissed") === "true") return true;
+    if (sessionStorage.getItem("purelearn_tour_completed") === "true") return true;
+    if (document.cookie.includes("purelearn_tour_completed=true")) return true;
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+export function markTourAsPermanentlyCompleted() {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("purelearn_tour_completed", "true");
+      localStorage.setItem("purelearn_tour_dismissed", "true");
+      sessionStorage.setItem("purelearn_tour_completed", "true");
+      document.cookie = "purelearn_tour_completed=true; path=/; max-age=315360000; SameSite=Lax";
+    } catch {
+      // ignore
+    }
+  }
+
+  // Also persist to Supabase user profile metadata so it never re-appears across any device or session
+  (async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        await supabase.auth.updateUser({
+          data: {
+            has_completed_tour: true,
+            tour_completed: true,
+            tour_dismissed_at: new Date().toISOString(),
+          },
+        });
+      }
+    } catch {
+      // ignore
+    }
+  })();
+}
+
 export function startAppTour() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("purelearn:start_tour"));
@@ -106,20 +151,49 @@ export function InteractiveAppTour() {
 
   // Check if tour should auto-start on first ever visit
   useEffect(() => {
-    try {
-      const hasCompleted = localStorage.getItem("purelearn_tour_completed");
-      if (!hasCompleted) {
-        const timer = setTimeout(() => {
-          setIsOpen(true);
-        }, 1500);
-        return () => clearTimeout(timer);
-      }
-    } catch (e) {
-      // ignore
+    // 1. If already completed or closed locally, never show it again
+    if (isTourPermanentlyCompleted()) {
+      return;
     }
+
+    // 2. Also check remote Supabase account metadata in case user previously completed/closed on another device
+    let isCancelled = false;
+    let timer: NodeJS.Timeout | null = null;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (isCancelled) return;
+      const meta = data?.user?.user_metadata;
+      if (meta?.has_completed_tour || meta?.tour_completed || meta?.tour_dismissed_at) {
+        markTourAsPermanentlyCompleted();
+        return;
+      }
+
+      // Only if truly never completed or closed anywhere, schedule auto-start
+      if (!isTourPermanentlyCompleted()) {
+        timer = setTimeout(() => {
+          if (!isCancelled && !isTourPermanentlyCompleted()) {
+            setIsOpen(true);
+          }
+        }, 1500);
+      }
+    }).catch(() => {
+      // Offline fallback: check local storage again
+      if (!isCancelled && !isTourPermanentlyCompleted()) {
+        timer = setTimeout(() => {
+          if (!isCancelled && !isTourPermanentlyCompleted()) {
+            setIsOpen(true);
+          }
+        }, 1500);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
-  // Listen for custom trigger event
+  // Listen for custom trigger event (e.g. from help or settings)
   useEffect(() => {
     const handleStart = () => {
       setCurrentStepIdx(0);
@@ -192,11 +266,7 @@ export function InteractiveAppTour() {
 
   const handleClose = () => {
     setIsOpen(false);
-    try {
-      localStorage.setItem("purelearn_tour_completed", "true");
-    } catch (e) {
-      // ignore
-    }
+    markTourAsPermanentlyCompleted();
   };
 
   if (!isOpen) return null;
@@ -341,21 +411,32 @@ export function InteractiveAppTour() {
 
         {/* Step dots & Controls */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
-          {/* Progress dots */}
-          <div className="flex items-center gap-1.5">
-            {TOUR_STEPS.map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setCurrentStepIdx(idx)}
-                className={`h-2 rounded-full transition-all ${
-                  idx === currentStepIdx
-                    ? "w-6 bg-primary"
-                    : "w-2 bg-muted hover:bg-muted-foreground/40"
-                }`}
-                title={`Jump to step ${idx + 1}`}
-              />
-            ))}
+          {/* Progress dots & Don't show again link */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              {TOUR_STEPS.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentStepIdx(idx)}
+                  className={`h-2 rounded-full transition-all cursor-pointer ${
+                    idx === currentStepIdx
+                      ? "w-6 bg-primary"
+                      : "w-2 bg-muted hover:bg-muted-foreground/40"
+                  }`}
+                  title={`Jump to step ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleClose}
+              className="text-[11px] text-muted-foreground/75 hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer hidden sm:inline-block"
+              title="Close tour and don't show it again"
+            >
+              Don't show again
+            </button>
           </div>
 
           {/* Navigation buttons */}
@@ -364,7 +445,7 @@ export function InteractiveAppTour() {
               <button
                 type="button"
                 onClick={handlePrev}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
@@ -374,7 +455,7 @@ export function InteractiveAppTour() {
             <button
               type="button"
               onClick={handleNext}
-              className="px-4 py-2 rounded-full text-xs font-bold text-primary-foreground bg-primary hover:opacity-90 transition-all flex items-center gap-1.5 shadow-xs"
+              className="px-4 py-2 rounded-full text-xs font-bold text-primary-foreground bg-primary hover:opacity-90 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <span>{isLast ? "Done" : "Next"}</span>
               {isLast ? (

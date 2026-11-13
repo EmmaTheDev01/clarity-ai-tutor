@@ -1140,7 +1140,7 @@ export function AppShell({
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-background transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-background transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
           open ? "translate-x-0 w-64" : "-translate-x-full"
         } ${isHovered ? "lg:w-64 lg:shadow-2xl" : "lg:w-16"}`}
       >
@@ -1156,18 +1156,17 @@ export function AppShell({
             title="Purelearn.ai"
           >
             {isCollapsed ? (
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-sm tracking-tight shadow-xs select-none">
-                P
-              </div>
+              <img
+                src="/favicon.png"
+                alt="Purelearn.ai Logo"
+                className="h-8 w-8 object-contain shrink-0 transition-transform duration-200 hover:scale-105"
+              />
             ) : (
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-xs tracking-tight shadow-xs select-none">
-                  P
-                </div>
-                <span className="font-bold text-base tracking-tight text-foreground truncate">
-                  Purelearn<span className="text-primary/70 text-xs font-semibold">.ai</span>
-                </span>
-              </div>
+              <img
+                src="/logo.png"
+                alt="Purelearn.ai Logo"
+                className="h-8 sm:h-9 w-auto max-w-[170px] object-contain shrink-0 transition-opacity duration-200"
+              />
             )}
           </Link>
           <button
@@ -1198,7 +1197,7 @@ export function AppShell({
         </div>
 
         {/* Navigation items list */}
-        <nav className={`flex-1 overflow-y-auto overflow-x-hidden ${isCollapsed ? "px-2 space-y-1.5 py-2" : "px-3 space-y-3 py-2"}`}>
+        <nav className={`flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${isCollapsed ? "px-2 space-y-1.5 py-2" : "px-3 space-y-3 py-2"}`}>
           {(userRole === "admin" || pathname.startsWith("/admin")) && (
             <div>
               {!isCollapsed && (
@@ -1826,8 +1825,12 @@ export function AppShell({
                         <button
                           onClick={async () => {
                             setShowUserDropdown(false);
+                            const tourCompleted = localStorage.getItem("purelearn_tour_completed");
+                            const tourDismissed = localStorage.getItem("purelearn_tour_dismissed");
                             await supabase.auth.signOut();
                             localStorage.clear();
+                            if (tourCompleted) localStorage.setItem("purelearn_tour_completed", tourCompleted);
+                            if (tourDismissed) localStorage.setItem("purelearn_tour_dismissed", tourDismissed);
                             window.location.href = "/auth/sign-in";
                           }}
                           className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-left"

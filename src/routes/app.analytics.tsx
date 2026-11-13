@@ -15,6 +15,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { LearningMaterial, mapMaterialRow } from "@/lib/learning-materials";
+import { useTheme } from "@/hooks/use-theme";
 import {
   BarChart,
   Bar,
@@ -97,7 +98,7 @@ function StudyTooltip({ active, payload }: any) {
   const queries = Number(itemPayload.queries ?? 0);
 
   return (
-    <div className="rounded-xl border border-border bg-elevated/95 backdrop-blur px-3 py-2 shadow-xl text-xs">
+    <div className="rounded-xl border border-border bg-popover/95 text-popover-foreground backdrop-blur px-3 py-2 shadow-xl text-xs ring-1 ring-border/40 animate-fade-in">
       <p className="font-bold text-foreground">{day}{date ? ` · ${date}` : ""}</p>
       <p className="text-muted-foreground mt-0.5">{isNaN(hours) ? "0.0" : hours.toFixed(1)} hrs studied</p>
       <p className="text-muted-foreground">{queries} interactions logged</p>
@@ -121,7 +122,7 @@ function SubjectTooltip({ active, payload }: any) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-elevated/95 backdrop-blur px-3 py-2 shadow-xl text-xs">
+    <div className="rounded-xl border border-border bg-popover/95 text-popover-foreground backdrop-blur px-3 py-2 shadow-xl text-xs ring-1 ring-border/40 animate-fade-in">
       <p className="font-bold text-foreground">{name}</p>
       <p className="text-muted-foreground mt-0.5">
         {value} item{value !== 1 ? "s" : ""}
@@ -135,6 +136,40 @@ function SubjectTooltip({ active, payload }: any) {
 function AnalyticsPage() {
   const navigate = useNavigate();
   const sessionStartRef = useRef<string>(new Date().toISOString());
+
+  // Dynamic Theme Integration for Chart Visuals
+  const { theme } = useTheme();
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [isLowLightTheme, setIsLowLightTheme] = useState(false);
+
+  useEffect(() => {
+    const updateThemeState = () => {
+      if (typeof document === "undefined") return;
+      const root = document.documentElement;
+      setIsDarkTheme(root.classList.contains("dark"));
+      setIsLowLightTheme(root.classList.contains("low-light"));
+    };
+    updateThemeState();
+
+    const observer = new MutationObserver(updateThemeState);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, [theme]);
+
+  const chartColors = {
+    grid: isDarkTheme ? "oklch(0.24 0.01 260)" : isLowLightTheme ? "oklch(0.27 0.025 75)" : "oklch(0.91 0.005 260)",
+    axisText: isDarkTheme ? "oklch(0.62 0.01 260)" : isLowLightTheme ? "oklch(0.65 0.03 80)" : "oklch(0.44 0.02 260)",
+    cursorFill: isDarkTheme ? "rgba(255, 255, 255, 0.06)" : isLowLightTheme ? "rgba(240, 200, 140, 0.08)" : "rgba(0, 0, 0, 0.04)",
+    getBarFill: (hours: number, isPeak: boolean) => {
+      if (hours <= 0) {
+        return isDarkTheme ? "oklch(0.22 0.01 260)" : isLowLightTheme ? "oklch(0.24 0.025 75)" : "oklch(0.92 0.005 260)";
+      }
+      if (isPeak) {
+        return isDarkTheme ? "oklch(0.93 0 0)" : isLowLightTheme ? "oklch(0.72 0.09 60)" : "oklch(0.21 0.02 260)";
+      }
+      return isDarkTheme ? "oklch(0.60 0.01 260)" : isLowLightTheme ? "oklch(0.52 0.06 65)" : "oklch(0.50 0.02 260)";
+    },
+  };
 
   useEffect(() => {
     const check = async () => {
@@ -413,55 +448,53 @@ function AnalyticsPage() {
                 <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
               </div>
             ) : weeklyData.every((d) => d.hours === 0) ? (
-              <div className="h-52 flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-background text-center gap-2 px-4">
-                <TrendingUp className="h-6 w-6 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Weekly study activity will appear once you begin tracking sessions.</p>
-                <p className="text-[11px] text-muted-foreground/60">Chat sessions and material interactions are automatically tracked.</p>
+              <div className="h-52 flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 text-center gap-2 px-4">
+                <TrendingUp className="h-6 w-6 text-muted-foreground/35" />
+                <p className="text-sm font-medium text-foreground">Weekly study activity will appear once you begin tracking sessions.</p>
+                <p className="text-[11px] text-muted-foreground">Chat sessions and material interactions are automatically tracked.</p>
               </div>
             ) : (
               <>
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={weeklyData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }} barCategoryGap="32%">
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <BarChart data={weeklyData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }} barCategoryGap="32%">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
                     <XAxis
                       dataKey="day"
-                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                      axisLine={false}
+                      tick={{ fontSize: 11, fill: chartColors.axisText }}
+                      axisLine={{ stroke: chartColors.grid }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      tick={{ fontSize: 11, fill: chartColors.axisText }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v: number) => `${v}h`}
+                      domain={[0, Math.max(2, Math.ceil(maxHours * 1.25))]}
                     />
                     <Tooltip
                       content={<StudyTooltip />}
-                      cursor={false}
+                      cursor={{ fill: chartColors.cursorFill, radius: 6 }}
                       contentStyle={{ backgroundColor: "transparent", border: "none", padding: 0 }}
                       wrapperStyle={{ outline: "none" }}
                     />
                     <Bar dataKey="hours" radius={[6, 6, 0, 0]} maxBarSize={44}>
-                      {weeklyData.map((entry, i) => (
-                        <Cell
-                          key={i}
-                          className="transition-all duration-200 hover:opacity-75 cursor-pointer"
-                          fill={
-                            entry.hours >= maxHours * 0.85
-                              ? "hsl(var(--foreground))"
-                              : entry.hours > 0
-                              ? "hsl(var(--foreground) / 0.4)"
-                              : "hsl(var(--border))"
-                          }
-                        />
-                      ))}
+                      {weeklyData.map((entry, i) => {
+                        const isPeak = maxHours > 0 && entry.hours >= maxHours * 0.85;
+                        return (
+                          <Cell
+                            key={i}
+                            className="transition-all duration-200 hover:opacity-80 cursor-pointer"
+                            fill={chartColors.getBarFill(entry.hours, isPeak)}
+                          />
+                        );
+                      })}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="flex justify-between px-1 -mt-1">
                   {weeklyData.map((d) => (
                     <div key={d.date} className="flex-1 text-center">
-                      <p className="text-[9px] text-muted-foreground/50">{d.date}</p>
+                      <p className="text-[9px] text-muted-foreground">{d.date}</p>
                     </div>
                   ))}
                 </div>

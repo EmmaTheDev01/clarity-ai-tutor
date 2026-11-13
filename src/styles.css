@@ -105,6 +105,7 @@
 
 /* In dark mode, invert the logo so the black logo becomes white */
 .dark img[src*="logo"],
+.dark img[src*="favicon"],
 .dark img[alt*="Logo" i] {
   filter: invert(1);
 }
