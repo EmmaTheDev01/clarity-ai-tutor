@@ -23,3 +23,29 @@ export const GoogleIcon = ({ className }: { className?: string }) => (
     <path d="M1 1h22v22H1z" fill="none" />
   </svg>
 );
+
+export const PlayStoreIcon = ({ className = "h-4.5 w-4.5 shrink-0" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 29 32"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M.12 2.66a3.46 3.46 0 0 0-.12.92v24.84a3.66 3.66 0 0 0 .12.92L14 15.64Z"
+      fill="#4285F4"
+    />
+    <path
+      d="m13.64 16 6.94-6.85L5.5.51A3.72 3.72 0 0 0 3.63 0 3.64 3.64 0 0 0 .12 2.65Z"
+      fill="#34A853"
+    />
+    <path
+      d="M13.54 15.28.12 29.34a3.64 3.64 0 0 0 5.33 2.16l15.1-8.6z"
+      fill="#EA4335"
+    />
+    <path
+      d="m27.11 12.89-6.53-3.74-7.35 6.45 7.38 7.28 6.48-3.7a3.55 3.55 0 0 0 0-6.29z"
+      fill="#FBBC04"
+    />
+  </svg>
+);

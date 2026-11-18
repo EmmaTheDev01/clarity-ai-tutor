@@ -10,6 +10,22 @@ export const Route = createFileRoute("/changelog")({
 function ChangelogPage() {
   const releases = [
     {
+      version: "v1.8.0",
+      date: "November 2026",
+      title: "Contact Portal Modernization, Direct Dispatch & Administrative Analytics",
+      changes: [
+        "Introduced Voice Prompting & Speech-to-Text Recognition (Web Speech API) for hands-free dictation and voice-driven Socratic tutor interactions across main chat and document study views.",
+        "Redesigned the Contact Us portal with a minimalist split-screen layout, refined typography, and fully responsive dark/light theme support.",
+        "Fixed logo inversion filter to cleanly render both the PureLearn wordmark and inner .ai badge lettering without artifacting.",
+        "Implemented automated inquiry dispatch via Resend routing all incoming inquiries directly to emmanhabumugisha@gmail.com with database audit logs.",
+        "Replaced institutional email with direct Phone Support (+250 788 000 000) featuring click-to-call and one-click clipboard copying.",
+        "Expanded Admin Analytics with API latency line charts, system-wide token counting, and infrastructure metrics.",
+        "Replaced generic mobile download icon with the authentic Google Play brand icon on the landing page.",
+        "Refined navigation sidebar with invisible custom scrollbars for a clean native app feel.",
+        "Authored comprehensive FLAN-T5 Socratic model guide covering KaTeX mathematical formatting and deployment.",
+      ],
+    },
+    {
       version: "v1.7.0",
       date: "September 2026",
       title: "Resend Email Broadcasts & Transactional Mail System",

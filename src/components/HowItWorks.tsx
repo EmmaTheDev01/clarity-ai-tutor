@@ -11,32 +11,7 @@ export function HowItWorks() {
       description:
         "Drop in 200-page textbooks, lecture audio recordings, YouTube links, or slide decks. PureLearn parses concepts into grounded vector nodes with exact source citations.",
       icon: Upload,
-      preview: (
-        <div className="rounded-xl border border-border bg-background/70 p-4 space-y-2.5 text-left">
-          <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-2">
-            <span className="font-mono text-[10px]">INGESTION PIPELINE</span>
-            <span className="text-emerald-500 font-semibold text-[10px] flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              100% Grounded
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px]">PDF</span>
-            <span>Neuroscience_Principles_Ch4.pdf</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground font-medium">
-              #SynapticPlasticity
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground font-medium">
-              #LTP_Induction
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground font-medium">
-              #DendriticSpines
-            </span>
-          </div>
-        </div>
-      ),
+      preview: null
     },
     {
       step: "02",
@@ -45,22 +20,7 @@ export function HowItWorks() {
       description:
         "Instead of handing you passive answers, PureLearn asks targeted probing questions. It adapts pacing to your cognitive profile—supporting ADHD focus and dyslexia spacing.",
       icon: Compass,
-      preview: (
-        <div className="rounded-xl border border-border bg-background/70 p-4 space-y-2.5 text-left text-xs">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground border-b border-border pb-1.5">
-            <span className="font-mono">SOCRATIC INQUIRY</span>
-            <span className="text-primary font-semibold">Active Recall</span>
-          </div>
-          <div className="rounded-lg bg-primary/5 border border-primary/15 p-2.5 text-[11px] text-foreground">
-            <p className="font-semibold text-primary mb-1 text-[10px] uppercase font-mono">Tutor Inquiry</p>
-            "Why does calcium entry through NMDA receptors trigger spine enlargement, but not through AMPA receptors?"
-          </div>
-          <div className="rounded-lg bg-muted/60 p-2 text-[11px] text-muted-foreground">
-            <p className="font-semibold text-foreground text-[10px] mb-0.5">Learner Response</p>
-            "Because AMPA receptors are blocked by magnesium at rest?"
-          </div>
-        </div>
-      ),
+      preview: null
     },
     {
       step: "03",
@@ -69,32 +29,7 @@ export function HowItWorks() {
       description:
         "Generate custom quizzes calibrated directly to your weak points. Track mastery curves, review step-by-step rationales, and close gaps before exam day.",
       icon: FileCheck2,
-      preview: (
-        <div className="rounded-xl border border-border bg-background/70 p-4 space-y-3 text-left">
-          <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-1.5">
-            <span className="font-mono text-[10px]">MASTERY TELEMETRY</span>
-            <span className="text-primary font-bold text-xs">88% Ready</span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-foreground font-medium">Cellular Electrophysiology</span>
-              <span className="text-emerald-500 font-bold">94%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full w-[94%]" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-foreground font-medium">Receptor Subunit Kinetics</span>
-              <span className="text-amber-500 font-bold">62%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full w-[62%]" />
-            </div>
-          </div>
-        </div>
-      ),
+      preview: null
     },
   ];
 
@@ -104,7 +39,6 @@ export function HowItWorks() {
         <div className="mx-auto max-w-3xl text-center">
           <ScrollReveal animation="fade-up">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
-              <Compass className="h-3.5 w-3.5" />
               The PureLearn Architecture
             </span>
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">

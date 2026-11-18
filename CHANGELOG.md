@@ -11,6 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Social Media & Community Links**: Connected footer links to external profiles on Twitter / X ([@CybeReazon](https://x.com/CybeReazon)), GitHub ([@EmmaTheDev01](https://github.com/EmmaTheDev01)), and Discord ([EmmaTheDev](https://discord.com/users/939201208235741184)).
 - **Community Discord Integration**: Direct link to the official Discord server from the Community page.
 
+## [1.8.0] - 2026-11-18
+
+### Added
+- **Voice Prompting & Speech-to-Text Recognition (`use-speech-recognition.ts`)**:
+  - Integrated browser-native Speech Recognition (Web Speech API) enabling students to dictate prompts and conduct hands-free Socratic learning dialogues.
+  - Interactive microphone toggle with active listening indicators across main chat (`/app`) and document study views (`/app/documents/$id`).
+  - Real-time continuous speech transcription with speech command detection.
+- **Contact Portal Modernization (`/contact`)**:
+  - Re-architected into a minimal, theme-compatible split-screen layout.
+  - Added inquiry category pills (`General`, `Verification`, `Partnerships`, `Technical`).
+  - Integrated automated Resend email dispatch forwarding all inquiries directly to `emmanhabumugisha@gmail.com`.
+  - Added direct **Phone Support** (`+250 788 000 000`) with click-to-call (`tel:`) and one-click clipboard copying.
+  - Added Supabase audit trail logging in `user_logs` for incoming inquiries.
+- **Admin System & AI Analytics Expansion (`admin.index.tsx`)**:
+  - Added API latency line charts and latency breakdown metrics.
+  - Added system-wide token counting, inference latency trends, and daily query tracking.
+- **Official Google Play Brand Icon (`index.tsx`, `icons.tsx`)**:
+  - Replaced generic icon with the authentic official Google Play triangular brand icon in the mobile app banner.
+- **FLAN-T5 Socratic Model Architectural Guide**:
+  - Comprehensive documentation on cognitive scaffolding, formula formatting with KaTeX/LaTeX, and deployment guidelines (`PURELEARN_FLAN_T5_MODEL_GUIDE.md`).
+
+### Fixed & Refined
+- **Logo Inversion Filter**: Removed `brightness-0` artifact collision on `/contact`, restoring clean, crisp inversion across both the `purelearn` wordmark and inner `.ai` badge lettering.
+- **Sidebar Scrollbar**: Added custom invisible scrollbars to the navigation sidebar for a clean native app look.
+- **Training Mock Data Removal**: Cleaned out stale static training mock data in favor of live dynamic inferences.
+
 ## [1.7.0] - 2026-09-24
 
 ### Added

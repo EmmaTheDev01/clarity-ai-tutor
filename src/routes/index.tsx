@@ -185,7 +185,7 @@ function Hero({ userCountLabel }: { userCountLabel: string }) {
               to="/request-demo"
               className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
             >
-              Get demo
+              Book Demo
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
           </div>
@@ -274,32 +274,6 @@ function UseCases() {
                     every file — get answers with exact citations to the source paragraph.
                   </p>
                 </div>
-
-                {/* Workspace Files preview */}
-                <div className="mt-8 flex flex-col gap-2 rounded-xl bg-background/50 p-4 text-left border border-border">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-2">
-                    <span>Workspace Files</span>
-                    <span className="text-emerald-500 font-medium">3 Grounded</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-foreground font-medium mt-1">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px]">
-                      PDF
-                    </span>
-                    <span>Product_Requirements_V2.pdf</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-foreground font-medium">
-                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[10px]">
-                      DOCX
-                    </span>
-                    <span>Sprint_Brief_July.docx</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-foreground font-medium">
-                    <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[10px]">
-                      JSON
-                    </span>
-                    <span>API_Spec_Final.json</span>
-                  </div>
-                </div>
               </div>
             </ScrollReveal>
           </div>
@@ -324,25 +298,6 @@ function UseCases() {
                     summaries, definitions, and quizzes calibrated to your gaps.
                   </p>
                 </div>
-
-                {/* AI Quiz preview widget */}
-                <div className="w-full md:w-64 flex flex-col gap-3 rounded-xl bg-background/50 p-4 text-left border border-border shrink-0">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-1.5">
-                    <span>Quiz Preview</span>
-                    <span>Linear Algebra</span>
-                  </div>
-                  <p className="text-[11px] font-semibold text-foreground">
-                    Geometric interpretation of determinants:
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    <div className="rounded border border-primary bg-primary/5 px-2 py-1 text-[10px] text-primary font-medium">
-                      ✓ Scaling factor of area/volume transformation
-                    </div>
-                    <div className="rounded border border-border px-2 py-1 text-[10px] text-muted-foreground bg-background">
-                      ✗ The sum of diagonal eigenvalues
-                    </div>
-                  </div>
-                </div>
               </div>
             </ScrollReveal>
 
@@ -364,23 +319,6 @@ function UseCases() {
                     turn scattered notes into a personal library you actually use.
                   </p>
                 </div>
-
-                {/* Voice Memo preview widget */}
-                <div className="w-full md:w-64 flex flex-col gap-2.5 rounded-xl bg-background/50 p-4 text-left border border-border shrink-0">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-1.5">
-                    <span>Voice Memo Snippet</span>
-                    <span>01:42</span>
-                  </div>
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 text-[10px] text-foreground italic">
-                    "...need to research whether optimal compute allocation applies to small
-                    fine-tunes..."
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                    <span>Research</span>
-                    <span>•</span>
-                    <span>10m ago</span>
-                  </div>
-                </div>
               </div>
             </ScrollReveal>
           </div>
@@ -397,8 +335,23 @@ const AppleIcon = () => (
 );
 
 const PlayStoreIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4.5 w-4.5 shrink-0">
-    <path d="M5 3.012c-.173 0-.345.04-.5.122-.497.256-.8.745-.8 1.298v15.136c0 .553.303 1.042.8 1.298.155.08.327.122.5.122.21 0 .42-.063.6-.188l13.14-8.866c.4-.27.6-.708.6-1.17 0-.46-.2-.9-.6-1.17L5.6 3.2c-.18-.125-.39-.188-.6-.188z" />
+  <svg viewBox="0 0 29 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 shrink-0">
+    <path
+      d="M.12 2.66a3.46 3.46 0 0 0-.12.92v24.84a3.66 3.66 0 0 0 .12.92L14 15.64Z"
+      fill="#4285F4"
+    />
+    <path
+      d="m13.64 16 6.94-6.85L5.5.51A3.72 3.72 0 0 0 3.63 0 3.64 3.64 0 0 0 .12 2.65Z"
+      fill="#34A853"
+    />
+    <path
+      d="M13.54 15.28.12 29.34a3.64 3.64 0 0 0 5.33 2.16l15.1-8.6z"
+      fill="#EA4335"
+    />
+    <path
+      d="m27.11 12.89-6.53-3.74-7.35 6.45 7.38 7.28 6.48-3.7a3.55 3.55 0 0 0 0-6.29z"
+      fill="#FBBC04"
+    />
   </svg>
 );
 
@@ -423,14 +376,14 @@ function AppDownloadCTA() {
               className="inline-flex w-56 items-center justify-center gap-2.5 rounded-full bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
               <AppleIcon />
-              Download for iOS
+              App Store
             </a>
             <a
               href="#"
               className="inline-flex w-56 items-center justify-center gap-2.5 rounded-full bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-neutral-800 hover:scale-[1.03] duration-250 active:scale-[0.98]"
             >
               <PlayStoreIcon />
-              Download for Android
+              Play Store
             </a>
           </div>
         </ScrollReveal>
@@ -612,7 +565,7 @@ function FinalCTA({ userCountLabel }: { userCountLabel: string }) {
                 to="/request-demo"
                 className="inline-flex w-full sm:w-56 h-10 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] duration-200 whitespace-nowrap"
               >
-                Get demo
+                Book Demo
                 <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             </div>
